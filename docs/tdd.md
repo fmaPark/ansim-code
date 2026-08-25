@@ -6,9 +6,10 @@
 | 기획 / PM | 기획 1인 |
 | 프로젝트 | 2026 ICT 표준 챌린지 공모전 데모 |
 | 기반 문서 | 기획서 v2(협의체 반영), [ADR-001 플랫폼 선정](./platform-decision.md) |
+| 버전 | v0.2 |
 | Status | Draft |
 | Created | 2026-08-24 |
-| Last Updated | 2026-08-24 (ADR-001 v1.2 확정 반영) |
+| Last Updated | 2026-08-25 |
 | 개발 기간 | 2026-08-24 ~ 2026-08-31 (7일) |
 
 ---
@@ -178,15 +179,15 @@ graph TB
 
 | Endpoint | Method | 설명 |
 | --- | --- | --- |
-| `/api/v1/scans` | POST | git URL 또는 zip(multipart)으로 진단 시작 → `202 {scan_id}` |
-| `/api/v1/scans/{id}` | GET | 상태·진행 단계 조회(폴링용) |
-| `/api/v1/scans/{id}/report` | GET | 개발자용 조항 인용 리포트. `?mode=easy`로 시민용 |
-| `/api/v1/scans/{id}/sbom` | GET | 15속성 SBOM JSON |
-| `/api/v1/scans/{id}/checklist` | GET | §7.1~7.2 조직 요구사항 체크리스트 |
-| `/api/v1/scans/{id}/rescan` | POST | 같은 소스로 재진단(0322 지속 갱신) |
-| `/api/v1/scans/{id}/publish` | POST | 등급 공개 opt-in → 공개 슬러그 발급 |
-| `/api/v1/public/grades/{slug}` | GET | 시민용 공개 등급 페이지 데이터 — 콘텐츠 지문·룰 버전 포함, zip 출처는 "소스 비공개" 라벨 |
-| `/api/v1/public/badge/{slug}.svg` | GET | README 임베드용 SVG 배지 |
+| `/api/scans` | POST | git URL 또는 zip(multipart)으로 진단 시작 → `202 {scan_id}` |
+| `/api/scans/{id}` | GET | 상태·진행 단계 조회(폴링용) |
+| `/api/scans/{id}/report` | GET | 개발자용 조항 인용 리포트. `?mode=easy`로 시민용 |
+| `/api/scans/{id}/sbom` | GET | 15속성 SBOM JSON |
+| `/api/scans/{id}/checklist` | GET | §7.1~7.2 조직 요구사항 체크리스트 |
+| `/api/scans/{id}/rescan` | POST | 같은 소스로 재진단(0322 지속 갱신) |
+| `/api/scans/{id}/publish` | POST | 등급 공개 opt-in → 공개 슬러그 발급 |
+| `/api/public/grades/{slug}` | GET | 시민용 공개 등급 페이지 데이터 — 콘텐츠 지문·룰 버전 포함, zip 출처는 "소스 비공개" 라벨 |
+| `/api/public/badge/{slug}.svg` | GET | README 임베드용 SVG 배지 |
 
 ### 4.5 진단 룰 카탈로그 개요 (~30종)
 
@@ -250,7 +251,7 @@ sequenceDiagram
     participant DB as 💾 PostgreSQL
 
     Dev->>FE: git URL 입력 또는 zip 업로드
-    FE->>+API: POST /api/v1/scans
+    FE->>+API: POST /api/scans
     API->>DB: Scan 생성 · status queued
     API-->>-FE: 202 Accepted · scan_id
     FE->>FE: 진행 상태 폴링 시작
@@ -271,7 +272,7 @@ sequenceDiagram
     Note over ENG: 🔥 원본 코드 즉시 파기<br/>purged_at 기록 · 0414 §7.3.5 준수
     ENG-->>-API: 완료
 
-    FE->>+API: GET /api/v1/scans/scan_id
+    FE->>+API: GET /api/scans/scan_id
     API->>DB: 결과 조회
     API-->>-FE: done · 등급 + 리포트
     FE-->>Dev: 조항 인용 리포트 · 수정 프롬프트 표시
@@ -289,20 +290,20 @@ sequenceDiagram
 
     Note over Dev,DB: ① 등급 공개는 업로더의 명시적 opt-in
     Dev->>FE: 리포트 화면에서 등급 공개 선택
-    FE->>+API: POST /api/v1/scans/scan_id/publish
+    FE->>+API: POST /api/scans/scan_id/publish
     API->>DB: is_public true · public_slug 발급
     API-->>-FE: 공개 URL + 배지 임베드 코드
     FE-->>Dev: 공개 페이지 링크 · 배지 마크다운 안내
 
     Note over Citizen,DB: ② 시민은 설치 없이 링크로 확인
     Citizen->>FE: 공개 등급 URL 접속
-    FE->>+API: GET /api/v1/public/grades/slug
+    FE->>+API: GET /api/public/grades/slug
     API->>DB: 공개 리포트 조회
     API-->>-FE: 등급 + 쉬운 한국어 설명
     FE-->>Citizen: 안심 · 주의 · 위험 등급 표시<br/>자가점검 보조 고지 상시 노출
 
     Note over Citizen,DB: ③ README · 홈페이지 배지 임베드
-    Citizen->>API: GET /api/v1/public/badge/slug.svg
+    Citizen->>API: GET /api/public/badge/slug.svg
     API-->>Citizen: SVG 배지 · 등급 + 진단일
 ```
 
@@ -387,29 +388,31 @@ graph TB
 
 | 리스크 | Impact | Probability | 완화 방안 |
 | --- | --- | --- | --- |
-| 7일 일정 초과 | High | High | MVP 경계선 사전 정의(§7), 목업 대체 우선순위 명시, D7을 버퍼로 확보 |
+| 7일 일정 초과 | High | High | MVP 경계선 사전 정의(§7), 목업 대체 우선순위 명시, 마지막 마일스톤(M7)에 버그 수정 버퍼 확보 |
 | LLM 오탐 → 등급 신뢰성 훼손 | High | Medium | LLM 판정을 '검토 필요'로 분리(확정 진단과 구분), 근거 코드 라인 병기, 벤치마크 앱으로 룰별 검출률 측정·공개 |
 | LLM 프롬프트 인젝션(코드 주석으로 등급 조작) | High | Medium | 코드를 데이터로 취급하는 구조화 프롬프트, LLM 단독으로 등급 상향 불가(정적 룰 결과가 우선) |
 | OSV API 장애·지연 | Medium | Medium | 응답 캐시, 타임아웃 시 KISA 스냅샷만으로 부분 결과 + "일부 미대조" 표시 |
 | 악성 업로드(zip bomb·path traversal) | High | Low | 압축 해제 상한(파일 수·총 크기), 경로 정규화 검증, 격리 작업 디렉토리, 코드 실행 금지 |
 | LLM 비용·쿼터 초과 | Medium | Medium | 플래그 스니펫만 전달, 스캔당 호출 상한, judge/변환 모델 이원화(sonnet/haiku) |
-| 진단 룰 품질(오탐·미탐) | Medium | High | 벤치마크 앱 기반 룰별 검출률 측정을 D7 게이트로 설정, 미탐 룰은 데모 시나리오에서 제외 |
+| 진단 룰 품질(오탐·미탐) | Medium | High | 벤치마크 앱 기반 룰별 검출률 측정을 데모 전 게이트(M7)로 설정, 미탐 룰은 데모 시나리오에서 제외 |
 | 공개 등급의 재현성(코드 파기 후 판정 근거 검증 불가) | Medium | High | 콘텐츠 지문 + rule_catalog_version + llm_model_id를 스캔마다 기록해 판정 대상·기준을 특정. zip 등급은 "소스 비공개" 라벨로 한계 고지 |
 | Anthropic API 장애(데모 중) | High | Low | 데모 리허설 시점의 응답 캐시를 폴백으로 준비(실호출 우선, 장애 시에만 사용) |
 
 ## 7. Implementation Plan
 
-7일 프로젝트이므로 마일스톤은 일 단위로 나눈다(주 차 단위는 기간상 무의미). 개발은 풀스택 1인, 기획은 룰 문구·등급 기준·체크리스트 카피·데모 시나리오·영상을 담당한다.
+마일스톤과 선후행 관계만 정의한다(상세 일정은 별도 관리). 개발은 풀스택 1인, 기획은 룰 문구·등급 기준·체크리스트 카피·데모 시나리오·영상을 담당한다.
 
-| Day | 마일스톤 | 산출물 | 담당 |
-| --- | --- | --- | --- |
-| **D1** (8/24~25) | 스캐폴딩 | Docker Compose 3서비스 기동, DB 스키마, Ingestion(git clone·zip 해제 + 검증 + 콘텐츠 지문 계산), Rule 카탈로그 시드 | 풀스택 |
-| **D2** (8/26) | SBOM | 의존성 파서(PyPI·npm), 15속성 SBOM Builder, 공급망 환경 분류, SBOM JSON export | 풀스택 |
-| **D3** (8/27) | 취약점 대조 | OSV 배치 질의, KISA 스냅샷 로더·대조, SCA 룰 완성 | 풀스택 |
-| **D4** (8/28) | 룰 엔진 + LLM | 시크릿·개인정보·일반 보안 정적 룰, LLM Judge 연동(구조화 프롬프트, 검토 필요 분리) | 풀스택 (룰 문구: 기획) |
-| **D5** (8/29) | 리포트·등급 | 조항 인용 리포트, 쉬운 한국어 변환, 수정 프롬프트 생성, 등급 산정, §7.1~7.2 체크리스트 | 풀스택 (등급 기준: 기획) |
-| **D6** (8/30) | Frontend 통합 | 업로드→진행률→리포트→공개 페이지→배지 전체 화면, 재진단, opt-in 공개. zip UX는 git URL과 동등 완성도(드래그 앤 드롭·명확한 오류 안내) | 풀스택 |
-| **D7** (8/31) | 검증·데모 | 벤치마크 앱 + 룰별 검출률 측정, 버그 수정 버퍼, 데모 영상 촬영(공개 등급 페이지·배지 임베드 시연 장면 포함) | 풀스택 + 기획 |
+| 마일스톤 | 산출물 | 선행 조건 |
+| --- | --- | --- |
+| **M1. 기반 구축** | Docker Compose 3서비스 기동, DB 스키마, Ingestion(git clone·zip 해제 + 검증 + 콘텐츠 지문 계산), Rule 카탈로그 시드 | — |
+| **M2. SBOM 생성** | 의존성 파서(PyPI·npm), 15속성 SBOM Builder, 공급망 환경 분류, SBOM JSON export | M1 |
+| **M3. 취약점 대조** | OSV 배치 질의, KISA 스냅샷 로더·대조, SCA 룰 완성 | M2 |
+| **M4. 룰 엔진 + LLM** | 시크릿·개인정보·일반 보안 정적 룰, LLM Judge 연동(구조화 프롬프트, 검토 필요 분리) | M1 — M2·M3와 병행 가능 |
+| **M5. 리포트·등급** | 조항 인용 리포트, 쉬운 한국어 변환, 수정 프롬프트 생성, 등급 산정, §7.1~7.2 체크리스트 | M3, M4 |
+| **M6. Frontend 통합** | 업로드→진행률→리포트→공개 페이지→배지 전체 화면, 재진단, opt-in 공개. zip UX는 git URL과 동등 완성도(드래그 앤 드롭·명확한 오류 안내) | M5 |
+| **M7. 검증·데모** | 벤치마크 앱 + 룰별 검출률 측정, 데모 영상 촬영(공개 등급 페이지·배지 임베드 시연 장면 포함) | M6 |
+
+**Critical Path**: M1 → M2 → M3 → M5 → M6 → M7 (M4는 M1 완료 후 병행 트랙)
 
 ### MVP 경계선
 
@@ -437,7 +440,7 @@ graph TB
 | --- | --- | --- |
 | Unit | 의존성 파서, 정적 룰, 등급 산정, 업로드 검증 | pytest. 룰별 양성·음성 케이스 |
 | Integration | POST /scans → 리포트 완성 E2E happy path | 테스트 fixture 저장소로 전체 파이프라인 1회 관통 |
-| **벤치마크 검증** | 룰별 검출률 | 취약점을 의도적으로 심은 벤치마크 앱으로 룰별 검출/미검출 측정, 결과 공개(제안서 확정 사항) — D7 게이트 |
+| **벤치마크 검증** | 룰별 검출률 | 취약점을 의도적으로 심은 벤치마크 앱으로 룰별 검출/미검출 측정, 결과 공개(제안서 확정 사항) — 데모 전 게이트(M7) |
 | 수동 | 프론트 전체 흐름, 데모 시나리오 리허설 | 데모 영상 촬영 전 체크리스트 |
 
 ## 10. Monitoring & Rollback
@@ -445,12 +448,20 @@ graph TB
 - **Monitoring**: 데모 범위에 맞게 간소화 — 구조화 JSON 로그(스캔 단계·소요 시간·외부 API 상태), `/health` 엔드포인트, LLM 호출 수·비용 카운터. 대시보드·알림은 해당 없음(로컬 데모로 운영 트래픽이 없음).
 - **Rollback**: 해당 없음 — 프로덕션 배포가 없는 로컬 데모이므로 git revert + 이미지 재빌드로 충분.
 
-## 11. Open Questions
+## 11. 추후 확정 필요사항
 
-| # | 질문 | 담당 | 상태 |
-| --- | --- | --- | --- |
-| 1 | 등급 산정 기준(§4.5 가정)의 최종 확정 — 특히 '검토 필요'만 있을 때 주의로 볼지 | 기획 | 🔴 Open |
-| 2 | 시민용 공개 페이지의 법적 고지 문구(자가점검 보조·면책) 최종안 | 기획 | 🔴 Open |
-| 3 | LLM 스캔당 호출 상한·예산 상한 수치 | 풀스택 | 🟡 D4까지 확정 |
-| 4 | 벤치마크 앱에 심을 취약점 목록(룰 커버리지 기준) | 기획+풀스택 | 🟡 D5까지 확정 |
-| 5 | 등급 공개 opt-in 범위 — git 전용 vs zip 포함 | 기획+풀스택 | ✅ Resolved(2026-08-24): zip 포함 — 트리 지문 + "소스 비공개" 라벨, [ADR-001 v1.2](./platform-decision.md) |
+확정되면 본문 해당 섹션에 반영하고 개정 이력에 기록한다. 이미 확정된 사항은 본문과 [ADR-001](./platform-decision.md)에 기록되어 있다(예: 등급 공개 범위 → §4.5).
+
+| # | 항목 | 담당 |
+| --- | --- | --- |
+| 1 | 등급 산정 기준(§4.5 가정)의 최종 확정 — 특히 '검토 필요'만 있을 때 주의로 볼지 | 기획 |
+| 2 | 시민용 공개 페이지의 법적 고지 문구(자가점검 보조·면책) 최종안 | 기획 |
+| 3 | LLM 스캔당 호출 상한·예산 상한 수치 | 풀스택 |
+| 4 | 벤치마크 앱에 심을 취약점 목록(룰 커버리지 기준) | 기획+풀스택 |
+
+## 개정 이력
+
+| 버전 | 일자 | 내용 |
+| --- | --- | --- |
+| v0.1 | 2026-08-24 | 최초 작성 — ADR-001 v1.2 확정 사항(콘텐츠 지문·판정 기준 버전 기록, 등급 공개 범위) 반영 포함 |
+| v0.2 | 2026-08-25 | Implementation Plan을 일 단위 일정에서 마일스톤·선후행 관계 정의로 변경, Open Questions를 추후 확정 필요사항으로 정리(기한 표현 삭제), API 경로의 버전 표기(/v1/) 제거, 문서 버전 관리 도입 |
