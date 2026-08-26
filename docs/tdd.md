@@ -6,7 +6,7 @@
 | 기획 / PM | 기획 1인 |
 | 프로젝트 | 2026 ICT 표준 챌린지 공모전 데모 |
 | 기반 문서 | 기획서 v2(협의체 반영), [ADR-001 플랫폼 선정](./platform-decision.md) |
-| 버전 | v0.2 |
+| 버전 | v0.3 |
 | Status | Draft |
 | Created | 2026-08-24 |
 | Last Updated | 2026-08-25 |
@@ -161,6 +161,7 @@ graph TB
 | Backend | Python 3.12 + FastAPI | 팀 선호 스택. 정적 분석에 필요한 Python `ast` 모듈·파서 생태계가 풍부. Pydantic으로 SBOM JSON 스키마 검증. async로 OSV/LLM 외부 호출 병렬화 |
 | Frontend | React 18 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
 | DB | PostgreSQL 16 | 팀 선호. JSONB로 SBOM·finding의 가변 구조 저장, 관계형으로 scan-finding 연결 |
+| 정적 분석 | Semgrep CE + gitleaks | Semgrep: 단일 엔진으로 Python·JS/TS 겸용, YAML 커스텀 룰의 metadata에 TTA 조항을 직접 기입해 Finding 매핑이 1:1. 레지스트리 룰은 라이선스 제약(non-competing)으로 미사용 — 100% 자체 룰 작성. gitleaks: regex+entropy 시크릿 검출, 단일 바이너리, custom rule(TOML)로 한국 특화 패턴 추가. 둘 다 subprocess + JSON 출력으로 통합(외부 전송 없음, TruffleHog식 실검증은 시크릿 외부 전송이라 원칙상 배제) |
 | LLM | Anthropic Claude API | 실호출 확정. **가정**: 판정(judge)은 `claude-sonnet-5`, 쉬운 한국어 변환·수정 프롬프트 생성은 `claude-haiku-4-5`로 비용 절감 |
 | 실행 환경 | Docker Compose | 심사 환경 재현성. 데모 제출 형태(로컬 실행 + 영상)와 일치 |
 
@@ -191,7 +192,7 @@ graph TB
 
 ### 4.5 진단 룰 카탈로그 개요 (~30종)
 
-**가정**: 총 30종 목표는 아래 4개 그룹으로 구성하며, 그룹 내 개별 룰의 최종 수는 구현 중 확정.
+**가정**: 총 30종 목표는 아래 4개 그룹으로 구성하며, 그룹 내 개별 룰의 최종 수는 구현 중 확정. 정적 룰은 Semgrep 커스텀 룰(YAML, metadata에 근거 조항 기입), 시크릿 룰은 gitleaks custom rule(TOML)로 구현하며, `rules/` 디렉토리의 콘텐츠 해시가 곧 `rule_catalog_version`이 된다. 미선언 의존성 검출은 Python은 stdlib `ast`의 import 추출, JS/TS는 Semgrep 패턴으로 import/require를 추출해 매니페스트와 대조한다.
 
 | 그룹 | 근거 표준 | 대표 룰 | 방식 |
 | --- | --- | --- | --- |
@@ -234,6 +235,9 @@ graph TB
 | KISA 보호나라 KrCERT 게시판 ([data.go.kr](https://www.data.go.kr/data/15155789/fileData.do)) | 공공데이터 | 보안공지·취약점 정보를 진단 DB로 연동(가산점 항목) | 공공누리. CSV 스냅샷을 이미지에 동봉 |
 | Anthropic Claude API | 외부 API | 맥락 판정·쉬운 한국어 변환·수정 프롬프트 생성 | 유료(API key), 스니펫 단위 호출로 비용 제한 |
 | TTA 표준 문서 4종 | 문서 | 조항 텍스트 인용(리포트 출처 표기) | 출처 명시 인용 |
+| Semgrep CE | 정적 분석 엔진 | Python·JS/TS 커스텀 룰 실행 — 자체 룰만 사용, 레지스트리 룰 미동봉 | 엔진 LGPL-2.1, 무료 |
+| gitleaks | 시크릿 스캐너 | 하드코딩 시크릿 검출(단일 바이너리, custom rule TOML) | MIT, 무료 |
+| pip-requirements-parser · packageurl-python · packaging · semver | Python 라이브러리 | 의존성 매니페스트 파싱, purl 생성, 버전 비교 | Apache-2.0 / MIT / BSD, 무료 |
 | GitHub 등 공개 저장소 | 외부 | git URL 입력 시 shallow clone | 공개 repo만 |
 
 ### 4.7 시퀀스 다이어그램
@@ -396,6 +400,7 @@ graph TB
 | LLM 비용·쿼터 초과 | Medium | Medium | 플래그 스니펫만 전달, 스캔당 호출 상한, judge/변환 모델 이원화(sonnet/haiku) |
 | 진단 룰 품질(오탐·미탐) | Medium | High | 벤치마크 앱 기반 룰별 검출률 측정을 데모 전 게이트(M7)로 설정, 미탐 룰은 데모 시나리오에서 제외 |
 | 공개 등급의 재현성(코드 파기 후 판정 근거 검증 불가) | Medium | High | 콘텐츠 지문 + rule_catalog_version + llm_model_id를 스캔마다 기록해 판정 대상·기준을 특정. zip 등급은 "소스 비공개" 라벨로 한계 고지 |
+| Semgrep 레지스트리 룰 라이선스 저촉 | Medium | Low | 레지스트리 룰(Semgrep Rules License — non-competing·non-SaaS 제한)은 동봉·사용하지 않고 100% 자체 작성 룰만 사용. 엔진(LGPL-2.1)은 subprocess 호출로만 사용 |
 | Anthropic API 장애(데모 중) | High | Low | 데모 리허설 시점의 응답 캐시를 폴백으로 준비(실호출 우선, 장애 시에만 사용) |
 
 ## 7. Implementation Plan
@@ -465,3 +470,4 @@ graph TB
 | --- | --- | --- |
 | v0.1 | 2026-08-24 | 최초 작성 — ADR-001 v1.2 확정 사항(콘텐츠 지문·판정 기준 버전 기록, 등급 공개 범위) 반영 포함 |
 | v0.2 | 2026-08-25 | Implementation Plan을 일 단위 일정에서 마일스톤·선후행 관계 정의로 변경, Open Questions를 추후 확정 필요사항으로 정리(기한 표현 삭제), API 경로의 버전 표기(/v1/) 제거, 문서 버전 관리 도입 |
+| v0.3 | 2026-08-25 | 정적 분석 도구 확정 — Semgrep CE(자체 룰 전용) + gitleaks 채택, 의존성 파싱 라이브러리 명시, rule_catalog_version 산출 방식(rules/ 디렉토리 해시) 정의, 레지스트리 룰 라이선스 리스크 추가 |
