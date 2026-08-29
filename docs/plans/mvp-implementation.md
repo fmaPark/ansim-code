@@ -1930,6 +1930,7 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - §11 항목 3(gitleaks 오탐): **보류** — 샌드박스에 gitleaks 바이너리 반입 불가. Docker 이미지(v8.18.4 동봉) 안에서 skipif 2케이스 + fixture 스캔으로 측정 예정. 초기 allowlist(G13)로 시작.
 - 참고: semgrep 자체 룰 9종 fixture(10파일) 1.24s, repo_checks 1ms. 상세는 `docs/measurements.md`.
 - **§11 항목 2(벤치마크 목록): 기획에 확정 재요청 — M7 착수 전 마감 게이트.**
+- **M4 게이트 검증 결과 (2026-08-29): 조건부 통과.** ① 시크릿(SEC-01~05)·개인정보(P1~P10)·보조(AUX-01~04) 룰 전체 실행 경로 연결 — green ② 주민번호 체크섬 분기 테스트 green ③ LLM 페이로드 시크릿 0건(P0-2) + SEC-* 미경유 테스트 green ④ judge 12 병렬 — Semaphore 검증 green, 단 **실호출은 보류**(키 미준비) ⑤ 실측 기록 — fake 기준 기록, 실호출·gitleaks 오탐 2건 보류. 잔여 2건은 키 준비 + Docker 이미지 안 재수행으로 해소.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 
