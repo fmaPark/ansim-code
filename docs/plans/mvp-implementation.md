@@ -890,7 +890,7 @@ curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
 **Interfaces:**
 - Produces: 공용 자료형 `Dependency(ecosystem: "pypi"|"npm", name, version: str|None, declared_in: str, is_pinned: bool, integrity: str|None, relationship: "direct"|"transitive", registry_source: bool, vendored_path: str|None)` — `api/app/engine/deps_types.py`에 dataclass로 정의(이후 모든 태스크가 사용). `parse_python_deps(root) -> list[Dependency]` — `requirements.txt`(pip-requirements-parser), `pyproject.toml`(stdlib `tomllib`: `[project.dependencies]`·poetry `[tool.poetry.dependencies]`), lock(`poetry.lock`·`uv.lock`)을 읽고 lock 항목은 transitive로 병합. `extract_python_imports(root) -> set[str]` — `ast.parse` 실패 파일은 건너뜀, 상대 import·로컬 모듈(루트에 동명 디렉토리/파일 존재)·stdlib(`sys.stdlib_module_names`) 제외.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_deps_python.py
@@ -910,8 +910,8 @@ def test_import_extraction_excludes_stdlib_and_local(tmp_path):
     assert extract_python_imports(tmp_path) == {"requests", "PIL"}
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — `imports_py.py` 핵심:
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — `imports_py.py` 핵심:
 
 ```python
 # api/app/engine/imports_py.py
@@ -938,8 +938,8 @@ def extract_python_imports(root: Path) -> set[str]:
 
 `deps_python.py`는 pip-requirements-parser(`RequirementsFile.from_file(..., include_nested=True)`)로 requirements 계열, `tomllib`로 pyproject, lock은 toml 파싱으로 name/version/hash 추출. **어떤 경우에도 setup.py를 실행하지 않는다(G7) — setup.py만 있는 저장소는 "의존성 선언 파싱 불가" 마커를 남긴다(SCA-09·11 판단 입력).**
 
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: Python 의존성 파서 + ast import 추출`
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: Python 의존성 파서 + ast import 추출`
 
 **완료 기준(DoD):** requirements/pyproject/lock 3계열 파싱, is_pinned·declared_in 정확, import 추출이 stdlib·로컬 제외.
 
@@ -957,7 +957,7 @@ def extract_python_imports(root: Path) -> set[str]:
 **Interfaces:**
 - Produces: `parse_npm_deps(root) -> list[Dependency]` — `package.json`(dependencies/devDependencies → direct), `package-lock.json`(v2/v3 `packages` 키 → transitive + `integrity` 채움). git/파일 경로 의존성은 `registry_source=False`(SCA-10 입력). `extract_js_imports`는 여기서 만들지 않는다 — JS/TS import 추출은 Semgrep 패턴(Task 11, TDD §4.5 명시)이 담당.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_deps_npm.py
@@ -984,10 +984,10 @@ def test_git_dependency_flagged_nonregistry(tmp_path):
     assert d.registry_source is False        # SCA-10 입력
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — package.json 선언명 집합을 기준으로 lock `packages`의 `node_modules/{이름}` 항목을 병합(선언에 있으면 direct+lock 버전 채움, 없으면 transitive). `version` 값이 `git+`·`file:`·`link:`·`http` 프리픽스면 `registry_source=False`. lock 부재 시 선언만으로 생성(is_pinned는 정확 버전 문자열 여부).
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: npm 의존성 파서 (lock integrity·direct/transitive)`
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — package.json 선언명 집합을 기준으로 lock `packages`의 `node_modules/{이름}` 항목을 병합(선언에 있으면 direct+lock 버전 채움, 없으면 transitive). `version` 값이 `git+`·`file:`·`link:`·`http` 프리픽스면 `registry_source=False`. lock 부재 시 선언만으로 생성(is_pinned는 정확 버전 문자열 여부).
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: npm 의존성 파서 (lock integrity·direct/transitive)`
 
 **완료 기준(DoD):** lockfileVersion 2/3 파싱, integrity·relationship 정확, 비레지스트리 소스 플래그.
 
@@ -1007,7 +1007,7 @@ def test_git_dependency_flagged_nonregistry(tmp_path):
 - Produces: `build_sbom(deps: list[Dependency], root: Path) -> list[dict]` — 15속성 dict(모델 컬럼명 그대로). `unique_id`=purl(packageurl-python: `PackageURL(type="pypi"|"npm", name=..., version=...)`), `license_usage` 판정, `supplier`/`author`/`license_name`/`release_date`는 이 단계에선 매니페스트에서 얻는 범위만(레지스트리 원격 조회는 하지 않음 — 가정: OSV 응답·lock 메타로 충분, 부족 필드는 null 허용이되 15속성 **키는 전부 출력**). `classify_supply_chain(deps, root) -> "자체개발"|"오픈소스"|"바이너리"`(0322 §5.1.1: 의존성 0 → 자체개발, 바이너리 파일(.so/.dll/.jar/.exe) 동봉 → 바이너리 포함, 그 외 → 오픈소스 활용). `detect_vendored(root) -> dict[dirname, has_license]` — `vendor/`·`vendors/`·`third_party/`·`libs/` 하위 1단계 디렉토리와 LICENSE·COPYING* 존재 여부.
 - `GET /api/scans/{id}/sbom` → `{"components":[...15속성...], "supply_chain_class": "...", "generated_by": "AnsimCode"}` (프론트가 그대로 JSON 다운로드 — TDD §3).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_sbom.py
@@ -1042,11 +1042,11 @@ def test_supply_chain_classification(tmp_path):
     assert classify_supply_chain([_dep()], tmp_path) == "바이너리"
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — ⑨ 결합형태 3축 판정(TDD §4.3): 매니페스트 선언=`동적 참조` / vendored 디렉토리+LICENSE·COPYING 존재=`파일단위 복제` / vendored+LICENSE 부재=`복제·고지 없음`("수정 후 사용" 해시 대조는 V2 — 구현 금지). `component_hash`=lock integrity(⑦, 없으면 null → SCA-09 입력). `cvss_*`·`cve_ids`·`vulnerability_db`·`release_date`는 null로 시작(Task 9가 채움). 파이프라인 `현황진단` 스테이지에서 두 파서(6·7) 호출 → `build_sbom` → `SbomComponent` 벌크 insert, `supply_chain_class` 저장.
-- [ ] **Step 4: 테스트 green + 통합 확인** — fixture 저장소(requirements+package.json 동시 보유)를 zip으로 스캔 → `GET /sbom`에 두 생태계 컴포넌트 모두 존재
-- [ ] **Step 5: 실패 경로 재확인** — 깨진 `package.json`(JSON 오류) fixture → 해당 파서만 건너뛰고 스캔은 done(파싱 불가 마커), 완전 빈 저장소 → done + 컴포넌트 0 + `자체개발`
-- [ ] **Step 6: Commit** — `feat: 15속성 SBOM 빌더 + 결합형태 3분류 + 공급망 분류 + export API`
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — ⑨ 결합형태 3축 판정(TDD §4.3): 매니페스트 선언=`동적 참조` / vendored 디렉토리+LICENSE·COPYING 존재=`파일단위 복제` / vendored+LICENSE 부재=`복제·고지 없음`("수정 후 사용" 해시 대조는 V2 — 구현 금지). `component_hash`=lock integrity(⑦, 없으면 null → SCA-09 입력). `cvss_*`·`cve_ids`·`vulnerability_db`·`release_date`는 null로 시작(Task 9가 채움). 파이프라인 `현황진단` 스테이지에서 두 파서(6·7) 호출 → `build_sbom` → `SbomComponent` 벌크 insert, `supply_chain_class` 저장.
+- [x] **Step 4: 테스트 green + 통합 확인** — fixture 저장소(requirements+package.json 동시 보유)를 zip으로 스캔 → `GET /sbom`에 두 생태계 컴포넌트 모두 존재
+- [x] **Step 5: 실패 경로 재확인** — 깨진 `package.json`(JSON 오류) fixture → 해당 파서만 건너뛰고 스캔은 done(파싱 불가 마커), 완전 빈 저장소 → done + 컴포넌트 0 + `자체개발`
+- [x] **Step 6: Commit** — `feat: 15속성 SBOM 빌더 + 결합형태 3분류 + 공급망 분류 + export API`
 
 **완료 기준(DoD):** M2 게이트 — 15속성 키 전수 출력, 3분류·공급망 분류 테스트 green, `/sbom` JSON 다운로드 가능.
 
@@ -1067,7 +1067,7 @@ def test_supply_chain_classification(tmp_path):
 - Produces: `query_osv(purls: list[str]) -> OsvResult(vulns: dict[purl, list[VulnInfo]], incomplete: bool)` — ① `POST https://api.osv.dev/v1/querybatch` `{"queries":[{"package":{"purl": p}} ...]}`(1000개 단위 분할)로 vuln ID 목록 → ② `GET /v1/vulns/{id}` 병렬(asyncio, 동시 8)로 상세. `VulnInfo(id, cve_ids: list, cvss_vector: str|None, severity: str, fixed_version: str|None, source="OSV")`. 모든 호출 timeout 10s·재시도 1회, 실패 시 `incomplete=True`(리포트에 "일부 미대조" — Task 19). 동일 vuln ID 상세는 스캔 내 dict 캐시.
 - `derive_cvss3(vector: str) -> tuple[base, impact, exploitability, severity] | None` — CVSS 3.x 공식 구현(아래 가중치 그대로).
 
-- [ ] **Step 1: CVSS 실패하는 테스트 작성** — 공식 스펙 벡터로 검증:
+- [x] **Step 1: CVSS 실패하는 테스트 작성** — 공식 스펙 벡터로 검증:
 
 ```python
 # api/tests/test_cvss.py
@@ -1085,8 +1085,8 @@ def test_missing_vector_returns_none():
     assert derive_cvss3(None) is None        # → cvss_null_reason="벡터 미제공"
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: cvss.py 구현** — 가중치·공식(CVSS 3.1 Spec §7.1, 그대로 옮김):
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: cvss.py 구현** — 가중치·공식(CVSS 3.1 Spec §7.1, 그대로 옮김):
 
 ```python
 # api/app/engine/cvss.py
@@ -1115,9 +1115,9 @@ def derive_cvss3(vector):
     return base, round(impact, 1), round(expl, 1), sev
 ```
 
-- [ ] **Step 4: OSV 클라이언트 테스트(모킹) 작성 후 구현** — `httpx.MockTransport`로 querybatch·vulns 응답 주입: 정상 경로(2 purl 중 1개 취약), 타임아웃 경로(`incomplete=True` + 부분 결과 유지) 2케이스. OSV 응답에서 `severity[type=CVSS_V3].score`가 벡터 문자열, `aliases`에서 `CVE-` 프리픽스만 cve_ids로, `affected[].ranges[].events[].fixed`에서 fixed_version.
-- [ ] **Step 5: 테스트 green 확인** → PASS. 파이프라인 `위험분석` 스테이지에 연결: SBOM 컴포넌트 purl로 질의 → ⑩`vulnerability_db=[{"id":..., "source":"OSV"}]`·⑬⑭⑮ 채움, `vuln_db_snapshot_date`에 `OSV@{오늘 ISO날짜}` 기록.
-- [ ] **Step 6: Commit** — `feat: OSV 배치 대조 + CVSS Base/Impact/Exploitability 파생`
+- [x] **Step 4: OSV 클라이언트 테스트(모킹) 작성 후 구현** — `httpx.MockTransport`로 querybatch·vulns 응답 주입: 정상 경로(2 purl 중 1개 취약), 타임아웃 경로(`incomplete=True` + 부분 결과 유지) 2케이스. OSV 응답에서 `severity[type=CVSS_V3].score`가 벡터 문자열, `aliases`에서 `CVE-` 프리픽스만 cve_ids로, `affected[].ranges[].events[].fixed`에서 fixed_version.
+- [x] **Step 5: 테스트 green 확인** → PASS. 파이프라인 `위험분석` 스테이지에 연결: SBOM 컴포넌트 purl로 질의 → ⑩`vulnerability_db=[{"id":..., "source":"OSV"}]`·⑬⑭⑮ 채움, `vuln_db_snapshot_date`에 `OSV@{오늘 ISO날짜}` 기록.
+- [x] **Step 6: Commit** — `feat: OSV 배치 대조 + CVSS Base/Impact/Exploitability 파생`
 
 **완료 기준(DoD):** 스펙 벡터 9.8/5.9/3.9 정확, 타임아웃 시 부분 결과 + incomplete 플래그, SBOM ⑩⑬⑭⑮ 채워짐.
 
@@ -1135,8 +1135,8 @@ def derive_cvss3(vector):
 **Interfaces:**
 - Produces: `load_kisa(csv_path) -> dict[cve_id, KisaNotice(title, url, date)]` — CSV 전 컬럼을 문자열 결합 후 `re.findall(r"CVE-\d{4}-\d{4,7}")`로 추출(컬럼명 의존 최소화 — 실데이터 확인 전 방어). `kisa_snapshot_date() -> str`(SNAPSHOT_DATE 파일). 교차는 파이프라인에서: 컴포넌트 cve_ids ∩ KISA 키 → SCA-03 finding 생성 + SBOM ⑩에 `{"id": cve, "source": "KISA", "notice_url": ...}` 추가.
 
-- [ ] **Step 1: 실데이터 확인·확정(§11 항목 5 게이트)** — data.go.kr/15155789에서 CSV 다운로드 → 인코딩(EUC-KR 가능성)·컬럼 구조 확인 → `data/kisa/`에 저장, `SNAPSHOT_DATE`에 다운로드 일자 기록. **확인 결과(컬럼명·인코딩·CVE 포함 컬럼)를 이 문서 하단 '실측 기록'에 1줄 남긴다 → TDD §11 항목 5 확정.** 다운로드 불가 시(계정 등): 동일 스키마의 수동 표본 CSV로 대체하고 §11에 잔여 항목으로 재등재.
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 1: 실데이터 확인·확정(§11 항목 5 게이트)** — data.go.kr/15155789에서 CSV 다운로드 → 인코딩(EUC-KR 가능성)·컬럼 구조 확인 → `data/kisa/`에 저장, `SNAPSHOT_DATE`에 다운로드 일자 기록. **확인 결과(컬럼명·인코딩·CVE 포함 컬럼)를 이 문서 하단 '실측 기록'에 1줄 남긴다 → TDD §11 항목 5 확정.** 다운로드 불가 시(계정 등): 동일 스키마의 수동 표본 CSV로 대체하고 §11에 잔여 항목으로 재등재.
+- [x] **Step 2: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_kisa.py
@@ -1151,9 +1151,9 @@ def test_cve_extraction_from_any_column(tmp_path):
     assert "CVE-2024-12345" in notices and notices["CVE-2024-12345"].url == "https://boho.or.kr/1"
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — csv 모듈 + 인코딩 폴백(`utf-8` → `cp949`). 실스냅샷 파일로도 로드 스모크(추출 CVE 수 > 0 로그).
-- [ ] **Step 4: 파이프라인 교차 연결** — SCA-03 finding(evidence에 공지 제목·링크), `vuln_db_snapshot_date`를 `OSV@{날짜}; KISA-CSV@{SNAPSHOT_DATE}`로 확장. OSV `incomplete` 시에도 KISA 교차는 수행(부분 결과 정책).
-- [ ] **Step 5: Commit** — `feat: KISA 스냅샷 로더 + 공지 CVE 교차 (국내 보안공지 발령)`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — csv 모듈 + 인코딩 폴백(`utf-8` → `cp949`). 실스냅샷 파일로도 로드 스모크(추출 CVE 수 > 0 로그).
+- [x] **Step 4: 파이프라인 교차 연결** — SCA-03 finding(evidence에 공지 제목·링크), `vuln_db_snapshot_date`를 `OSV@{날짜}; KISA-CSV@{SNAPSHOT_DATE}`로 확장. OSV `incomplete` 시에도 KISA 교차는 수행(부분 결과 정책).
+- [x] **Step 5: Commit** — `feat: KISA 스냅샷 로더 + 공지 CVE 교차 (국내 보안공지 발령)`
 
 **완료 기준(DoD):** 실스냅샷 로드 성공 + 컬럼 확정 기록, 교차 CVE에 SCA-03 finding·공지 링크·⑩ KISA 출처.
 
@@ -1171,7 +1171,7 @@ def test_cve_extraction_from_any_column(tmp_path):
 **Interfaces:**
 - Produces: `run_semgrep(root, config_paths: list[str]) -> list[RawFinding(check_id, path, line, message, metadata: dict)]` — `semgrep scan --config {c} --json --metrics=off --timeout 60 --exclude node_modules --exclude venv` subprocess, 결과 JSON `results[]` 파싱(exit 0·1 모두 정상 취급, 그 외 예외). `evaluate_sca_rules(deps, sbom_rows, imports_py: set, imports_js: set, root) -> list[FindingDraft(rule_id, severity, file_path, line, evidence, status="confirmed")]` — SCA-01~12 전체(로직은 Task 2 표). `matrix_0322(supply_chain_class, sbom_rows) -> dict` — 0322 §5.1.2 표 5-1 룩업: 분류별 위험요인 목록(`오픈소스`: 라이선스 위반·취약점 전파·업데이트 중단, `바이너리`: 출처 불명·검증 불가, `자체개발`: 자체 결함 관리) + 해당 컴포넌트 수. **G4: 이 매트릭스·AGPL/SSPL은 P0 충돌 시 첫 번째 양보 대상.**
 
-- [ ] **Step 1: js-imports 룰 작성** — `rules/semgrep/js-imports.yaml`:
+- [x] **Step 1: js-imports 룰 작성** — `rules/semgrep/js-imports.yaml`:
 
 ```yaml
 rules:
@@ -1189,7 +1189,7 @@ rules:
 
 수집 후처리: `$MOD`가 `.`/`/`로 시작하면 로컬(제외), `@scope/name`은 두 토큰 유지, 그 외 첫 세그먼트. node 내장(`fs`·`path`·`node:*` 등 stdlib 목록 상수) 제외.
 
-- [ ] **Step 2: 실패하는 테스트 작성** — 대표 3케이스:
+- [x] **Step 2: 실패하는 테스트 작성** — 대표 3케이스:
 
 ```python
 # api/tests/test_sca_rules.py
@@ -1208,9 +1208,9 @@ def test_unpinned_without_lock():                  # SCA-11
     # requirements.txt `requests>=2.0`, lock 없음 → SCA-11 confirmed
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — SCA-02(OSV 결과→컴포넌트별 finding, severity=cvss_severity), SCA-04(fixed_version 존재&미만), SCA-05(release_date 3년 초과·정보성), SCA-06(Task 8 `detect_vendored` 재사용), SCA-08~12는 Dependency·SbomComponent 필드 판정. 전부 `status="confirmed"`(G3 — 결정적 사실 판정).
-- [ ] **Step 4: 파이프라인 연결 + fixture 저장소 E2E** — 취약 버전 고정 fixture(예: `requirements.txt: flask==0.12`, `package-lock.json: lodash 4.17.15`)로 스캔 → SCA-02 finding + KISA 교차 여부 확인
-- [ ] **Step 5: Commit** — `feat: Semgrep 러너 + SCA 룰 12종 + 0322 표 5-1 매트릭스`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — SCA-02(OSV 결과→컴포넌트별 finding, severity=cvss_severity), SCA-04(fixed_version 존재&미만), SCA-05(release_date 3년 초과·정보성), SCA-06(Task 8 `detect_vendored` 재사용), SCA-08~12는 Dependency·SbomComponent 필드 판정. 전부 `status="confirmed"`(G3 — 결정적 사실 판정).
+- [x] **Step 4: 파이프라인 연결 + fixture 저장소 E2E** — 취약 버전 고정 fixture(예: `requirements.txt: flask==0.12`, `package-lock.json: lodash 4.17.15`)로 스캔 → SCA-02 finding + KISA 교차 여부 확인
+- [x] **Step 5: Commit** — `feat: Semgrep 러너 + SCA 룰 12종 + 0322 표 5-1 매트릭스`
 
 **완료 기준(DoD):** M3 게이트 — SCA 12종이 fixture에서 기대 finding 생성, semgrep JSON 파싱 안정(빈 결과·문법 오류 파일 포함), 매트릭스 dict가 리포트 입력으로 준비됨.
 
@@ -1924,6 +1924,8 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 ## 실측 기록 (실행 세션이 append)
 
 > 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다.
+
+- **2026-08-29 · Task 10 KISA 데이터셋(§11 항목 5) — 미확정, 재등재.** 구현 환경(외부 egress 프록시 allowlist)에서 `https://www.data.go.kr/data/15155789/fileData.do` 다운로드가 차단되어(프록시 CONNECT 403, `api.data.go.kr`·`www.krcert.or.kr`·`knvd.krcert.or.kr` 모두 동일) 실데이터의 컬럼명·인코딩을 확인하지 못했다. 계획의 폴백대로 **동일 스키마 표본 CSV**(`data/kisa/krcert_notices.csv` — 컬럼 `제목,게시일,링크,본문`, UTF-8, 실존 CVE 12건 · 보호나라 공지 형식)와 `data/kisa/SNAPSHOT_DATE`(2026-08-29)로 대체했다. 로더 `app/engine/kisa.py`는 컬럼명에 의존하지 않고(행 전체에서 `CVE-\d{4}-\d{4,7}` 추출, 링크·날짜·제목은 셀 형태로 판별) `utf-8-sig → cp949` 인코딩 폴백을 갖춰 실데이터 교체 시 코드 변경 없이 파일만 바꾸면 된다. **§11 항목 5는 열린 항목으로 재등재** — 네트워크 가능한 환경에서 실데이터를 받아 컬럼명·인코딩·CVE 포함 컬럼을 이 줄 아래에 확정 기록해야 한다.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

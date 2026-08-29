@@ -10,8 +10,17 @@ from app.db import SessionLocal
 from app.engine import fingerprint as fp
 from app.engine import ingest as ing
 from app.engine.catalog import rule_catalog_version
+from app.engine.cvss import NULL_REASON_NO_VECTOR, derive_cvss3
+from app.engine.deps_npm import npm_parse_markers, parse_npm_deps
+from app.engine.deps_python import parse_python_deps, python_parse_markers
+from app.engine.kisa import kisa_snapshot_label, load_kisa
+from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
+from app.engine.imports_py import extract_python_imports
+from app.engine.sbom import build_sbom, classify_supply_chain, component_row, vendored_dependencies
+from app.engine.sca_rules import evaluate_sca_rules, matrix_0322
+from app.engine.semgrep_runner import extract_js_imports
 from app.engine.workspace import scan_workspace
-from app.models import Scan
+from app.models import Finding, SbomComponent, Scan
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +59,115 @@ def stage_ingest(scan, ws):
     return ing.ingest_zip(upload_path(scan.id), ws)
 
 
+def stage_sbom(db, scan, root: Path) -> dict:
+    """§11.2 현황 진단 — 의존성 파싱 → 15속성 SBOM → 공급망 분류 (Task 6·7·8).
+
+    깨진 매니페스트·setup.py 전용 저장소는 예외로 죽이지 않고 마커로 남긴다.
+    """
+    deps = parse_python_deps(root) + parse_npm_deps(root)
+    deps += vendored_dependencies(root, deps)
+    markers = python_parse_markers(root) + npm_parse_markers(root)
+    rows = build_sbom(deps, root)
+
+    components = [SbomComponent(scan_id=scan.id, **row) for row in rows]
+    db.add_all(components)
+    report = dict(scan.report_json or {})
+    report["parse_markers"] = [{"kind": m.kind, "detail": m.detail} for m in markers]
+    _set(db, scan,
+         supply_chain_class=classify_supply_chain(deps, root),
+         report_json=report)
+    log.info("SBOM 생성", extra={"scan_id": str(scan.id), "component_count": len(rows),
+                                 "supply_chain_class": scan.supply_chain_class,
+                                 "parse_marker_count": len(markers)})
+    return {"deps": deps, "components": components, "markers": markers}
+
+
+def _apply_vulns(component: SbomComponent, infos) -> None:
+    """OSV 결과를 SBOM ⑩⑬⑭⑮에 채운다 — CVSS는 가장 높은 Base를 대표값으로 쓴다."""
+    component.vulnerability_db = [
+        {"id": v.id, "source": v.source, "fixed": v.fixed_version} for v in infos]   # SCA-04 입력
+    component.cve_ids = sorted({cve for v in infos for cve in v.cve_ids})
+
+    scored = [(derive_cvss3(v.cvss_vector), v) for v in infos]
+    scored = [(d, v) for d, v in scored if d]
+    if scored:
+        (base, impact, expl, severity), _worst = max(scored, key=lambda t: t[0][0])
+        component.cvss_base, component.cvss_impact = base, impact
+        component.cvss_exploitability, component.cvss_severity = expl, severity
+        component.cvss_null_reason = None
+    else:
+        component.cvss_null_reason = NULL_REASON_NO_VECTOR
+        # 벡터가 없어도 OSV가 준 등급 문자열은 살린다(등급 산정은 confirmed 사실만 쓴다 — G3).
+        ranked = [v.severity for v in infos if v.severity != "unknown"]
+        component.cvss_severity = ranked[0] if ranked else None
+
+
+async def stage_osv(db, scan, components: list[SbomComponent]) -> OsvResult:
+    """§11.3 위험 분석 1단계 — purl 배치 질의 → SBOM ⑩⑬⑭⑮ (Task 9)."""
+    result = await query_osv([c.unique_id for c in components])
+    for component in components:
+        infos = result.vulns.get(component.unique_id)
+        if infos:
+            _apply_vulns(component, infos)
+    report = dict(scan.report_json or {})
+    report["osv_incomplete"] = result.incomplete       # 리포트의 "일부 미대조" 표시 입력
+    _set(db, scan, vuln_db_snapshot_date=osv_snapshot_date(), report_json=report)
+    log.info("OSV 대조", extra={"scan_id": str(scan.id), "queried": len(components),
+                                "vulnerable": len(result.vulns), "incomplete": result.incomplete})
+    return result
+
+
+def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
+    """§11.3 위험 분석 2단계 — OSV CVE ∩ KISA 공지 CVE → SCA-03 (Task 10).
+
+    OSV가 `incomplete`여도 얻은 CVE에 대한 교차는 그대로 수행한다(부분 결과 정책).
+    """
+    notices = load_kisa()
+    findings: list[Finding] = []
+    if notices:
+        for component in components:
+            matched = [cve for cve in (component.cve_ids or []) if cve in notices]
+            if not matched:
+                continue
+            sources = list(component.vulnerability_db or [])
+            for cve in matched:
+                notice = notices[cve]
+                sources.append({"id": cve, "source": "KISA", "notice_url": notice.url})
+                findings.append(Finding(
+                    scan_id=scan.id, rule_id="SCA-03", severity="high",
+                    file_path=None, line=None,
+                    evidence=(f"{component.component_name} {component.version or ''} — {cve}: "
+                              f"국내 보안공지 발령 「{notice.title}」 {notice.url}").strip(),
+                    status="confirmed"))
+            component.vulnerability_db = sources        # ⑩ 취약점별 출처에 KISA 추가
+        db.add_all(findings)
+
+    _set(db, scan, vuln_db_snapshot_date=f"{osv_snapshot_date()}; {kisa_snapshot_label()}")
+    log.info("KISA 교차", extra={"scan_id": str(scan.id), "kisa_cve_count": len(notices),
+                                 "sca03_findings": len(findings)})
+    return findings
+
+
+def stage_sca_rules(db, scan, root: Path, deps, components: list[SbomComponent]) -> list[Finding]:
+    """§11.3 위험 분석 3단계 — SCA 룰 12종 + 0322 표 5-1 매트릭스 (Task 11).
+
+    SCA-03은 KISA 교차 단계가 이미 만들었으므로 여기서 다시 만들지 않는다.
+    """
+    rows = [component_row(c) for c in components]
+    drafts = evaluate_sca_rules(deps, rows, extract_python_imports(root),
+                                extract_js_imports(root), root)
+    findings = [Finding(scan_id=scan.id, rule_id=d.rule_id, severity=d.severity,
+                        file_path=d.file_path, line=d.line, evidence=d.evidence,
+                        status=d.status) for d in drafts]
+    db.add_all(findings)
+
+    report = dict(scan.report_json or {})
+    report["matrix_0322"] = matrix_0322(scan.supply_chain_class, rows)
+    _set(db, scan, report_json=report)
+    log.info("SCA 룰 finding 저장", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
+    return findings
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -69,7 +187,12 @@ async def run_scan(scan_id):
                          fingerprint_type="git_commit" if res.commit_hash else "tree_hash",
                          rule_catalog_version=rule_catalog_version())     # G11: 파기 전 확정
                     _set(db, scan, current_stage="현황진단")   # §11.2 — Task 6~8
+                    ctx = await asyncio.to_thread(stage_sbom, db, scan, res.root)
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
+                    await stage_osv(db, scan, ctx["components"])
+                    await asyncio.to_thread(stage_kisa, db, scan, ctx["components"])
+                    await asyncio.to_thread(stage_sca_rules, db, scan, res.root,
+                                            ctx["deps"], ctx["components"])
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:
