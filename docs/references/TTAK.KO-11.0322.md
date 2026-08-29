@@ -1,3 +1,15 @@
+---
+type: Standard
+title: TTAK.KO-11.0322 — 오픈소스 SBOM 거버넌스 관리 지침
+description: 조직이 SBOM을 생성·유지·관리하기 위한 내부 관리체계 구축 지침의 마크다운 변환본. 속성 정의는 0309를 따른다.
+resource: TTAK.KO-11.0322
+status: stable
+tags: [tta-standard, sbom, 거버넌스, 라이선스]
+generated: { by: "human:개발-풀스택", at: "2026-08-29T00:00:00Z" }
+sources:
+  - { id: pdf, resource: "TTAK.KO-11.0322.pdf — 원본 PDF (저장소 미포함)", title: "TTAK.KO-11.0322 원본 PDF", author: "TTA", last_modified: "2023-12-06" }
+---
+
 > **표준번호**: TTAK.KO-11.0322 | **표준명(국문)**: 오픈소스 SBOM 거버넌스 관리 지침 | **표준명(영문)**: Open Source SBOM Governance Management Guidelines | **제정일**: 2023.12.06.
 >
 > 원본: TTAK.KO-11.0322.pdf — 본 문서는 PDF 원문을 마크다운으로 변환한 참고자료입니다.
