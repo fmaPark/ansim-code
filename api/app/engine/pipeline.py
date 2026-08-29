@@ -13,10 +13,11 @@ from app.engine.catalog import rule_catalog_version
 from app.engine.cvss import NULL_REASON_NO_VECTOR, derive_cvss3
 from app.engine.deps_npm import npm_parse_markers, parse_npm_deps
 from app.engine.deps_python import parse_python_deps, python_parse_markers
+from app.engine.kisa import kisa_snapshot_label, load_kisa
 from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
 from app.engine.sbom import build_sbom, classify_supply_chain, vendored_dependencies
 from app.engine.workspace import scan_workspace
-from app.models import SbomComponent, Scan
+from app.models import Finding, SbomComponent, Scan
 
 log = logging.getLogger(__name__)
 
@@ -112,6 +113,37 @@ async def stage_osv(db, scan, components: list[SbomComponent]) -> OsvResult:
     return result
 
 
+def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
+    """§11.3 위험 분석 2단계 — OSV CVE ∩ KISA 공지 CVE → SCA-03 (Task 10).
+
+    OSV가 `incomplete`여도 얻은 CVE에 대한 교차는 그대로 수행한다(부분 결과 정책).
+    """
+    notices = load_kisa()
+    findings: list[Finding] = []
+    if notices:
+        for component in components:
+            matched = [cve for cve in (component.cve_ids or []) if cve in notices]
+            if not matched:
+                continue
+            sources = list(component.vulnerability_db or [])
+            for cve in matched:
+                notice = notices[cve]
+                sources.append({"id": cve, "source": "KISA", "notice_url": notice.url})
+                findings.append(Finding(
+                    scan_id=scan.id, rule_id="SCA-03", severity="high",
+                    file_path=None, line=None,
+                    evidence=(f"{component.component_name} {component.version or ''} — {cve}: "
+                              f"국내 보안공지 발령 「{notice.title}」 {notice.url}").strip(),
+                    status="confirmed"))
+            component.vulnerability_db = sources        # ⑩ 취약점별 출처에 KISA 추가
+        db.add_all(findings)
+
+    _set(db, scan, vuln_db_snapshot_date=f"{osv_snapshot_date()}; {kisa_snapshot_label()}")
+    log.info("KISA 교차", extra={"scan_id": str(scan.id), "kisa_cve_count": len(notices),
+                                 "sca03_findings": len(findings)})
+    return findings
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -134,6 +166,7 @@ async def run_scan(scan_id):
                     ctx = await asyncio.to_thread(stage_sbom, db, scan, res.root)
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     await stage_osv(db, scan, ctx["components"])
+                    await asyncio.to_thread(stage_kisa, db, scan, ctx["components"])
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:

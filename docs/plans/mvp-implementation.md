@@ -1135,8 +1135,8 @@ def derive_cvss3(vector):
 **Interfaces:**
 - Produces: `load_kisa(csv_path) -> dict[cve_id, KisaNotice(title, url, date)]` — CSV 전 컬럼을 문자열 결합 후 `re.findall(r"CVE-\d{4}-\d{4,7}")`로 추출(컬럼명 의존 최소화 — 실데이터 확인 전 방어). `kisa_snapshot_date() -> str`(SNAPSHOT_DATE 파일). 교차는 파이프라인에서: 컴포넌트 cve_ids ∩ KISA 키 → SCA-03 finding 생성 + SBOM ⑩에 `{"id": cve, "source": "KISA", "notice_url": ...}` 추가.
 
-- [ ] **Step 1: 실데이터 확인·확정(§11 항목 5 게이트)** — data.go.kr/15155789에서 CSV 다운로드 → 인코딩(EUC-KR 가능성)·컬럼 구조 확인 → `data/kisa/`에 저장, `SNAPSHOT_DATE`에 다운로드 일자 기록. **확인 결과(컬럼명·인코딩·CVE 포함 컬럼)를 이 문서 하단 '실측 기록'에 1줄 남긴다 → TDD §11 항목 5 확정.** 다운로드 불가 시(계정 등): 동일 스키마의 수동 표본 CSV로 대체하고 §11에 잔여 항목으로 재등재.
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 1: 실데이터 확인·확정(§11 항목 5 게이트)** — data.go.kr/15155789에서 CSV 다운로드 → 인코딩(EUC-KR 가능성)·컬럼 구조 확인 → `data/kisa/`에 저장, `SNAPSHOT_DATE`에 다운로드 일자 기록. **확인 결과(컬럼명·인코딩·CVE 포함 컬럼)를 이 문서 하단 '실측 기록'에 1줄 남긴다 → TDD §11 항목 5 확정.** 다운로드 불가 시(계정 등): 동일 스키마의 수동 표본 CSV로 대체하고 §11에 잔여 항목으로 재등재.
+- [x] **Step 2: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_kisa.py
@@ -1151,9 +1151,9 @@ def test_cve_extraction_from_any_column(tmp_path):
     assert "CVE-2024-12345" in notices and notices["CVE-2024-12345"].url == "https://boho.or.kr/1"
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — csv 모듈 + 인코딩 폴백(`utf-8` → `cp949`). 실스냅샷 파일로도 로드 스모크(추출 CVE 수 > 0 로그).
-- [ ] **Step 4: 파이프라인 교차 연결** — SCA-03 finding(evidence에 공지 제목·링크), `vuln_db_snapshot_date`를 `OSV@{날짜}; KISA-CSV@{SNAPSHOT_DATE}`로 확장. OSV `incomplete` 시에도 KISA 교차는 수행(부분 결과 정책).
-- [ ] **Step 5: Commit** — `feat: KISA 스냅샷 로더 + 공지 CVE 교차 (국내 보안공지 발령)`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — csv 모듈 + 인코딩 폴백(`utf-8` → `cp949`). 실스냅샷 파일로도 로드 스모크(추출 CVE 수 > 0 로그).
+- [x] **Step 4: 파이프라인 교차 연결** — SCA-03 finding(evidence에 공지 제목·링크), `vuln_db_snapshot_date`를 `OSV@{날짜}; KISA-CSV@{SNAPSHOT_DATE}`로 확장. OSV `incomplete` 시에도 KISA 교차는 수행(부분 결과 정책).
+- [x] **Step 5: Commit** — `feat: KISA 스냅샷 로더 + 공지 CVE 교차 (국내 보안공지 발령)`
 
 **완료 기준(DoD):** 실스냅샷 로드 성공 + 컬럼 확정 기록, 교차 CVE에 SCA-03 finding·공지 링크·⑩ KISA 출처.
 
@@ -1924,6 +1924,8 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 ## 실측 기록 (실행 세션이 append)
 
 > 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다.
+
+- **2026-08-29 · Task 10 KISA 데이터셋(§11 항목 5) — 미확정, 재등재.** 구현 환경(외부 egress 프록시 allowlist)에서 `https://www.data.go.kr/data/15155789/fileData.do` 다운로드가 차단되어(프록시 CONNECT 403, `api.data.go.kr`·`www.krcert.or.kr`·`knvd.krcert.or.kr` 모두 동일) 실데이터의 컬럼명·인코딩을 확인하지 못했다. 계획의 폴백대로 **동일 스키마 표본 CSV**(`data/kisa/krcert_notices.csv` — 컬럼 `제목,게시일,링크,본문`, UTF-8, 실존 CVE 12건 · 보호나라 공지 형식)와 `data/kisa/SNAPSHOT_DATE`(2026-08-29)로 대체했다. 로더 `app/engine/kisa.py`는 컬럼명에 의존하지 않고(행 전체에서 `CVE-\d{4}-\d{4,7}` 추출, 링크·날짜·제목은 셀 형태로 판별) `utf-8-sig → cp949` 인코딩 폴백을 갖춰 실데이터 교체 시 코드 변경 없이 파일만 바꾸면 된다. **§11 항목 5는 열린 항목으로 재등재** — 네트워크 가능한 환경에서 실데이터를 받아 컬럼명·인코딩·CVE 포함 컬럼을 이 줄 아래에 확정 기록해야 한다.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 
