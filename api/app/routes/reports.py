@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from app.db import SessionLocal
 from app.engine.sbom import component_row
 from app.models import Scan, SbomComponent
+from app.report.checklist import CHECKLIST, CHECKLIST_DISCLAIMER
 
 router = APIRouter(prefix="/api/scans", tags=["reports"])
 
@@ -21,6 +22,15 @@ def get_report(scan_id: uuid.UUID, mode: Literal["dev", "easy"] = "dev"):
         if scan.status != "done" or not report:
             raise HTTPException(409, f"진단이 완료되지 않았습니다 (status={scan.status})")
         return report
+
+
+@router.get("/{scan_id}/checklist")
+def get_checklist(scan_id: uuid.UUID):
+    """조직 요구사항 통합 체크리스트 — 스캔과 무관한 정적 데이터지만 경로는 TDD §4.4 유지."""
+    with SessionLocal() as db:
+        if db.get(Scan, scan_id) is None:
+            raise HTTPException(404, "존재하지 않는 스캔입니다")
+    return {"items": CHECKLIST, "disclaimer": CHECKLIST_DISCLAIMER}
 
 
 @router.get("/{scan_id}/sbom")
