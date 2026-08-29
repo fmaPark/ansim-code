@@ -108,6 +108,9 @@ async def test_rescan_same_zip_reports_fingerprint_unchanged(client, zip_v1):
 
     assert state["previous_comparison"]["fingerprint_changed"] is False   # 코드 미변경
     assert state["previous_comparison"]["diff"]["remaining_count"] >= 1
+    # #13 회귀: 동일 zip 재진단에서 해결·신규가 생기면 diff 키가 흔들린 것이다
+    assert state["previous_comparison"]["diff"]["resolved_count"] == 0
+    assert state["previous_comparison"]["diff"]["new_count"] == 0
     assert state["grade"] == state["previous_comparison"]["previous_grade"]
 
 
