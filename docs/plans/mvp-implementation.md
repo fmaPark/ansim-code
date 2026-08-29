@@ -1779,9 +1779,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 <text x="35" y="14">안심코드</text><text x="105" y="14">{grade} {date}</text></g></svg>"""
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 4케이스: zip publish→403+안내 문구, git 1단계→토큰, 2단계 토큰 불일치→409(모킹 clone), 2단계 일치→slug 발급 + 배지 200/ETag/304.
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green**
-- [ ] **Step 3: Commit** — `feat: 등급 공개 2단계(.ansimcode 소유 증명) + 공개 페이지 + SVG 배지`
+- [x] **Step 1: 실패하는 테스트 작성** — 4케이스: zip publish→403+안내 문구, git 1단계→토큰, 2단계 토큰 불일치→409(모킹 clone), 2단계 일치→slug 발급 + 배지 200/ETag/304.
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green**
+- [x] **Step 3: Commit** — `feat: 등급 공개 2단계(.ansimcode 소유 증명) + 공개 페이지 + SVG 배지`
 
 **완료 기준(DoD):** git 전용 opt-in 2단계 동작, zip 403 안내, 배지 캐시 헤더·304, 공개 데이터에 G11 4종 포함.
 
