@@ -1,0 +1,11 @@
+# api 빌드 컨텍스트는 저장소 루트다 — 이미지에 들어가지 않는 것은 데몬에 보내지도 않는다.
+.git
+.claude
+.env
+web
+docs
+logs
+tools
+협의체_기록
+**/__pycache__
+**/.pytest_cache

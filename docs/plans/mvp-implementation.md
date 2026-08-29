@@ -179,7 +179,7 @@ ansim-code/
 **Interfaces:**
 - Produces: `GET /health` → `{"status":"ok"}`. 브라우저 진입점 `http://localhost:8080`(nginx), `/api/*`는 api:8000 프록시. `app.config.settings`(pydantic-settings)에 이후 태스크의 모든 상수가 추가된다.
 
-- [ ] **Step 1: api 스캐폴드 작성**
+- [x] **Step 1: api 스캐폴드 작성**
 
 `api/requirements.txt`:
 ```
@@ -207,9 +207,10 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
 WORKDIR /srv
-COPY requirements.txt .
+# 빌드 컨텍스트가 저장소 루트이므로 api/ 접두사가 필요하다
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
+COPY api/app ./app
 COPY rules /srv/rules
 COPY data /srv/data
 # uvicorn 단일 워커 고정 (TDD §4.1 — BackgroundTasks in-process 전제)
@@ -243,13 +244,28 @@ OS_JUNK_FILES = {".DS_Store", "Thumbs.db"}
 
 `api/app/main.py` (골격 — DB 연결은 Task 2에서 추가):
 ```python
-import logging, json, sys
+import json, logging, sys
 from fastapi import FastAPI
 
-def setup_json_logging():  # TDD §10 구조화 JSON 로그
+# LogRecord가 항상 채우는 속성 — 나머지는 호출부가 extra=로 실은 값이다.
+_RESERVED = frozenset(
+    logging.LogRecord(name="", level=0, pathname="", lineno=0, msg="", args=None, exc_info=None).__dict__
+) | {"message", "asctime", "taskName"}
+
+class JsonFormatter(logging.Formatter):
+    """TDD §10 구조화 JSON 로그 — 스캔 단계·소요 시간·외부 API 상태를 extra= 필드로 싣는다."""
+    def format(self, record):
+        payload = {"ts": self.formatTime(record), "lvl": record.levelname,
+                   "logger": record.name, "msg": record.getMessage()}
+        payload.update({k: v for k, v in record.__dict__.items() if k not in _RESERVED})
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+def setup_json_logging():
     h = logging.StreamHandler(sys.stdout)
-    h.setFormatter(logging.Formatter('{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":%(message)r}'))
-    logging.basicConfig(level=logging.INFO, handlers=[h])
+    h.setFormatter(JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[h], force=True)
 
 setup_json_logging()
 app = FastAPI(title="AnsimCode API")
@@ -259,7 +275,7 @@ def health():
     return {"status": "ok"}
 ```
 
-- [ ] **Step 2: web 스캐폴드 + nginx**
+- [x] **Step 2: web 스캐폴드 + nginx**
 
 ```bash
 npm create vite@latest web -- --template react-ts && cd web && npm i react-router-dom
@@ -288,7 +304,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 ```
 
-- [ ] **Step 3: docker-compose.yml 작성**
+`web/.dockerignore`에 `node_modules`·`dist`를 넣는다 — 없으면 `COPY . .`가 호스트(darwin-arm64)의 네이티브 바이너리를 `npm ci` 결과 위에 덮어써 리눅스 빌드가 깨진다. 저장소 루트에도 `.dockerignore`를 두어 api 빌드 컨텍스트(=루트)에서 `web/`·`docs/`·`.env`를 제외한다.
+
+- [x] **Step 3: docker-compose.yml 작성**
 
 ```yaml
 services:
@@ -306,15 +324,15 @@ services:
   web:
     build: ./web
     depends_on: [ api ]
-    ports: ["8080:80"]
+    ports: ["${WEB_PORT:-8080}:80"]   # 데모 진입점은 8080 — 로컬 포트 점유 시 WEB_PORT로만 덮어쓴다
 volumes: { pgdata: {} }
 ```
 
-`.env.example`: `ANTHROPIC_API_KEY=sk-ant-...` 한 줄. `.gitignore`에 `.env` 확인(이미 있음).
+`.env.example`: `ANTHROPIC_API_KEY=sk-ant-...` 한 줄. **`.gitignore`에 `.env`가 없으므로 추가한다**(기존 내용은 `.DS_Store`·`logs/`뿐) — 함께 `__pycache__/`·`*.pyc`·`.pytest_cache/`·`node_modules/`·`web/dist/`도 넣는다.
 
 주의: api 빌드 컨텍스트가 저장소 루트(`context: .`)인 이유는 `rules/`·`data/`를 이미지에 동봉(TDD §4.6 KISA 스냅샷 동봉)하기 위해서다. `data/kisa/`·`rules/`는 이 시점에 빈 `.gitkeep`으로 생성한다.
 
-- [ ] **Step 4: 기동 검증**
+- [x] **Step 4: 기동 검증**
 
 ```bash
 cp .env.example .env   # 키는 나중에 채워도 기동은 됨
@@ -323,7 +341,7 @@ curl -s localhost:8000/health   # {"status":"ok"}
 curl -s -o /dev/null -w "%{http_code}" localhost:8080   # 200 (Vite 기본 페이지)
 ```
 
-- [ ] **Step 5: Commit** — `chore: Docker Compose 3서비스 골격 (api·web·db)`
+- [x] **Step 5: Commit** — `chore: Docker Compose 3서비스 골격 (api·web·db)`
 
 **완료 기준(DoD):** `docker compose up` 한 번으로 3서비스 기동, `/health` 200, 8080에서 React 기본 페이지, `.env` 미커밋.
 
@@ -341,7 +359,7 @@ curl -s -o /dev/null -w "%{http_code}" localhost:8080   # 200 (Vite 기본 페�
 **Interfaces:**
 - Produces: SQLAlchemy 모델 `Scan`, `SbomComponent`, `Finding`, `Rule` (필드는 TDD §4.3 표와 1:1). `catalog.load_rules() -> list[dict]`, `catalog.rule_catalog_version(rules_dir) -> str`(rules/ 전체 파일의 정렬된 (상대경로, sha256) 목록의 sha256 — TDD §4.5). startup에서 `Base.metadata.create_all` + Rule upsert 시드. **마이그레이션 도구는 쓰지 않는다(가정: 데모 규모 — 스키마 변경 시 `docker compose down -v`).**
 
-- [ ] **Step 1: 모델 작성** — TDD §4.3 표의 필드를 그대로 컬럼으로. 핵심만 발췌:
+- [x] **Step 1: 모델 작성** — TDD §4.3 표의 필드를 그대로 컬럼으로. 핵심만 발췌:
 
 ```python
 # api/app/models.py
@@ -423,12 +441,16 @@ class Rule(Base):
     standard_ref: Mapped[str] = mapped_column(String(64))          # 예: TTAK.KO-12.0414 §7.3.4
     secondary_ref: Mapped[str | None] = mapped_column(String(128)) # 보조 룰 2차 출처
     title: Mapped[str] = mapped_column(String(128))
-    type: Mapped[str] = mapped_column(String(8))                   # sca|static|llm
-    severity_default: Mapped[str] = mapped_column(String(8))
+    # sca|static|llm|static+llm — TDD §4.3은 3종이나 §4.5 방식 컬럼이 P2·P3·P5·P10에
+    # `static + LLM`을 요구해 4번째 값이 실재한다. String(8)이면 시드 시 절단 오류.
+    type: Mapped[str] = mapped_column(String(16))
+    severity_default: Mapped[str] = mapped_column(String(16))      # …|cvss_derived
     derivation: Mapped[str] = mapped_column(String(8))             # direct|aux (§4.5 구분 표기)
 ```
 
-- [ ] **Step 2: `rules/catalog.yaml` 작성 — 31종 전체.** 아래 표를 그대로 YAML 항목으로 옮긴다(컬럼: id, title, standard_ref, secondary_ref, type, severity_default, derivation, verdict — verdict는 `confirmed_capable`(static 단독 확신) 또는 `review_only`(LLM 경유·G3)). **이 표가 룰 구현(Task 11·12·13·15)의 단일 사양이다.**
+- [x] **Step 2: `rules/catalog.yaml` 작성 — 31종 전체.** 아래 표를 그대로 YAML 항목으로 옮긴다(컬럼: id, title, standard_ref, secondary_ref, type, severity_default, derivation, verdict, detection). **이 표가 룰 구현(Task 11·12·13·15)의 단일 사양이므로 '검출 로직 요지'도 `detection` 필드로 함께 옮긴다.**
+
+한국어 산문을 타입 가능한 값으로 정규화한다 — `verdict`는 `confirmed`(static 단독 확신) \| `review_only`(LLM 경유·G3) \| `checksum_dependent`(표의 '체크섬따름' — SEC-05), `severity_default`의 '<abbr>CVSS</abbr>따름'은 `cvss_derived`. `verdict`·`detection`은 `Rule` 모델에 컬럼이 없는 **YAML 전용 필드**이며 룰 러너가 소비한다. AUX-02·03·04의 근거 조항 '상동'은 AUX-01과 같은 `TTAK.KO-11.0259 §9.4` + `secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」`로 전개한다.
 
 | id | title | 근거 조항 | type | sev | verdict | 검출 로직 요지 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -464,7 +486,7 @@ class Rule(Base):
 | AUX-03 | CORS 와일드카드 | 상동 | static | medium | confirmed | `allow_origins=["*"]`, `Access-Control-Allow-Origin: *` |
 | AUX-04 | 안전하지 않은 역직렬화 | 상동 | static | high | confirmed | `pickle.loads`, Loader 없는 `yaml.load`, `eval`/`exec` on input |
 
-- [ ] **Step 3: 실패하는 테스트 작성** — `api/tests/test_models.py`
+- [x] **Step 3: 실패하는 테스트 작성** — `api/tests/test_models.py`
 
 ```python
 def test_catalog_loads_31_rules():
@@ -483,8 +505,8 @@ def test_rule_catalog_version_changes_with_content(tmp_path):
     assert rule_catalog_version(tmp_path) != v1
 ```
 
-- [ ] **Step 4: 실행해 실패 확인** — `cd api && pytest tests/test_models.py -v` → FAIL(모듈 없음)
-- [ ] **Step 5: `catalog.py` 구현**
+- [x] **Step 4: 실행해 실패 확인** — `cd api && pytest tests/test_models.py -v` → FAIL(모듈 없음)
+- [x] **Step 5: `catalog.py` 구현**
 
 ```python
 # api/app/engine/catalog.py
@@ -507,8 +529,8 @@ def rule_catalog_version(rules_dir=None) -> str:   # TDD §4.5: rules/ 콘텐츠
 
 `main.py` startup에 `Base.metadata.create_all(engine)` + Rule upsert 시드(카탈로그 → Rule 테이블 merge). `requirements.txt`에 `pyyaml` 추가.
 
-- [ ] **Step 6: 테스트 green 확인 + DB 기동 통합 확인** — `pytest` PASS 후 `docker compose up -d --build api` → 로그에 시드 31건, `docker compose exec db psql -U ansim -c "select count(*) from rules"` = 31
-- [ ] **Step 7: Commit** — `feat: DB 모델 4엔티티 + 룰 카탈로그 31종 시드`
+- [x] **Step 6: 테스트 green 확인 + DB 기동 통합 확인** — `pytest` PASS 후 `docker compose up -d --build api` → 로그에 시드 31건, `docker compose exec db psql -U ansim -c "select count(*) from rules"` = 31
+- [x] **Step 7: Commit** — `feat: DB 모델 4엔티티 + 룰 카탈로그 31종 시드`
 
 **완료 기준(DoD):** 4테이블 생성·rules 31행 시드, `rule_catalog_version`이 rules/ 내용 변경에 반응, 테스트 green.
 
@@ -521,12 +543,12 @@ def rule_catalog_version(rules_dir=None) -> str:   # TDD §4.5: rules/ 콘텐츠
 **선행 조건:** Task 1. (Task 2·4와 병렬 가능)
 
 **Files:**
-- Create: `api/app/engine/workspace.py`, `api/app/engine/ingest.py`, `api/tests/test_ingest.py`, `api/tests/fixtures/` (양성 zip·zip bomb 유사·traversal zip 생성 헬퍼)
+- Create: `api/app/engine/workspace.py`, `api/app/engine/ingest.py`, `api/tests/test_ingest.py` (zip은 각 테스트가 `tmp_path`에 직접 만든다 — 별도 `fixtures/` 디렉토리는 두지 않았다)
 
 **Interfaces:**
 - Produces: `scan_workspace()` 컨텍스트 매니저 — `tempfile.TemporaryDirectory` 기반, 본문 예외와 무관하게 삭제 보장, 종료 시 `purged_at` 콜백. `ingest_git(url, workdir) -> IngestResult(root: Path, commit_hash: str)` / `ingest_zip(upload_path, workdir) -> IngestResult(root, commit_hash=None)`. `ValidationError(사유)` 예외.
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 핵심 3케이스:
+- [x] **Step 1: 실패하는 테스트 작성** — 핵심 3케이스:
 
 ```python
 # api/tests/test_ingest.py
@@ -563,8 +585,8 @@ def test_zip_skips_junk_dirs(tmp_path):
         assert files == {"app/main.py"}
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pytest tests/test_ingest.py -v` → FAIL
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실행해 실패 확인** — `pytest tests/test_ingest.py -v` → FAIL
+- [x] **Step 3: 구현**
 
 ```python
 # api/app/engine/workspace.py
@@ -621,7 +643,11 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
         raise ValidationError("zip은 50MB 이하만 지원합니다")
     dst = workdir / "src"; dst.mkdir()
     total, count = 0, 0
-    with zipfile.ZipFile(upload_path) as zf:
+    try:
+        zf = zipfile.ZipFile(upload_path)
+    except zipfile.BadZipFile:
+        raise ValidationError("올바른 zip 파일이 아닙니다") from None   # G5 명확한 오류 안내
+    with zf:
         for info in zf.infolist():
             p = Path(info.filename)
             if info.is_dir(): continue
@@ -639,8 +665,8 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
     return IngestResult(root=dst, commit_hash=None)
 ```
 
-- [ ] **Step 4: 테스트 green 확인** — `pytest tests/test_ingest.py -v` → PASS 3건
-- [ ] **Step 5: Commit** — `feat: ingestion(git·zip) + 검증 + 격리 워크스페이스 finally 파기 (P0-1)`
+- [x] **Step 4: 테스트 green 확인** — `pytest tests/test_ingest.py -v` → PASS 3건
+- [x] **Step 5: Commit** — `feat: ingestion(git·zip) + 검증 + 격리 워크스페이스 finally 파기 (P0-1)`
 
 **완료 기준(DoD):** P0-1 테스트(강제 예외 → 잔존 0) green. traversal·상한·symlink·스킵 규칙 동작. git은 https 공개 repo만.
 
@@ -658,7 +684,7 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
 **Interfaces:**
 - Produces: `tree_fingerprint(root: Path) -> str` — 경로 정렬 → 파일별 sha256(텍스트는 CRLF→LF 정규화, 바이너리는 원문) → `"경로\0해시\n"` 연결의 sha256. 스킵 규칙은 ingest와 동일(SKIP_DIRS·OS_JUNK_FILES). git 입력의 지문은 `IngestResult.commit_hash`를 그대로 사용(`fingerprint_type=git_commit`), zip은 이 함수(`tree_hash`).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_fingerprint.py
@@ -681,8 +707,8 @@ def test_content_change_changes_fingerprint(tmp_path):
     assert tree_fingerprint(a) != tree_fingerprint(b)
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현**
 
 ```python
 # api/app/engine/fingerprint.py
@@ -706,8 +732,8 @@ def tree_fingerprint(root: Path) -> str:
     return hashlib.sha256("\n".join(entries).encode()).hexdigest()
 ```
 
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: 콘텐츠 지문 — zip 정규화 트리 SHA-256 (CRLF·OS 부산물 정규화)`
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: 콘텐츠 지문 — zip 정규화 트리 SHA-256 (CRLF·OS 부산물 정규화)`
 
 **완료 기준(DoD):** CRLF/LF·`.DS_Store` 차이가 지문을 바꾸지 않고, 내용 변경은 바꾼다.
 
@@ -726,7 +752,7 @@ def tree_fingerprint(root: Path) -> str:
 **Interfaces:**
 - Produces: `POST /api/scans` — JSON `{git_url}` 또는 multipart `file=zip` → `202 {"scan_id": "..."}`. `GET /api/scans/{id}` → `{"status","current_stage","grade","error_message","previous_comparison":null}`(비교는 Task 21이 채움). `pipeline.run_scan(scan_id)` — async, BackgroundTasks로 실행. **스테이지 순서와 §11 매핑(이후 태스크가 각 스테이지를 채운다):** `환경분석`(ingest+지문, §11.1) → `현황진단`(deps+SBOM, §11.2) → `위험분석`(OSV+KISA+룰+LLM+등급, §11.3) → `대책수립`(리포트, §11.4) → `완료`. 재진단 연결(§11.5)은 Task 21.
 
-- [ ] **Step 0: 공용 테스트 픽스처 작성 (`api/tests/conftest.py`)**
+- [x] **Step 0: 공용 테스트 픽스처 작성 (`api/tests/conftest.py`)**
 
 ```python
 import io, zipfile, pytest, pytest_asyncio
@@ -748,7 +774,7 @@ def small_zip():
 
 (DB는 compose의 postgres 사용 — `DATABASE_URL`로 테스트 DB `ansim_test`를 가리키고 세션 시작/종료에 create_all/drop_all. 이후 모든 API 테스트가 이 두 픽스처를 쓴다.)
 
-- [ ] **Step 1: 실패하는 테스트 작성** — httpx `ASGITransport` + 로컬 fixture git repo:
+- [x] **Step 1: 실패하는 테스트 작성** — httpx `ASGITransport` + 로컬 fixture git repo:
 
 ```python
 # api/tests/test_scan_api.py
@@ -771,9 +797,9 @@ async def test_scan_lifecycle_zip(client, small_zip):   # conftest: client·smal
     r = await client.post("/api/scans", files={"file": ("a.zip", small_zip, "application/zip")})
     assert r.status_code == 202
     sid = r.json()["scan_id"]
-    # BackgroundTasks는 테스트에서 직접 await
-    from app.engine.pipeline import run_scan
-    await run_scan(sid)
+    # ASGITransport는 응답을 돌려준 뒤 BackgroundTasks를 그 자리에서 실행한다 —
+    # POST가 반환된 시점에 run_scan은 이미 끝나 있다(직접 await하면 이중 실행).
+    # 실패 경로를 보려면 POST **전에** monkeypatch를 건다.
     s = (await client.get(f"/api/scans/{sid}")).json()
     assert s["status"] in ("done", "failed")
     assert s["status"] != "running"            # G12: 영원히 running 없음
@@ -785,8 +811,8 @@ async def test_pipeline_failure_sets_failed(client, monkeypatch):
     # zip 접수 후 run_scan → status=failed, error_message 기록, purged_at 존재
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — 오케스트레이터 뼈대(각 stage 함수는 아직 지문·접수만 수행, 이후 태스크가 확장):
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — 오케스트레이터 뼈대(각 stage 함수는 아직 지문·접수만 수행, 이후 태스크가 확장):
 
 ```python
 # api/app/engine/pipeline.py — 뼈대
@@ -823,18 +849,19 @@ async def run_scan(scan_id):
         logging.exception("scan failed")
         _set(db, scan, status="failed", error_message=str(e)[:500])   # G12
     finally:
+        purge_upload(scan_id)   # G1: 워크스페이스 밖의 업로드 원본도 무조건 파기
         db.close()
 
-def _ingest(scan, ws):
+def stage_ingest(scan, ws):   # 이름은 테스트의 monkeypatch 대상과 일치해야 한다
     if scan.source_type == "git":
         return ing.ingest_git(scan.source_ref, ws)
-    return ing.ingest_zip(ws / "upload.zip", ws)   # 라우트가 업로드를 ws에 저장? → 아래 주의
+    return ing.ingest_zip(upload_path(scan.id), ws)
 ```
 
-**주의(설계 확정):** zip 업로드 파일은 라우트에서 `settings`의 업로드 보관 디렉토리(`/tmp/ansim-uploads/{scan_id}.zip`)에 저장하고 파이프라인이 읽은 뒤 **finally에서 업로드 원본도 함께 삭제**한다(원본 코드 파기 대상에 포함 — G1). `routes/scans.py`는 202 즉시 반환 + `background_tasks.add_task(run_scan, scan.id)`.
+**주의(설계 확정):** zip 업로드 파일은 라우트에서 `settings.upload_dir`(`/tmp/ansim-uploads/{scan_id}.zip`)에 저장한다. 이 경로는 `scan_workspace` **밖**이라 `TemporaryDirectory.cleanup()`이 닿지 않으므로, 파이프라인의 최외곽 `finally`에서 `purge_upload(scan_id)`로 직접 지우고(G1) 기동 시 `purge_orphan_uploads()`로 이전 프로세스의 잔존분도 정리한다. `routes/scans.py`는 202 즉시 반환 + `background_tasks.add_task(run_scan, scan.id)`이며, git URL(JSON)과 zip(multipart)이 한 경로에 오므로 content-type으로 직접 분기한다.
 
-- [ ] **Step 4: 테스트 green 확인** — 성공 경로 done, 강제 실패 경로 failed+purged_at → PASS
-- [ ] **Step 5: 통합 스모크** — `docker compose up -d --build` 후:
+- [x] **Step 4: 테스트 green 확인** — 성공 경로 done, 강제 실패 경로 failed+purged_at → PASS
+- [x] **Step 5: 통합 스모크** — `docker compose up -d --build` 후:
 
 ```bash
 curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
@@ -843,7 +870,7 @@ curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
 
 폴링으로 `환경분석→완료` 전이 확인.
 
-- [ ] **Step 6: Commit** — `feat: 스캔 API + BackgroundTasks 파이프라인 골격 (§11 단계·failed 확정)`
+- [x] **Step 6: Commit** — `feat: 스캔 API + BackgroundTasks 파이프라인 골격 (§11 단계·failed 확정)`
 
 **완료 기준(DoD):** M1 게이트 전체 — git·zip 접수, 지문·룰버전 기록, 예외 시 failed + purged_at, 폴링 동작.
 
