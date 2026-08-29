@@ -890,7 +890,7 @@ curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
 **Interfaces:**
 - Produces: 공용 자료형 `Dependency(ecosystem: "pypi"|"npm", name, version: str|None, declared_in: str, is_pinned: bool, integrity: str|None, relationship: "direct"|"transitive", registry_source: bool, vendored_path: str|None)` — `api/app/engine/deps_types.py`에 dataclass로 정의(이후 모든 태스크가 사용). `parse_python_deps(root) -> list[Dependency]` — `requirements.txt`(pip-requirements-parser), `pyproject.toml`(stdlib `tomllib`: `[project.dependencies]`·poetry `[tool.poetry.dependencies]`), lock(`poetry.lock`·`uv.lock`)을 읽고 lock 항목은 transitive로 병합. `extract_python_imports(root) -> set[str]` — `ast.parse` 실패 파일은 건너뜀, 상대 import·로컬 모듈(루트에 동명 디렉토리/파일 존재)·stdlib(`sys.stdlib_module_names`) 제외.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_deps_python.py
@@ -910,8 +910,8 @@ def test_import_extraction_excludes_stdlib_and_local(tmp_path):
     assert extract_python_imports(tmp_path) == {"requests", "PIL"}
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — `imports_py.py` 핵심:
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — `imports_py.py` 핵심:
 
 ```python
 # api/app/engine/imports_py.py
@@ -938,8 +938,8 @@ def extract_python_imports(root: Path) -> set[str]:
 
 `deps_python.py`는 pip-requirements-parser(`RequirementsFile.from_file(..., include_nested=True)`)로 requirements 계열, `tomllib`로 pyproject, lock은 toml 파싱으로 name/version/hash 추출. **어떤 경우에도 setup.py를 실행하지 않는다(G7) — setup.py만 있는 저장소는 "의존성 선언 파싱 불가" 마커를 남긴다(SCA-09·11 판단 입력).**
 
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: Python 의존성 파서 + ast import 추출`
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: Python 의존성 파서 + ast import 추출`
 
 **완료 기준(DoD):** requirements/pyproject/lock 3계열 파싱, is_pinned·declared_in 정확, import 추출이 stdlib·로컬 제외.
 
