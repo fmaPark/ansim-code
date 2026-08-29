@@ -543,12 +543,12 @@ def rule_catalog_version(rules_dir=None) -> str:   # TDD §4.5: rules/ 콘텐츠
 **선행 조건:** Task 1. (Task 2·4와 병렬 가능)
 
 **Files:**
-- Create: `api/app/engine/workspace.py`, `api/app/engine/ingest.py`, `api/tests/test_ingest.py`, `api/tests/fixtures/` (양성 zip·zip bomb 유사·traversal zip 생성 헬퍼)
+- Create: `api/app/engine/workspace.py`, `api/app/engine/ingest.py`, `api/tests/test_ingest.py` (zip은 각 테스트가 `tmp_path`에 직접 만든다 — 별도 `fixtures/` 디렉토리는 두지 않았다)
 
 **Interfaces:**
 - Produces: `scan_workspace()` 컨텍스트 매니저 — `tempfile.TemporaryDirectory` 기반, 본문 예외와 무관하게 삭제 보장, 종료 시 `purged_at` 콜백. `ingest_git(url, workdir) -> IngestResult(root: Path, commit_hash: str)` / `ingest_zip(upload_path, workdir) -> IngestResult(root, commit_hash=None)`. `ValidationError(사유)` 예외.
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 핵심 3케이스:
+- [x] **Step 1: 실패하는 테스트 작성** — 핵심 3케이스:
 
 ```python
 # api/tests/test_ingest.py
@@ -585,8 +585,8 @@ def test_zip_skips_junk_dirs(tmp_path):
         assert files == {"app/main.py"}
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pytest tests/test_ingest.py -v` → FAIL
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실행해 실패 확인** — `pytest tests/test_ingest.py -v` → FAIL
+- [x] **Step 3: 구현**
 
 ```python
 # api/app/engine/workspace.py
@@ -643,7 +643,11 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
         raise ValidationError("zip은 50MB 이하만 지원합니다")
     dst = workdir / "src"; dst.mkdir()
     total, count = 0, 0
-    with zipfile.ZipFile(upload_path) as zf:
+    try:
+        zf = zipfile.ZipFile(upload_path)
+    except zipfile.BadZipFile:
+        raise ValidationError("올바른 zip 파일이 아닙니다") from None   # G5 명확한 오류 안내
+    with zf:
         for info in zf.infolist():
             p = Path(info.filename)
             if info.is_dir(): continue
@@ -661,8 +665,8 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
     return IngestResult(root=dst, commit_hash=None)
 ```
 
-- [ ] **Step 4: 테스트 green 확인** — `pytest tests/test_ingest.py -v` → PASS 3건
-- [ ] **Step 5: Commit** — `feat: ingestion(git·zip) + 검증 + 격리 워크스페이스 finally 파기 (P0-1)`
+- [x] **Step 4: 테스트 green 확인** — `pytest tests/test_ingest.py -v` → PASS 3건
+- [x] **Step 5: Commit** — `feat: ingestion(git·zip) + 검증 + 격리 워크스페이스 finally 파기 (P0-1)`
 
 **완료 기준(DoD):** P0-1 테스트(강제 예외 → 잔존 0) green. traversal·상한·symlink·스킵 규칙 동작. git은 https 공개 repo만.
 
