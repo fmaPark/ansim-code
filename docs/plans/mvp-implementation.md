@@ -684,7 +684,7 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
 **Interfaces:**
 - Produces: `tree_fingerprint(root: Path) -> str` — 경로 정렬 → 파일별 sha256(텍스트는 CRLF→LF 정규화, 바이너리는 원문) → `"경로\0해시\n"` 연결의 sha256. 스킵 규칙은 ingest와 동일(SKIP_DIRS·OS_JUNK_FILES). git 입력의 지문은 `IngestResult.commit_hash`를 그대로 사용(`fingerprint_type=git_commit`), zip은 이 함수(`tree_hash`).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_fingerprint.py
@@ -707,8 +707,8 @@ def test_content_change_changes_fingerprint(tmp_path):
     assert tree_fingerprint(a) != tree_fingerprint(b)
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현**
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현**
 
 ```python
 # api/app/engine/fingerprint.py
@@ -732,8 +732,8 @@ def tree_fingerprint(root: Path) -> str:
     return hashlib.sha256("\n".join(entries).encode()).hexdigest()
 ```
 
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: 콘텐츠 지문 — zip 정규화 트리 SHA-256 (CRLF·OS 부산물 정규화)`
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: 콘텐츠 지문 — zip 정규화 트리 SHA-256 (CRLF·OS 부산물 정규화)`
 
 **완료 기준(DoD):** CRLF/LF·`.DS_Store` 차이가 지문을 바꾸지 않고, 내용 변경은 바꾼다.
 
