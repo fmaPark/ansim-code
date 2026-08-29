@@ -1673,9 +1673,11 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
   6대 원칙 매핑은 위 값으로 확정(0414 §7.3.1 — 미커버 축은 note로 체크리스트 안내, TDD §3 "조직·물리 조치는 체크리스트 안내"와 정합). easy 모드: grade·disclaimer·easy_description 목록·"검토 필요 n건"만.
 - `GET /api/scans/{id}/report?mode=easy` — done 이전엔 409.
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 단언: 모든 finding에 standard_ref 존재(조항 인용 리포트), confirmed 0 & review_needed >0 스캔 → grade 안심 + `review_needed_count` 병기, incomplete=True → provenance 플래그, `copy_all_fix_prompts`가 전체 fix_prompt 연결.
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green → 파이프라인 연결**
-- [ ] **Step 3: Commit** — `feat: 이중 리포트 조립 (조항 인용·6대 원칙 축·상향 블록·복사 데이터)`
+- [x] **Step 1: 실패하는 테스트 작성** — 단언: 모든 finding에 standard_ref 존재(조항 인용 리포트), confirmed 0 & review_needed >0 스캔 → grade 안심 + `review_needed_count` 병기, incomplete=True → provenance 플래그, `copy_all_fix_prompts`가 전체 fix_prompt 연결.
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green → 파이프라인 연결**
+- [x] **Step 3: Commit** — `feat: 이중 리포트 조립 (조항 인용·6대 원칙 축·상향 블록·복사 데이터)`
+
+**구현 주석(계약 보완, 키 개명 없음):** `easy` 모드 응답은 `{grade, disclaimer, easy_descriptions, review_needed_count}` 4키로 확정했다(계획이 "grade·disclaimer·easy_description 목록·검토 필요 n건"으로 서술만 하고 키를 못박지 않은 부분). `supply_chain.matrix`는 계약대로 `{"위험요인": [...], "component_count"}`를 제공하되, 구현된 `matrix_0322()`의 상세(`standard_ref`·`risk_factors` 건수)를 같은 객체에 **추가 키로 보존**한다 — 계약 키 삭제·개명은 없다. `report_json`은 파이프라인 스크래치 키(`parse_markers`·`osv_incomplete`·`matrix_0322`)를 보존하는 **병합 저장**이다(`/sbom`이 `parse_markers`를 읽는다).
 
 **완료 기준(DoD):** dev/easy 리포트가 위 JSON 계약대로 저장·조회, 발견마다 조항 인용 존재.
 

@@ -192,16 +192,26 @@ def stage_grade(db, scan, cve_rows: list[dict]) -> GradeResult:
     return result
 
 
-async def stage_report(db, scan, registry) -> None:
-    """§11.4 대책 수립 — 쉬운 한국어·수정 프롬프트 생성 (Task 18).
+async def stage_report(db, scan, registry, grade_result=None) -> None:
+    """§11.4 대책 수립 — 변환(Task 18) + 이중 리포트 조립(Task 19).
 
     원본 코드가 아니라 DB에 확정된 Finding 행만 쓰므로 워크스페이스 파기 이후에 돈다(G1).
     """
     from app.llm.convert import generate_texts   # 순환 import 회피(convert가 analysis를 쓴다)
+    from app.report.builder import build_reports
 
     findings = db.query(Finding).filter(Finding.scan_id == scan.id).order_by(Finding.id).all()
     await generate_texts(scan, findings, registry=registry)
     db.commit()
+
+    components = (db.query(SbomComponent).filter(SbomComponent.scan_id == scan.id)
+                  .order_by(SbomComponent.id).all())
+    scratch = dict(scan.report_json or {})        # parse_markers·osv_incomplete·matrix_0322
+    dev, easy = build_reports(scan, findings, [component_row(c) for c in components],
+                              scratch.get("matrix_0322"), scratch.get("osv_incomplete", False),
+                              grade_result=grade_result)
+    # 기존 스크래치 키를 보존한 채 병합한다 — /sbom이 parse_markers를 읽는다.
+    _set(db, scan, report_json={**scratch, **dev}, easy_report_json=easy)
     log.info("대책 수립", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
 
 
@@ -237,9 +247,9 @@ async def run_scan(scan_id):
                     await analysis.run_llm_stage(scan, drafts, res.root, registry)
                     analysis.persist_findings(db, scan.id, drafts)
                     # 등급 결정론 — static confirmed + CVE만 (Task 17, P0-3)
-                    stage_grade(db, scan, cve_rows_from_osv(osv_result))
+                    grade_result = stage_grade(db, scan, cve_rows_from_osv(osv_result))
                 _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
-                await stage_report(db, scan, registry)
+                await stage_report(db, scan, registry, grade_result)
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:
             # TimeoutError처럼 str(e)가 빈 예외가 있어 타입명을 함께 남긴다.
