@@ -9,13 +9,11 @@
 
 ## 문서 구성
 
-| 장 | 제목 | 원본 쪽수 | 문서 |
-|---|---|---|---|
-| 제1장 | 개요 | 8–11 | [01-overview.md](01-overview.md) |
-| 제2장 | 소프트웨어 개발보안 | 12–31 | [02-sw-development-security.md](02-sw-development-security.md) |
-| 제3장 | 분석·설계단계 보안강화 활동 | 32–135 | [03-analysis-design-phase.md](03-analysis-design-phase.md) |
-| 제4장 | 구현단계 시큐어코딩 가이드 | 136–340 | [04-implementation-secure-coding.md](04-implementation-secure-coding.md) |
-| 제5장 | 부록 | 341–375 | [05-appendix.md](05-appendix.md) |
+* [제1장 개요](01-overview.md) - 원문 8~11쪽. SW개발보안의 배경과 이 가이드의 목적·대상·범위·구성.
+* [제2장 소프트웨어 개발보안](02-sw-development-security.md) - 원문 12~31쪽. 개발보안 의무화 대상·범위·진단기준, 활동 주체별 역할, SDLC와 개발보안 방법론, 직무별 보안활동.
+* [제3장 분석·설계단계 보안강화 활동](03-analysis-design-phase.md) - 원문 32~135쪽. 설계단계 보안설계 기준 20개 항목(SR1-1 ~ SR4-1)의 취약점 개요·설계 시 고려사항·연관 구현단계 보안약점·사고사례.
+* [제4장 구현단계 시큐어코딩 가이드](04-implementation-secure-coding.md) - 원문 136~340쪽. 구현단계 보안약점 제거 기준 49개 항목의 개요·보안대책과 언어별 코드예제.
+* [제5장 부록](05-appendix.md) - 원문 341~375쪽. 보안설계 기준·보안약점 제거 기준 원문, 적용계획서·산출물 예시, 용어정리.
 
 ## 제·개정 이력(Revision History)
 

@@ -4,6 +4,8 @@
 
 ## 2026-08-29
 
+* **Creation**: `references/sw-dev-security-guide-2021/` — 행정안전부·한국인터넷진흥원 「소프트웨어 개발보안 가이드」(2021.11., 376쪽) 원문 전체의 장 단위 마크다운 변환본 5건 + 색인. 설계단계 보안설계 기준 20개(SR1-1 ~ SR4-1)와 구현단계 보안약점 제거 기준 49개의 원문 기준이다.
+* **Update**: `references/index.md` — 「TTA 정보통신단체표준」과 「정부 발간 가이드」로 수록 문서를 두 갈래로 나누고 개발보안 가이드를 등재.
 * **Update**: OKF v0.2 번들 구조 도입 — 8개 문서에 frontmatter(`type`·`sources`·`generated`·`status`) 추가, 루트 `index.md` 신설, `references/README.md` → `references/index.md` 개명.
 * **Creation**: `references/clause-index.md` — 설계 문서가 인용하는 TTA 표준 조항 44건의 원문 위치 색인.
 * **Creation**: `log.md` — 이 파일.
