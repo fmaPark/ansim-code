@@ -1,3 +1,15 @@
 .DS_Store
 
 logs/
+
+# 시크릿 — ANTHROPIC_API_KEY는 .env로만 주입한다 (TDD §8)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+web/dist/

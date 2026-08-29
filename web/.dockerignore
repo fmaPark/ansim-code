@@ -1,0 +1,3 @@
+# 호스트(darwin-arm64)의 네이티브 바이너리가 npm ci 결과를 덮어쓰면 리눅스 빌드가 깨진다.
+node_modules
+dist

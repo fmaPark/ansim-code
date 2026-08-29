@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ansim, POSTGRES_PASSWORD: ansim, POSTGRES_DB: ansim }
+    volumes: [ pgdata:/var/lib/postgresql/data ]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ansim"], interval: 3s, retries: 20 }
+  api:
+    build: { context: ., dockerfile: api/Dockerfile }
+    env_file: .env
+    environment: { DATABASE_URL: "postgresql+psycopg://ansim:ansim@db:5432/ansim" }
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["8000:8000"]          # 개발 편의 (데모 진입점은 8080)
+  web:
+    build: ./web
+    depends_on: [ api ]
+    ports: ["${WEB_PORT:-8080}:80"]   # 데모 진입점은 8080 — 로컬에서 점유 시 WEB_PORT로만 덮어쓴다
+volumes: { pgdata: {} }

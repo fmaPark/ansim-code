@@ -179,7 +179,7 @@ ansim-code/
 **Interfaces:**
 - Produces: `GET /health` → `{"status":"ok"}`. 브라우저 진입점 `http://localhost:8080`(nginx), `/api/*`는 api:8000 프록시. `app.config.settings`(pydantic-settings)에 이후 태스크의 모든 상수가 추가된다.
 
-- [ ] **Step 1: api 스캐폴드 작성**
+- [x] **Step 1: api 스캐폴드 작성**
 
 `api/requirements.txt`:
 ```
@@ -207,9 +207,10 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
 WORKDIR /srv
-COPY requirements.txt .
+# 빌드 컨텍스트가 저장소 루트이므로 api/ 접두사가 필요하다
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
+COPY api/app ./app
 COPY rules /srv/rules
 COPY data /srv/data
 # uvicorn 단일 워커 고정 (TDD §4.1 — BackgroundTasks in-process 전제)
@@ -243,13 +244,28 @@ OS_JUNK_FILES = {".DS_Store", "Thumbs.db"}
 
 `api/app/main.py` (골격 — DB 연결은 Task 2에서 추가):
 ```python
-import logging, json, sys
+import json, logging, sys
 from fastapi import FastAPI
 
-def setup_json_logging():  # TDD §10 구조화 JSON 로그
+# LogRecord가 항상 채우는 속성 — 나머지는 호출부가 extra=로 실은 값이다.
+_RESERVED = frozenset(
+    logging.LogRecord(name="", level=0, pathname="", lineno=0, msg="", args=None, exc_info=None).__dict__
+) | {"message", "asctime", "taskName"}
+
+class JsonFormatter(logging.Formatter):
+    """TDD §10 구조화 JSON 로그 — 스캔 단계·소요 시간·외부 API 상태를 extra= 필드로 싣는다."""
+    def format(self, record):
+        payload = {"ts": self.formatTime(record), "lvl": record.levelname,
+                   "logger": record.name, "msg": record.getMessage()}
+        payload.update({k: v for k, v in record.__dict__.items() if k not in _RESERVED})
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+def setup_json_logging():
     h = logging.StreamHandler(sys.stdout)
-    h.setFormatter(logging.Formatter('{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":%(message)r}'))
-    logging.basicConfig(level=logging.INFO, handlers=[h])
+    h.setFormatter(JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[h], force=True)
 
 setup_json_logging()
 app = FastAPI(title="AnsimCode API")
@@ -259,7 +275,7 @@ def health():
     return {"status": "ok"}
 ```
 
-- [ ] **Step 2: web 스캐폴드 + nginx**
+- [x] **Step 2: web 스캐폴드 + nginx**
 
 ```bash
 npm create vite@latest web -- --template react-ts && cd web && npm i react-router-dom
@@ -288,7 +304,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 ```
 
-- [ ] **Step 3: docker-compose.yml 작성**
+`web/.dockerignore`에 `node_modules`·`dist`를 넣는다 — 없으면 `COPY . .`가 호스트(darwin-arm64)의 네이티브 바이너리를 `npm ci` 결과 위에 덮어써 리눅스 빌드가 깨진다. 저장소 루트에도 `.dockerignore`를 두어 api 빌드 컨텍스트(=루트)에서 `web/`·`docs/`·`.env`를 제외한다.
+
+- [x] **Step 3: docker-compose.yml 작성**
 
 ```yaml
 services:
@@ -306,15 +324,15 @@ services:
   web:
     build: ./web
     depends_on: [ api ]
-    ports: ["8080:80"]
+    ports: ["${WEB_PORT:-8080}:80"]   # 데모 진입점은 8080 — 로컬 포트 점유 시 WEB_PORT로만 덮어쓴다
 volumes: { pgdata: {} }
 ```
 
-`.env.example`: `ANTHROPIC_API_KEY=sk-ant-...` 한 줄. `.gitignore`에 `.env` 확인(이미 있음).
+`.env.example`: `ANTHROPIC_API_KEY=sk-ant-...` 한 줄. **`.gitignore`에 `.env`가 없으므로 추가한다**(기존 내용은 `.DS_Store`·`logs/`뿐) — 함께 `__pycache__/`·`*.pyc`·`.pytest_cache/`·`node_modules/`·`web/dist/`도 넣는다.
 
 주의: api 빌드 컨텍스트가 저장소 루트(`context: .`)인 이유는 `rules/`·`data/`를 이미지에 동봉(TDD §4.6 KISA 스냅샷 동봉)하기 위해서다. `data/kisa/`·`rules/`는 이 시점에 빈 `.gitkeep`으로 생성한다.
 
-- [ ] **Step 4: 기동 검증**
+- [x] **Step 4: 기동 검증**
 
 ```bash
 cp .env.example .env   # 키는 나중에 채워도 기동은 됨
@@ -323,7 +341,7 @@ curl -s localhost:8000/health   # {"status":"ok"}
 curl -s -o /dev/null -w "%{http_code}" localhost:8080   # 200 (Vite 기본 페이지)
 ```
 
-- [ ] **Step 5: Commit** — `chore: Docker Compose 3서비스 골격 (api·web·db)`
+- [x] **Step 5: Commit** — `chore: Docker Compose 3서비스 골격 (api·web·db)`
 
 **완료 기준(DoD):** `docker compose up` 한 번으로 3서비스 기동, `/health` 200, 8080에서 React 기본 페이지, `.env` 미커밋.
 
