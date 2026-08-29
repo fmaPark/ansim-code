@@ -115,6 +115,21 @@ def _module_root(spec: str) -> str | None:
     return None if name in NODE_BUILTINS else name
 
 
+def match_line(root: Path, hit: RawFinding, cache: dict[str, list[str]]) -> str:
+    """매치된 파일·줄을 직접 읽어 원문 한 줄을 돌려준다 — `extra.lines`가 가려지는 우회로.
+
+    파일 단위 캐시를 호출자가 넘겨 같은 파일을 반복해서 읽지 않게 한다.
+    """
+    lines = cache.get(hit.path)
+    if lines is None:
+        try:
+            lines = (root / hit.path).read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            lines = []
+        cache[hit.path] = lines
+    return lines[hit.line - 1] if 1 <= hit.line <= len(lines) else ""
+
+
 def extract_js_imports(root: Path) -> set[str]:
     """js-imports 수집 룰의 매치 위치에서 모듈 문자열을 읽어 패키지 이름 집합을 만든다."""
     root = Path(root)
@@ -123,17 +138,57 @@ def extract_js_imports(root: Path) -> set[str]:
     for hit in run_semgrep(root, [str(js_imports_rule_path())]):
         if hit.check_id != "ansim-js-import-collect":
             continue
-        lines = cache.get(hit.path)
-        if lines is None:
-            try:
-                lines = (root / hit.path).read_text(encoding="utf-8", errors="ignore").splitlines()
-            except OSError:
-                lines = []
-            cache[hit.path] = lines
-        if not 1 <= hit.line <= len(lines):
-            continue
-        for spec in _MODULE_RE.findall(lines[hit.line - 1]):
+        for spec in _MODULE_RE.findall(match_line(root, hit, cache)):
             name = _module_root(spec)
             if name:
                 modules.add(name)
     return modules
+
+
+# ── 개인정보·보조 룰 계층 (Task 15) ───────────────────────────────────────────
+#
+# Task 11 러너를 그대로 쓰되, 카탈로그 rule_id(metadata.ansim_rule)와 증거 원문을
+# 채운 SemgrepHit으로 한 겹 감싼다. 증거는 위 주의사항대로 파일에서 직접 읽는다.
+
+ANSIM_RULE_FILES = ("privacy.yaml", "aux-security.yaml")
+
+
+@dataclass(frozen=True)
+class SemgrepHit:
+    ansim_rule: str       # 카탈로그 rule_id (metadata.ansim_rule)
+    semgrep_id: str
+    file: str
+    line: int
+    message: str
+    evidence: str         # 매칭 라인 원문 — 저장 전 반드시 마스킹(G2)
+
+
+def rules_path() -> Path:
+    return Path(settings.rules_dir) / "semgrep"
+
+
+def ansim_rule_paths() -> list[str]:
+    return [str(rules_path() / name) for name in ANSIM_RULE_FILES]
+
+
+def run_ansim_semgrep(root: Path, config_paths: list[str] | None = None) -> list[SemgrepHit]:
+    """개인정보(P2·P3·P6)·보조(AUX-01~04) 룰 실행 → SemgrepHit.
+
+    `metadata.ansim_rule`이 없는 결과는 자체 룰이 아니므로 버린다(G13 방어).
+    """
+    root = Path(root)
+    cache: dict[str, list[str]] = {}
+    hits = []
+    for raw in run_semgrep(root, config_paths or ansim_rule_paths()):
+        ansim = (raw.metadata or {}).get("ansim_rule")
+        if not ansim:
+            continue
+        hits.append(SemgrepHit(
+            ansim_rule=str(ansim),
+            semgrep_id=raw.check_id,
+            file=raw.path,
+            line=raw.line,
+            message=raw.message,
+            evidence=match_line(root, raw, cache),
+        ))
+    return hits

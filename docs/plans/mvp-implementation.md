@@ -1230,7 +1230,7 @@ def test_unpinned_without_lock():                  # SCA-11
 **Interfaces:**
 - Produces: `run_gitleaks(root) -> list[RawSecret(rule_id, file, line, secret_value, match)]` — `gitleaks detect --no-git -s {root} -c /srv/rules/gitleaks/ansim.toml -f json -r {out}` subprocess(exit 0=무발견, 1=발견 — 둘 다 정상, 그 외 예외). gitleaks RuleID → 안심코드 rule_id 매핑(`aws-access-token`→SEC-04, `ansim-comment-secret`→SEC-02, `ansim-envfile`→SEC-03, 기본 룰 나머지→SEC-01, `ansim-krn-rrn`·`ansim-kr-phone`·`ansim-kr-account`→SEC-05). `secret_value`는 마스킹(Task 14) 전까지 메모리에만 존재 — **DB·로그 기록 금지(G2)**.
 
-- [ ] **Step 1: `rules/gitleaks/ansim.toml` 작성**
+- [x] **Step 1: `rules/gitleaks/ansim.toml` 작성**
 
 ```toml
 title = "AnsimCode secret rules"
@@ -1269,7 +1269,7 @@ regexes = ['''your[-_]?api[-_]?key''', '''changeme''', '''sk-test-''', '''exampl
 paths = ['''(^|/)docs?/''', '''README''', '''(^|/)tests?/fixtures/''']
 ```
 
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 2: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_gitleaks.py
@@ -1290,8 +1290,8 @@ def test_comment_secret_detected(tmp_path):
 
 주의: AKIA 예시가 allowlist의 `example` 정규식과 충돌하지 않도록 allowlist 정규식은 **소문자 한정**(`(?i)` 미사용)으로 확정 — 충돌 시 테스트가 잡는다.
 
-- [ ] **Step 3: 실행해 실패 확인 → 러너 구현 → green** — 로컬에 gitleaks가 없으면 이 테스트는 `pytest.mark.skipif(shutil.which("gitleaks") is None)`로 표시하고 `docker compose run --rm api pytest tests/test_gitleaks.py`로 검증(이미지에 바이너리 동봉 — Task 1).
-- [ ] **Step 4: Commit** — `feat: gitleaks 통합 + 시크릿 룰 5종 + 플레이스홀더 allowlist`
+- [x] **Step 3: 실행해 실패 확인 → 러너 구현 → green** — 로컬에 gitleaks가 없으면 이 테스트는 `pytest.mark.skipif(shutil.which("gitleaks") is None)`로 표시하고 `docker compose run --rm api pytest tests/test_gitleaks.py`로 검증(이미지에 바이너리 동봉 — Task 1). *(실행 세션: 샌드박스에 gitleaks 바이너리 설치 불가 — 실바이너리 2케이스는 skipif, subprocess 경계 스텁으로 명령 규약·exit 코드·파싱·매핑 5케이스 green. docker 이미지 안 재검증 필요)*
+- [x] **Step 4: Commit** — `feat: gitleaks 통합 + 시크릿 룰 5종 + 플레이스홀더 allowlist`
 
 **완료 기준(DoD):** 양성 2건 탐지·플레이스홀더 0건, exit 0/1 모두 정상 처리, secret_value가 로그에 남지 않음.
 
@@ -1309,7 +1309,7 @@ def test_comment_secret_detected(tmp_path):
 **Interfaces:**
 - Produces: `validate_rrn(candidate: str) -> bool` — 가중치 (2,3,4,5,6,7,8,9,2,3,4,5) → 합 mod 11 → (11−나머지) mod 10 == 검증번호. `classify_secret(raw: RawSecret) -> FindingDraft` — SEC-05 주민번호: **체크섬 유효→`confirmed` / 13자리 패턴+무효→`review_needed`("주민등록번호 형식 값, 검증 불가" — 2020-10 이후 발급분 미적용 사유)**. 휴대전화·계좌번호→`review_needed`(Task 2 표 가정). 그 외 SEC-01~04→`confirmed`. evidence는 이 시점부터 마스킹본만(Task 14의 `mask_value` 사용).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_pii.py
@@ -1340,7 +1340,7 @@ def test_classification_split():          # TDD §9 P0아님·Unit 요구
 
 (무효 케이스 합성이 우연히 유효가 되지 않도록 `bad != rrn` 방식 사용 — 위 코드처럼 검증번호 +1 mod 10이면 항상 무효.)
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green**
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green**
 
 ```python
 # api/app/engine/pii.py
@@ -1354,7 +1354,7 @@ def validate_rrn(candidate: str) -> bool:
     return (11 - s % 11) % 10 == int(digits[12])
 ```
 
-- [ ] **Step 3: Commit** — `feat: 주민번호 체크섬 검증 + confirmed/review_needed 분기`
+- [x] **Step 3: Commit** — `feat: 주민번호 체크섬 검증 + confirmed/review_needed 분기` *(실행 세션: FindingDraft 공용 dataclass는 `api/app/engine/findings.py`로 분리 — pii·repo_checks·semgrep·judge가 공유)*
 
 **완료 기준(DoD):** 유효→confirmed·무효→review_needed 테스트 green(§9 Unit 요구 충족). 판정 기본값이 상수 1곳(`RRN_INVALID_STATUS = "review_needed"`)이어서 기획 확정 시 1줄 변경.
 
@@ -1372,7 +1372,7 @@ def validate_rrn(candidate: str) -> bool:
 **Interfaces:**
 - Produces: `mask_value(text: str, secrets: list[str]) -> str` — 등장 시크릿을 `****`로 치환(4자 미만 시크릿은 전체 치환, 긴 것부터 치환해 부분 겹침 방지). `MaskRegistry` — 스캔 단위로 검출 시크릿 원문을 수집(메모리 전용), `registry.mask(text)` 제공. **적용 지점 2곳:** ① Finding.evidence 저장 직전(모든 룰), ② LLM 페이로드 조립 직후·전송 직전(Task 16 client가 강제 호출 — 2차 패스). **시크릿 룰(SEC-*) finding은 LLM 후보 목록에서 원천 제외**(pipeline 필터).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성** *(실행 세션: pipeline_result·pipeline_with_llm_stub 픽스처는 DB 없이 돌도록 `engine/analysis.py`의 `run_static_stage`·`llm_candidates`를 직접 구동하는 형태로 구현 — gitleaks subprocess 스텁)*
 
 ```python
 # api/tests/test_masking.py
@@ -1399,8 +1399,8 @@ def test_secret_rules_never_reach_llm(pipeline_with_llm_stub):
     assert not any(r.startswith("SEC-") for r in sent_rule_ids)   # G2 미경유
 ```
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — `MaskRegistry.mask`는 `sorted(secrets, key=len, reverse=True)` 순회 치환. 파이프라인: gitleaks 결과의 secret_value 전부 registry에 등록 → finding 생성 시 evidence는 `registry.mask(원본 라인)`.
-- [ ] **Step 3: Commit** — `feat: 시크릿 마스킹 레지스트리 + 저장·LLM 이중 패스 (P0-2)`
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green** — `MaskRegistry.mask`는 `sorted(secrets, key=len, reverse=True)` 순회 치환. 파이프라인: gitleaks 결과의 secret_value 전부 registry에 등록 → finding 생성 시 evidence는 `registry.mask(원본 라인)`.
+- [x] **Step 3: Commit** — `feat: 시크릿 마스킹 레지스트리 + 저장·LLM 이중 패스 (P0-2)`
 
 **완료 기준(DoD):** B2 DoD — LLM 페이로드·DB evidence·로그 어디에도 시크릿 원문 0건, SEC-* LLM 미경유 테스트 green.
 
@@ -1418,7 +1418,7 @@ def test_secret_rules_never_reach_llm(pipeline_with_llm_stub):
 **Interfaces:**
 - Produces: Semgrep 룰(파일 단위 패턴: P2·P3·P5·P6·P10의 static 트리거, AUX-01~04)과 repo 단위 검사(P7·P8·P9 — `run_repo_checks(root, deps) -> list[FindingDraft]`). 판정 정책(G3): P6·P7·P8·P9·AUX-* → `confirmed`. P2·P3·P5·P10 → static 트리거 후 **LLM 경유 예정이므로 `review_needed`** 생성(Task 16이 판정 설명을 덧붙임). P1·P4는 static 트리거 없이 Task 16에서 수집 필드 요약을 입력으로 생성. 모든 YAML `metadata.standard_ref`에 조항 기입, AUX는 `metadata.secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드"` 병기.
 
-- [ ] **Step 1: 대표 Semgrep 룰 작성** — `privacy.yaml` 발췌(전체는 카탈로그 표 로직대로 각 룰 작성):
+- [x] **Step 1: 대표 Semgrep 룰 작성** — `privacy.yaml` 발췌(전체는 카탈로그 표 로직대로 각 룰 작성):
 
 ```yaml
 rules:
@@ -1473,10 +1473,10 @@ rules:
 
 (AUX-02: `DEBUG = True`·`$APP.run(..., debug=True, ...)`, AUX-03: `allow_origins=["*"]`·`res.header("Access-Control-Allow-Origin", "*")`, P3: 민감 키워드 metavariable-regex `(건강|병력|사상|종교|범죄|criminal|health|religion)`, P5: `requests.get`/`fetch`+`BeautifulSoup|cheerio|puppeteer` 조합 파일에 PII 정규식, P10: 모델 클래스 존재 파일 대비 `delete|destroy|expire|retention` 부재 — repo_checks에서 판단. 각각 같은 형식으로 작성.)
 
-- [ ] **Step 2: repo_checks 구현(P7·P8·P9)** — P9: `rglob`로 `privacy*`·`*개인정보처리방침*` 파일/라우트 문자열 검색, 부재 시 confirmed finding(file_path=None — "저장소 전체" 표기). P7: 라우트 정의(`@app.route`·`router.get` 등) 중 `admin|user|mypage` 경로에 인증 장식자/미들웨어(`login_required|Depends|authenticate|passport`) 부재 파일 플래그. P8: PII 취급 파일 존재 & `import logging|winston|pino` 전무 → confirmed(low).
-- [ ] **Step 3: 실패하는 테스트 작성 → 실행 FAIL → green** — 룰별 양성·음성 fixture 파일(TDD §9 Unit: 룰별 양성·음성 케이스): P6 양성(`db.execute("insert", (rrn,))`)·음성(`encrypt(rrn)` 경유), P2 양성/음성, AUX-01 양성(f-string execute)·음성(파라미터 바인딩), AUX-04, P9 부재/존재 저장소 2개. 단언: rule_id·status가 카탈로그 표의 verdict와 일치.
-- [ ] **Step 4: 파이프라인 연결** — `위험분석` 스테이지: semgrep(privacy+aux) + repo_checks + gitleaks(12·13) 결과를 FindingDraft로 통합, evidence 마스킹(14) 후 Finding insert.
-- [ ] **Step 5: Commit** — `feat: 개인정보 10종 + 보조 4종 룰 (Semgrep YAML·repo 검사)`
+- [x] **Step 2: repo_checks 구현(P7·P8·P9)** *(실행 세션: P5·P10도 파일 조합·부재 판정이라 semgrep 단일 패턴 대신 repo_checks로 구현 — verdict는 카탈로그대로 review_needed)* — P9: `rglob`로 `privacy*`·`*개인정보처리방침*` 파일/라우트 문자열 검색, 부재 시 confirmed finding(file_path=None — "저장소 전체" 표기). P7: 라우트 정의(`@app.route`·`router.get` 등) 중 `admin|user|mypage` 경로에 인증 장식자/미들웨어(`login_required|Depends|authenticate|passport`) 부재 파일 플래그. P8: PII 취급 파일 존재 & `import logging|winston|pino` 전무 → confirmed(low).
+- [x] **Step 3: 실패하는 테스트 작성 → 실행 FAIL → green** — 룰별 양성·음성 fixture 파일(TDD §9 Unit: 룰별 양성·음성 케이스): P6 양성(`db.execute("insert", (rrn,))`)·음성(`encrypt(rrn)` 경유), P2 양성/음성, AUX-01 양성(f-string execute)·음성(파라미터 바인딩), AUX-04, P9 부재/존재 저장소 2개. 단언: rule_id·status가 카탈로그 표의 verdict와 일치.
+- [x] **Step 4: 파이프라인 연결** *(실행 세션: M2·M3 병렬 세션과의 pipeline.py 충돌 최소화를 위해 오케스트레이션을 `engine/analysis.py`로 모으고 pipeline은 위험분석 단계에서 2줄만 추가. Task 11 semgrep 러너는 M4 트랙 선작성분(`semgrep_runner.py`) — M3 병합 시 통합 필요)* — `위험분석` 스테이지: semgrep(privacy+aux) + repo_checks + gitleaks(12·13) 결과를 FindingDraft로 통합, evidence 마스킹(14) 후 Finding insert.
+- [x] **Step 5: Commit** — `feat: 개인정보 10종 + 보조 4종 룰 (Semgrep YAML·repo 검사)`
 
 **완료 기준(DoD):** 31종 룰 전체가 카탈로그와 1:1로 실행 경로에 연결(P1·P4는 LLM 단계 대기), 룰별 양성·음성 테스트 green, YAML metadata에 조항 전수 기입.
 
@@ -1495,7 +1495,7 @@ rules:
 - Produces: `LlmClient.complete(model, system, user, max_tokens) -> LlmResponse(text, model_id, in_tokens, out_tokens)` — anthropic AsyncAnthropic, `temperature=0`, 타임아웃 60s. **전송 직전 `registry.mask()` 강제 적용(2차 패스 — Task 14).** 성공 응답은 `sha256(model+system+user)` 키로 `llm_cache_dir`에 JSON 저장(record), API 예외 시 캐시 조회 폴백(TDD §6 — 실호출 우선·장애 시에만), 캐시도 없으면 예외 전파. 호출 수·토큰 누계는 인메모리 카운터 + 구조화 로그. `judge_findings(scan, drafts: list[FindingDraft], snippet_of: dict) -> None` — `asyncio.Semaphore(settings.judge_concurrency)`(=12)로 병렬, 결과를 `judge_explanation`·`judge_evidence_lines`에 기록. **status는 절대 변경하지 않는다 — review_needed 고정(G3).** 첫 성공 응답의 `model_id`를 `scan.llm_model_id`에 기록(G9).
 - Judge 대상: P1·P2·P3·P4·P5·P10 finding(SEC-* 제외 — G2). P1·P4는 static 트리거가 없으므로 입력을 파이프라인이 합성: P1=수집 필드 목록 요약(P2·P3 매칭 필드 집계), P4=PII 변수 + 외부 호출(`requests.post|fetch|axios` + 외부 도메인) 동시 등장 파일 스니펫.
 
-- [ ] **Step 1: judge 프롬프트 확정** — `api/app/llm/judge.py` 상수(구조화·코드=데이터 — TDD §8):
+- [x] **Step 1: judge 프롬프트 확정** — `api/app/llm/judge.py` 상수(구조화·코드=데이터 — TDD §8):
 
 ```python
 JUDGE_SYSTEM = """너는 개인정보보호 표준(TTAK.KO-12.0414) 진단 결과 검토자다.
@@ -1516,7 +1516,7 @@ JUDGE_USER_TMPL = """진단 룰: {rule_id} — {rule_title}
 
 `clause_summary`는 카탈로그 표의 검출 로직 요지 재사용. 스니펫은 매칭 라인 ±10줄(마스킹본).
 
-- [ ] **Step 2: 실패하는 테스트 작성** — LlmClient를 fake transport로 스텁:
+- [x] **Step 2: 실패하는 테스트 작성** — LlmClient를 fake transport로 스텁:
 
 ```python
 # api/tests/test_judge.py
@@ -1536,9 +1536,9 @@ def test_model_id_recorded_from_response(judge_env):
     assert judge_env.scan.llm_model_id == judge_env.fake_response_model  # 하드코딩 아님 (G9)
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — JSON 파싱 실패 응답은 1회 재요청 후 포기(설명 없이 유지 — 파이프라인은 계속). ANTHROPIC_API_KEY 부재 시 judge 단계 전체 스킵(로그 경고, review_needed 그대로) — 키 없이도 데모 외 개발 가능.
-- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — M7 착수 전 마감 게이트.**
-- [ ] **Step 5: Commit** — `feat: LLM judge 12병렬 + 캐시 폴백 + 비용 카운터 (review_needed 전용)`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — JSON 파싱 실패 응답은 1회 재요청 후 포기(설명 없이 유지 — 파이프라인은 계속). ANTHROPIC_API_KEY 부재 시 judge 단계 전체 스킵(로그 경고, review_needed 그대로) — 키 없이도 데모 외 개발 가능.
+- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — M7 착수 전 마감 게이트.** *(**보류** — 2026-08-29 실행 세션: 저장소에 `.env` 없음(`.env.example`만 존재), ANTHROPIC_API_KEY 미준비로 실호출 불가. fake transport 기준 병렬·캐시·마스킹 검증과 semgrep 소요는 `docs/measurements.md`에 선기록. 키 준비 후 이 스텝만 재수행할 것. gitleaks 오탐 실측도 바이너리 반입 불가로 Docker 이미지 안 재수행 필요. §11 항목 2 재요청은 최종 보고에 포함)*
+- [x] **Step 5: Commit** — `feat: LLM judge 12병렬 + 캐시 폴백 + 비용 카운터 (review_needed 전용)`
 
 **완료 기준(DoD):** M4 게이트 — judge가 status 불변·설명 기록, 캐시 폴백 동작, 페이로드 마스킹(14의 테스트 green 유지), 실측치가 measurements.md에 기록.
 
@@ -1926,6 +1926,13 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 > 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다.
 
 - **2026-08-29 · Task 10 KISA 데이터셋(§11 항목 5) — 미확정, 재등재.** 구현 환경(외부 egress 프록시 allowlist)에서 `https://www.data.go.kr/data/15155789/fileData.do` 다운로드가 차단되어(프록시 CONNECT 403, `api.data.go.kr`·`www.krcert.or.kr`·`knvd.krcert.or.kr` 모두 동일) 실데이터의 컬럼명·인코딩을 확인하지 못했다. 계획의 폴백대로 **동일 스키마 표본 CSV**(`data/kisa/krcert_notices.csv` — 컬럼 `제목,게시일,링크,본문`, UTF-8, 실존 CVE 12건 · 보호나라 공지 형식)와 `data/kisa/SNAPSHOT_DATE`(2026-08-29)로 대체했다. 로더 `app/engine/kisa.py`는 컬럼명에 의존하지 않고(행 전체에서 `CVE-\d{4}-\d{4,7}` 추출, 링크·날짜·제목은 셀 형태로 판별) `utf-8-sig → cp949` 인코딩 폴백을 갖춰 실데이터 교체 시 코드 변경 없이 파일만 바꾸면 된다. **§11 항목 5는 열린 항목으로 재등재** — 네트워크 가능한 환경에서 실데이터를 받아 컬럼명·인코딩·CVE 포함 컬럼을 이 줄 아래에 확정 기록해야 한다.
+
+**M4 / Task 16 (2026-08-29, feat/m4-rules-llm 세션):**
+- §11 항목 1(LLM 상한): fake transport 기준 — judge Semaphore(12) 병렬 검증: 24건 × 1.0s 모사 지연 → wall 2.02s(이론치 일치). **실호출 소요·토큰·비용은 보류** — ANTHROPIC_API_KEY 미준비(.env 없음). 키 준비 후 Task 16 Step 4 수행.
+- §11 항목 3(gitleaks 오탐): **보류** — 샌드박스에 gitleaks 바이너리 반입 불가. Docker 이미지(v8.18.4 동봉) 안에서 skipif 2케이스 + fixture 스캔으로 측정 예정. 초기 allowlist(G13)로 시작.
+- 참고: semgrep 자체 룰 9종 fixture(10파일) 1.24s, repo_checks 1ms. 상세는 `docs/measurements.md`.
+- **§11 항목 2(벤치마크 목록): 기획에 확정 재요청 — M7 착수 전 마감 게이트.**
+- **M4 게이트 검증 결과 (2026-08-29): 조건부 통과.** ① 시크릿(SEC-01~05)·개인정보(P1~P10)·보조(AUX-01~04) 룰 전체 실행 경로 연결 — green ② 주민번호 체크섬 분기 테스트 green ③ LLM 페이로드 시크릿 0건(P0-2) + SEC-* 미경유 테스트 green ④ judge 12 병렬 — Semaphore 검증 green, 단 **실호출은 보류**(키 미준비) ⑤ 실측 기록 — fake 기준 기록, 실호출·gitleaks 오탐 2건 보류. 잔여 2건은 키 준비 + Docker 이미지 안 재수행으로 해소.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

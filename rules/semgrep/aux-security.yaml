@@ -1,0 +1,68 @@
+# 보조 룰 AUX-01~04 — TTAK.KO-11.0259 §9.4 · 2차: 행안부·KISA 소프트웨어 개발보안 가이드
+# 100% 자체 룰(G13). derivation: aux (Task 2 카탈로그 표)
+rules:
+  - id: AUX-01-sqli-string-build
+    languages: [python]
+    severity: ERROR
+    message: "문자열 조립 SQL 실행 — SQL Injection 위험"
+    pattern-either:
+      - pattern: $C.execute(f"...")
+      - pattern: $C.execute("..." + $X)
+      - pattern: $C.execute("...".format(...))
+      - pattern: $C.execute("..." % $X)
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-01 }
+
+  - id: AUX-01-sqli-string-build-js
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "문자열 조립 SQL 실행 — SQL Injection 위험"
+    pattern-either:
+      - pattern: $C.query($S + $X)
+      - pattern: $C.query(`...${$X}...`)
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-01 }
+
+  - id: AUX-02-debug-enabled
+    languages: [python]
+    severity: WARNING
+    message: "디버그 모드 활성 — 운영 배포 시 정보 노출 위험"
+    pattern-either:
+      - pattern: DEBUG = True
+      - pattern: $APP.run(..., debug=True, ...)
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-02 }
+
+  - id: AUX-03-cors-wildcard
+    languages: [python]
+    severity: WARNING
+    message: "CORS 와일드카드 허용 — 모든 출처에 응답 개방"
+    pattern-either:
+      - pattern: allow_origins=["*"]
+      - pattern: $APP.add_middleware($MW, ..., allow_origins=["*"], ...)
+      - pattern: CORS($APP, ..., origins="*", ...)
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-03 }
+
+  - id: AUX-03-cors-wildcard-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "CORS 와일드카드 허용 — 모든 출처에 응답 개방"
+    pattern-either:
+      - pattern: $RES.header("Access-Control-Allow-Origin", "*")
+      - pattern: $RES.setHeader("Access-Control-Allow-Origin", "*")
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-03 }
+
+  - id: AUX-04-unsafe-deserialization
+    languages: [python]
+    severity: ERROR
+    message: "신뢰할 수 없는 데이터 역직렬화"
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.load($X)
+      - pattern: eval($X)
+      - pattern: exec($X)
+    metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
+                secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-04 }
