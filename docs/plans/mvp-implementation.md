@@ -957,7 +957,7 @@ def extract_python_imports(root: Path) -> set[str]:
 **Interfaces:**
 - Produces: `parse_npm_deps(root) -> list[Dependency]` — `package.json`(dependencies/devDependencies → direct), `package-lock.json`(v2/v3 `packages` 키 → transitive + `integrity` 채움). git/파일 경로 의존성은 `registry_source=False`(SCA-10 입력). `extract_js_imports`는 여기서 만들지 않는다 — JS/TS import 추출은 Semgrep 패턴(Task 11, TDD §4.5 명시)이 담당.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_deps_npm.py
@@ -984,10 +984,10 @@ def test_git_dependency_flagged_nonregistry(tmp_path):
     assert d.registry_source is False        # SCA-10 입력
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — package.json 선언명 집합을 기준으로 lock `packages`의 `node_modules/{이름}` 항목을 병합(선언에 있으면 direct+lock 버전 채움, 없으면 transitive). `version` 값이 `git+`·`file:`·`link:`·`http` 프리픽스면 `registry_source=False`. lock 부재 시 선언만으로 생성(is_pinned는 정확 버전 문자열 여부).
-- [ ] **Step 4: 테스트 green 확인** → PASS
-- [ ] **Step 5: Commit** — `feat: npm 의존성 파서 (lock integrity·direct/transitive)`
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — package.json 선언명 집합을 기준으로 lock `packages`의 `node_modules/{이름}` 항목을 병합(선언에 있으면 direct+lock 버전 채움, 없으면 transitive). `version` 값이 `git+`·`file:`·`link:`·`http` 프리픽스면 `registry_source=False`. lock 부재 시 선언만으로 생성(is_pinned는 정확 버전 문자열 여부).
+- [x] **Step 4: 테스트 green 확인** → PASS
+- [x] **Step 5: Commit** — `feat: npm 의존성 파서 (lock integrity·direct/transitive)`
 
 **완료 기준(DoD):** lockfileVersion 2/3 파싱, integrity·relationship 정확, 비레지스트리 소스 플래그.
 
