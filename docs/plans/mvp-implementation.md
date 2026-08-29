@@ -1716,7 +1716,7 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
 **Interfaces:**
 - Produces: `POST /api/scans/{id}/rescan` — git: body 없이 동일 source_ref로 새 Scan(`202 {scan_id}`), zip: multipart 재업로드 필수(누락 시 422). 새 Scan에 `previous_scan_id={id}` 연결. `diff_findings(prev: list[Finding], curr: list[Finding]) -> {"resolved": [...], "remaining": [...], "new": [...]}` — 키 `(rule_id, file_path, line)` 집합 대조. `GET /api/scans/{new_id}`의 `previous_comparison`: `{"previous_grade", "grade", "fingerprint_changed": bool, "diff": {"resolved_count", "remaining_count", "new_count", "resolved": [...요약...], ...}}`.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_rescan.py
@@ -1734,8 +1734,10 @@ async def test_rescan_links_previous_and_reports_grade_change(client, zip_v1, zi
     # previous_scan_id 연결, fingerprint_changed=True, resolved에 시크릿 finding
 ```
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — rescan은 기존 POST /scans 파이프라인 재사용(previous_scan_id만 추가). 지문 비교로 `fingerprint_changed`(동일 지문 재스캔 = "코드 미변경" 표시 — §4.7).
-- [ ] **Step 3: Commit** — `feat: 재진단 rescan + 발견 diff 3분류 + 등급 변화 비교`
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green** — rescan은 기존 POST /scans 파이프라인 재사용(previous_scan_id만 추가). 지문 비교로 `fingerprint_changed`(동일 지문 재스캔 = "코드 미변경" 표시 — §4.7).
+- [x] **Step 3: Commit** — `feat: 재진단 rescan + 발견 diff 3분류 + 등급 변화 비교`
+
+**구현 주석(테스트 fixture 조정):** 통합 테스트의 등급 전이는 계획 주석의 "위험 → 주의/안심" 중 **위험 → 주의**로 확정했다. `repo_checks`의 P8(접속기록 관리 부재·low)·P9(처리방침 미공개·medium)이 어떤 저장소에서도 confirmed로 남으므로, 최소 fixture zip의 도달 가능 최고 등급은 주의다(안심은 처리방침·로깅을 갖춘 저장소에서만 도달). v1은 SEC-04(클라우드 자격증명 critical)로 위험을 만들고 v2에서 그것만 제거해 전이를 검증한다.
 
 **완료 기준(DoD):** M5 게이트 — git/zip 분기, diff 3분류 정확, 등급 변화·지문 변경 여부 응답 포함.
 
