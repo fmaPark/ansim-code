@@ -9,6 +9,17 @@ from app.engine.deps_types import Dependency
 from app.engine.sbom import build_sbom, classify_supply_chain, detect_vendored
 
 
+@pytest.fixture(autouse=True)
+def no_network_osv(monkeypatch):
+    """SBOM 테스트는 OSV 실호출을 하지 않는다 — 취약점 대조는 Task 9·10·11 테스트의 몫."""
+    from app.engine.osv import OsvResult
+
+    async def _stub(purls, transport=None):
+        return OsvResult(vulns={}, incomplete=False)
+
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _stub)
+
+
 def _zip(files: dict[str, str]) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:

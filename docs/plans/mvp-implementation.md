@@ -1067,7 +1067,7 @@ def test_supply_chain_classification(tmp_path):
 - Produces: `query_osv(purls: list[str]) -> OsvResult(vulns: dict[purl, list[VulnInfo]], incomplete: bool)` — ① `POST https://api.osv.dev/v1/querybatch` `{"queries":[{"package":{"purl": p}} ...]}`(1000개 단위 분할)로 vuln ID 목록 → ② `GET /v1/vulns/{id}` 병렬(asyncio, 동시 8)로 상세. `VulnInfo(id, cve_ids: list, cvss_vector: str|None, severity: str, fixed_version: str|None, source="OSV")`. 모든 호출 timeout 10s·재시도 1회, 실패 시 `incomplete=True`(리포트에 "일부 미대조" — Task 19). 동일 vuln ID 상세는 스캔 내 dict 캐시.
 - `derive_cvss3(vector: str) -> tuple[base, impact, exploitability, severity] | None` — CVSS 3.x 공식 구현(아래 가중치 그대로).
 
-- [ ] **Step 1: CVSS 실패하는 테스트 작성** — 공식 스펙 벡터로 검증:
+- [x] **Step 1: CVSS 실패하는 테스트 작성** — 공식 스펙 벡터로 검증:
 
 ```python
 # api/tests/test_cvss.py
@@ -1085,8 +1085,8 @@ def test_missing_vector_returns_none():
     assert derive_cvss3(None) is None        # → cvss_null_reason="벡터 미제공"
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: cvss.py 구현** — 가중치·공식(CVSS 3.1 Spec §7.1, 그대로 옮김):
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: cvss.py 구현** — 가중치·공식(CVSS 3.1 Spec §7.1, 그대로 옮김):
 
 ```python
 # api/app/engine/cvss.py
@@ -1115,9 +1115,9 @@ def derive_cvss3(vector):
     return base, round(impact, 1), round(expl, 1), sev
 ```
 
-- [ ] **Step 4: OSV 클라이언트 테스트(모킹) 작성 후 구현** — `httpx.MockTransport`로 querybatch·vulns 응답 주입: 정상 경로(2 purl 중 1개 취약), 타임아웃 경로(`incomplete=True` + 부분 결과 유지) 2케이스. OSV 응답에서 `severity[type=CVSS_V3].score`가 벡터 문자열, `aliases`에서 `CVE-` 프리픽스만 cve_ids로, `affected[].ranges[].events[].fixed`에서 fixed_version.
-- [ ] **Step 5: 테스트 green 확인** → PASS. 파이프라인 `위험분석` 스테이지에 연결: SBOM 컴포넌트 purl로 질의 → ⑩`vulnerability_db=[{"id":..., "source":"OSV"}]`·⑬⑭⑮ 채움, `vuln_db_snapshot_date`에 `OSV@{오늘 ISO날짜}` 기록.
-- [ ] **Step 6: Commit** — `feat: OSV 배치 대조 + CVSS Base/Impact/Exploitability 파생`
+- [x] **Step 4: OSV 클라이언트 테스트(모킹) 작성 후 구현** — `httpx.MockTransport`로 querybatch·vulns 응답 주입: 정상 경로(2 purl 중 1개 취약), 타임아웃 경로(`incomplete=True` + 부분 결과 유지) 2케이스. OSV 응답에서 `severity[type=CVSS_V3].score`가 벡터 문자열, `aliases`에서 `CVE-` 프리픽스만 cve_ids로, `affected[].ranges[].events[].fixed`에서 fixed_version.
+- [x] **Step 5: 테스트 green 확인** → PASS. 파이프라인 `위험분석` 스테이지에 연결: SBOM 컴포넌트 purl로 질의 → ⑩`vulnerability_db=[{"id":..., "source":"OSV"}]`·⑬⑭⑮ 채움, `vuln_db_snapshot_date`에 `OSV@{오늘 ISO날짜}` 기록.
+- [x] **Step 6: Commit** — `feat: OSV 배치 대조 + CVSS Base/Impact/Exploitability 파생`
 
 **완료 기준(DoD):** 스펙 벡터 9.8/5.9/3.9 정확, 타임아웃 시 부분 결과 + incomplete 플래그, SBOM ⑩⑬⑭⑮ 채워짐.
 
