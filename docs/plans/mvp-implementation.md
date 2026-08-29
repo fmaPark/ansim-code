@@ -1801,10 +1801,10 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 - Home: git URL 입력 + zip 드래그 앤 드롭 존(50MB 초과·비zip 즉시 클라이언트 검증 오류 표시), 에러 배너(서버 ValidationError detail 그대로 노출 — "명확한 오류 안내").
 - ScanProgress: `current_stage`를 0259 §11 단계명 그대로 스텝퍼로 표시(`환경분석→현황진단→위험분석→대책수립→완료`), failed 시 error_message + 처음으로 링크.
 
-- [ ] **Step 1: 타입·클라이언트 작성 → `npx tsc --noEmit` 통과**
-- [ ] **Step 2: Home·Progress 구현 → 수동 검증(TDD §9 수동)** — 체크: ① git URL 제출→진행 화면 전환 ② zip 드래그 앤 드롭 동작 ③ 60MB 더미 zip 거부 문구 ④ 잘못된 URL 제출 시 배너 ⑤ 스텝퍼가 단계 진행을 반영.
-- [ ] **Step 3: `npm run build` 성공 + `docker compose up -d --build web` 후 8080 스모크**
-- [ ] **Step 4: Commit** — `feat: FE 입력(git·zip DnD)·진행 단계 화면 + API 클라이언트 타입`
+- [x] **Step 1: 타입·클라이언트 작성 → `npx tsc --noEmit` 통과**
+- [x] **Step 2: Home·Progress 구현 → 수동 검증(TDD §9 수동)** — 체크: ① git URL 제출→진행 화면 전환 ② zip 드래그 앤 드롭 동작 ③ 60MB 더미 zip 거부 문구 ④ 잘못된 URL 제출 시 배너 ⑤ 스텝퍼가 단계 진행을 반영.
+- [x] **Step 3: `npm run build` 성공 + `docker compose up -d --build web` 후 8080 스모크**
+- [x] **Step 4: Commit** — `feat: FE 입력(git·zip DnD)·진행 단계 화면 + API 클라이언트 타입`
 
 **완료 기준(DoD):** 8080에서 실스캔 시작→단계 표시→완료 전환. tsc·build 클린.
 

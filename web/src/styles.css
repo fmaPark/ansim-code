@@ -1,0 +1,154 @@
+/* 안심코드 단일 스타일시트 — UI 라이브러리 미도입(계획 Task 23), CSS 변수로 통일 */
+:root {
+  --safe: #2b8a3e;
+  --caution: #f08c00;
+  --danger: #c2255c;
+  --ink: #212529;
+  --muted: #868e96;
+  --line: #dee2e6;
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --accent: #1971c2;
+  --accent-soft: #e7f5ff;
+  --danger-soft: #fff0f6;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
+  line-height: 1.55;
+}
+
+.container { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
+
+.topbar { display: flex; align-items: baseline; gap: 10px; padding: 18px 0 6px; }
+.topbar a { text-decoration: none; color: var(--ink); }
+.topbar .brand { font-size: 22px; font-weight: 800; }
+.topbar .tagline { color: var(--muted); font-size: 13px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 16px;
+}
+
+h1 { font-size: 24px; margin: 18px 0 4px; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+
+/* ── 입력 화면 ─────────────────────────────────────────── */
+.git-form { display: flex; gap: 8px; }
+.git-form input {
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+}
+.git-form input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--ink);
+}
+button.ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.dropzone {
+  margin-top: 12px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 34px 20px;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone.drag { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.dropzone strong { color: var(--ink); }
+
+.banner-error {
+  margin-top: 14px;
+  background: var(--danger-soft);
+  border: 1px solid #fcc2d7;
+  color: #a61e4d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.disclaimer-line { margin-top: 20px; color: var(--muted); font-size: 12.5px; }
+
+/* ── 진행 화면 스텝퍼 ─────────────────────────────────── */
+.stepper { display: flex; gap: 0; margin: 26px 0 10px; }
+.step { flex: 1; text-align: center; position: relative; color: var(--muted); font-size: 14px; }
+.step::before {
+  content: '';
+  display: block;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+  margin: 0 auto 8px;
+}
+.step:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  top: 6px; left: calc(-50% + 14px); right: calc(50% + 14px);
+  height: 2px;
+  background: var(--line);
+}
+.step.done { color: var(--safe); }
+.step.done::before { background: var(--safe); }
+.step.done:not(:first-child)::after { background: var(--safe); }
+.step.active { color: var(--accent); font-weight: 700; }
+.step.active::before { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: -4px;
+  margin-right: 8px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 등급 배지 ─────────────────────────────────────────── */
+.grade-pill {
+  display: inline-block;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 4px 16px;
+  font-size: 15px;
+}
+.grade-pill.big { font-size: 26px; padding: 10px 34px; }
+.grade-안심 { background: var(--safe); }
+.grade-주의 { background: var(--caution); }
+.grade-위험 { background: var(--danger); }
+.grade-none { background: var(--muted); }
