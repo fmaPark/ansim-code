@@ -1943,6 +1943,13 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - **잔여 1건(M5 범위 밖 · 미수정): gitleaks finding의 `file_path`가 워크스페이스 절대경로.** 임시 디렉토리명이 스캔마다 달라 diff 키가 스캔 간 불일치한다 — 동일 zip 재진단(지문 무변경)에서 SEC-04가 `해결 1건 + 신규 1건`으로 잡히는 오보를 실측했다. 수정 지점이 M4 파일(`gitleaks_runner.py`/`pii.py`)이라 이 세션은 손대지 않았다. **M6 착수 전 별도 승인 후 수정 권고** — 재진단 diff는 데모 절정 장면이다. 상세는 `docs/measurements.md`.
 - §11 항목 1(LLM 실호출 실측): **여전히 보류** — `.env` 키가 플레이스홀더라 401. Task 18 변환은 설계된 폴백 경로로 동작(모든 finding에 두 텍스트 존재 확인).
 
+**M6 / Task 22~25 (2026-08-29, feat/m6-frontend 세션):**
+- **M6 게이트 검증 결과: 통과.** 브라우저(로컬 Docker, web 8085/api 8001 — 다른 워크트리 스택의 8080/8000 점유로 로컬 오버라이드)에서 전 흐름 연속 완주: git URL 업로드 → 5단계 스텝퍼 → 리포트(주의) → 전체 수정 프롬프트 복사 → 공개 2단계(**실공개 repo `fmaPark/ansim-publish-test`에 `.ansimcode` 커밋해 소유 증명**) → 배지 SVG 200(image/svg+xml·ETag·304) → git 재진단 diff(주의→주의, 잔여 5). zip 공개는 403 + 안내 문구 확인. 백엔드 테스트 143건 green, `tsc --noEmit`·`npm run build` 클린. 수동 체크리스트 항목별 결과는 `docs/measurements.md` M6 블록.
+- **§11 항목 7·8 카피: 기획 미수신 확정(세션 시작 질의) → placeholder 문구로 구현 유지.** 교체 지점은 `api/app/routes/public.py` 상수 2개(`LEGAL_NOTICE`·`ZIP_PUBLISH_NOTICE`) + FE 미러 1곳(`web/src/components/PublishFlow.tsx`). 항목 4(주민번호 무효)도 미수신 — Task 13의 review_needed 기본값 유지.
+- **M5 이월(gitleaks·PII 절대경로 file_path): 이 세션 미수정** — 사용자 지시로 다른 워크트리에서 수정 진행 중(선머지 예정). 이번 브랜치는 `engine/gitleaks_runner.py`·`pii.py`를 건드리지 않아 코드 충돌 없음. 실측 재확인: 시크릿 포함 zip 재진단에서 SEC-04·05가 절대경로로 기록됨(리포트 UI 노출 + diff 키 불일치 위험). 그쪽 머지 후 재진단 diff 화면만 재검증 필요.
+- 배지 SVG는 계획 초안 폭 140에서 **170으로 보정**("주의 2026-08-29"가 우측 70px에 잘림 — 실렌더 확인 후 수정, 테스트 green 유지).
+- §11 항목 1(LLM 실호출): **여전히 보류** — `.env` 키가 placeholder(`sk-ant-...`)라 401 → 캐시/폴백 경로로 동작(M6 게이트에는 무관). M7 데모 전 실키 필요.
+
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 
 | TDD 요구 | 태스크 |
