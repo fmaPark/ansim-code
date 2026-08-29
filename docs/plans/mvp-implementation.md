@@ -1309,7 +1309,7 @@ def test_comment_secret_detected(tmp_path):
 **Interfaces:**
 - Produces: `validate_rrn(candidate: str) -> bool` — 가중치 (2,3,4,5,6,7,8,9,2,3,4,5) → 합 mod 11 → (11−나머지) mod 10 == 검증번호. `classify_secret(raw: RawSecret) -> FindingDraft` — SEC-05 주민번호: **체크섬 유효→`confirmed` / 13자리 패턴+무효→`review_needed`("주민등록번호 형식 값, 검증 불가" — 2020-10 이후 발급분 미적용 사유)**. 휴대전화·계좌번호→`review_needed`(Task 2 표 가정). 그 외 SEC-01~04→`confirmed`. evidence는 이 시점부터 마스킹본만(Task 14의 `mask_value` 사용).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_pii.py
@@ -1340,7 +1340,7 @@ def test_classification_split():          # TDD §9 P0아님·Unit 요구
 
 (무효 케이스 합성이 우연히 유효가 되지 않도록 `bad != rrn` 방식 사용 — 위 코드처럼 검증번호 +1 mod 10이면 항상 무효.)
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green**
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green**
 
 ```python
 # api/app/engine/pii.py
@@ -1354,7 +1354,7 @@ def validate_rrn(candidate: str) -> bool:
     return (11 - s % 11) % 10 == int(digits[12])
 ```
 
-- [ ] **Step 3: Commit** — `feat: 주민번호 체크섬 검증 + confirmed/review_needed 분기`
+- [x] **Step 3: Commit** — `feat: 주민번호 체크섬 검증 + confirmed/review_needed 분기` *(실행 세션: FindingDraft 공용 dataclass는 `api/app/engine/findings.py`로 분리 — pii·repo_checks·semgrep·judge가 공유)*
 
 **완료 기준(DoD):** 유효→confirmed·무효→review_needed 테스트 green(§9 Unit 요구 충족). 판정 기본값이 상수 1곳(`RRN_INVALID_STATUS = "review_needed"`)이어서 기획 확정 시 1줄 변경.
 
