@@ -192,6 +192,19 @@ def stage_grade(db, scan, cve_rows: list[dict]) -> GradeResult:
     return result
 
 
+async def stage_report(db, scan, registry) -> None:
+    """§11.4 대책 수립 — 쉬운 한국어·수정 프롬프트 생성 (Task 18).
+
+    원본 코드가 아니라 DB에 확정된 Finding 행만 쓰므로 워크스페이스 파기 이후에 돈다(G1).
+    """
+    from app.llm.convert import generate_texts   # 순환 import 회피(convert가 analysis를 쓴다)
+
+    findings = db.query(Finding).filter(Finding.scan_id == scan.id).order_by(Finding.id).all()
+    await generate_texts(scan, findings, registry=registry)
+    db.commit()
+    log.info("대책 수립", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -226,6 +239,7 @@ async def run_scan(scan_id):
                     # 등급 결정론 — static confirmed + CVE만 (Task 17, P0-3)
                     stage_grade(db, scan, cve_rows_from_osv(osv_result))
                 _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
+                await stage_report(db, scan, registry)
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:
             # TimeoutError처럼 str(e)가 빈 예외가 있어 타입명을 함께 남긴다.

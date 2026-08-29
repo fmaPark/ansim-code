@@ -1622,9 +1622,9 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
 
   입력 항목: `{"id", "rule_id", "title", "standard_ref", "file_path", "line", "evidence"(마스킹본)}`. 응답 개수/id 불일치 시 해당 배치 1회 재시도, 그래도 실패하면 규칙 기반 폴백 문구(`"{title} 문제가 {file}:{line}에서 발견되었습니다. {standard_ref} 기준으로 수정하세요."`) — 리포트가 비지 않게.
 
-- [ ] **Step 1: 실패하는 테스트 작성** — fake client로: 31개 finding → 2회 호출(30+1) 단언, 응답 매핑 정확, 불일치 응답 → 폴백 문구 채움, 페이로드에 마스킹 적용(14 재확인).
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — 파이프라인 `대책수립` 스테이지 연결.
-- [ ] **Step 3: Commit** — `feat: 쉬운 한국어·수정 프롬프트 배치 생성 (haiku·30항목)`
+- [x] **Step 1: 실패하는 테스트 작성** — fake client로: 31개 finding → 2회 호출(30+1) 단언, 응답 매핑 정확, 불일치 응답 → 폴백 문구 채움, 페이로드에 마스킹 적용(14 재확인).
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green** — 파이프라인 `대책수립` 스테이지 연결.
+- [x] **Step 3: Commit** — `feat: 쉬운 한국어·수정 프롬프트 배치 생성 (haiku·30항목)`
 
 **완료 기준(DoD):** 배치 분할·매핑·폴백 테스트 green, 모든 finding에 easy_description·fix_prompt 존재.
 
