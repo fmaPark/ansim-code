@@ -1372,7 +1372,7 @@ def validate_rrn(candidate: str) -> bool:
 **Interfaces:**
 - Produces: `mask_value(text: str, secrets: list[str]) -> str` — 등장 시크릿을 `****`로 치환(4자 미만 시크릿은 전체 치환, 긴 것부터 치환해 부분 겹침 방지). `MaskRegistry` — 스캔 단위로 검출 시크릿 원문을 수집(메모리 전용), `registry.mask(text)` 제공. **적용 지점 2곳:** ① Finding.evidence 저장 직전(모든 룰), ② LLM 페이로드 조립 직후·전송 직전(Task 16 client가 강제 호출 — 2차 패스). **시크릿 룰(SEC-*) finding은 LLM 후보 목록에서 원천 제외**(pipeline 필터).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성** *(실행 세션: pipeline_result·pipeline_with_llm_stub 픽스처는 DB 없이 돌도록 `engine/analysis.py`의 `run_static_stage`·`llm_candidates`를 직접 구동하는 형태로 구현 — gitleaks subprocess 스텁)*
 
 ```python
 # api/tests/test_masking.py
@@ -1399,8 +1399,8 @@ def test_secret_rules_never_reach_llm(pipeline_with_llm_stub):
     assert not any(r.startswith("SEC-") for r in sent_rule_ids)   # G2 미경유
 ```
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — `MaskRegistry.mask`는 `sorted(secrets, key=len, reverse=True)` 순회 치환. 파이프라인: gitleaks 결과의 secret_value 전부 registry에 등록 → finding 생성 시 evidence는 `registry.mask(원본 라인)`.
-- [ ] **Step 3: Commit** — `feat: 시크릿 마스킹 레지스트리 + 저장·LLM 이중 패스 (P0-2)`
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green** — `MaskRegistry.mask`는 `sorted(secrets, key=len, reverse=True)` 순회 치환. 파이프라인: gitleaks 결과의 secret_value 전부 registry에 등록 → finding 생성 시 evidence는 `registry.mask(원본 라인)`.
+- [x] **Step 3: Commit** — `feat: 시크릿 마스킹 레지스트리 + 저장·LLM 이중 패스 (P0-2)`
 
 **완료 기준(DoD):** B2 DoD — LLM 페이로드·DB evidence·로그 어디에도 시크릿 원문 0건, SEC-* LLM 미경유 테스트 green.
 
