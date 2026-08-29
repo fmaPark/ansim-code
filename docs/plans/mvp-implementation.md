@@ -1495,7 +1495,7 @@ rules:
 - Produces: `LlmClient.complete(model, system, user, max_tokens) -> LlmResponse(text, model_id, in_tokens, out_tokens)` — anthropic AsyncAnthropic, `temperature=0`, 타임아웃 60s. **전송 직전 `registry.mask()` 강제 적용(2차 패스 — Task 14).** 성공 응답은 `sha256(model+system+user)` 키로 `llm_cache_dir`에 JSON 저장(record), API 예외 시 캐시 조회 폴백(TDD §6 — 실호출 우선·장애 시에만), 캐시도 없으면 예외 전파. 호출 수·토큰 누계는 인메모리 카운터 + 구조화 로그. `judge_findings(scan, drafts: list[FindingDraft], snippet_of: dict) -> None` — `asyncio.Semaphore(settings.judge_concurrency)`(=12)로 병렬, 결과를 `judge_explanation`·`judge_evidence_lines`에 기록. **status는 절대 변경하지 않는다 — review_needed 고정(G3).** 첫 성공 응답의 `model_id`를 `scan.llm_model_id`에 기록(G9).
 - Judge 대상: P1·P2·P3·P4·P5·P10 finding(SEC-* 제외 — G2). P1·P4는 static 트리거가 없으므로 입력을 파이프라인이 합성: P1=수집 필드 목록 요약(P2·P3 매칭 필드 집계), P4=PII 변수 + 외부 호출(`requests.post|fetch|axios` + 외부 도메인) 동시 등장 파일 스니펫.
 
-- [ ] **Step 1: judge 프롬프트 확정** — `api/app/llm/judge.py` 상수(구조화·코드=데이터 — TDD §8):
+- [x] **Step 1: judge 프롬프트 확정** — `api/app/llm/judge.py` 상수(구조화·코드=데이터 — TDD §8):
 
 ```python
 JUDGE_SYSTEM = """너는 개인정보보호 표준(TTAK.KO-12.0414) 진단 결과 검토자다.
@@ -1516,7 +1516,7 @@ JUDGE_USER_TMPL = """진단 룰: {rule_id} — {rule_title}
 
 `clause_summary`는 카탈로그 표의 검출 로직 요지 재사용. 스니펫은 매칭 라인 ±10줄(마스킹본).
 
-- [ ] **Step 2: 실패하는 테스트 작성** — LlmClient를 fake transport로 스텁:
+- [x] **Step 2: 실패하는 테스트 작성** — LlmClient를 fake transport로 스텁:
 
 ```python
 # api/tests/test_judge.py
@@ -1536,9 +1536,9 @@ def test_model_id_recorded_from_response(judge_env):
     assert judge_env.scan.llm_model_id == judge_env.fake_response_model  # 하드코딩 아님 (G9)
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — JSON 파싱 실패 응답은 1회 재요청 후 포기(설명 없이 유지 — 파이프라인은 계속). ANTHROPIC_API_KEY 부재 시 judge 단계 전체 스킵(로그 경고, review_needed 그대로) — 키 없이도 데모 외 개발 가능.
-- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — M7 착수 전 마감 게이트.**
-- [ ] **Step 5: Commit** — `feat: LLM judge 12병렬 + 캐시 폴백 + 비용 카운터 (review_needed 전용)`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — JSON 파싱 실패 응답은 1회 재요청 후 포기(설명 없이 유지 — 파이프라인은 계속). ANTHROPIC_API_KEY 부재 시 judge 단계 전체 스킵(로그 경고, review_needed 그대로) — 키 없이도 데모 외 개발 가능.
+- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — M7 착수 전 마감 게이트.** *(**보류** — 2026-08-29 실행 세션: 저장소에 `.env` 없음(`.env.example`만 존재), ANTHROPIC_API_KEY 미준비로 실호출 불가. fake transport 기준 병렬·캐시·마스킹 검증과 semgrep 소요는 `docs/measurements.md`에 선기록. 키 준비 후 이 스텝만 재수행할 것. gitleaks 오탐 실측도 바이너리 반입 불가로 Docker 이미지 안 재수행 필요. §11 항목 2 재요청은 최종 보고에 포함)*
+- [x] **Step 5: Commit** — `feat: LLM judge 12병렬 + 캐시 폴백 + 비용 카운터 (review_needed 전용)`
 
 **완료 기준(DoD):** M4 게이트 — judge가 status 불변·설명 기록, 캐시 폴백 동작, 페이로드 마스킹(14의 테스트 green 유지), 실측치가 measurements.md에 기록.
 
@@ -1924,6 +1924,12 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 ## 실측 기록 (실행 세션이 append)
 
 > 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다.
+
+**M4 / Task 16 (2026-08-29, feat/m4-rules-llm 세션):**
+- §11 항목 1(LLM 상한): fake transport 기준 — judge Semaphore(12) 병렬 검증: 24건 × 1.0s 모사 지연 → wall 2.02s(이론치 일치). **실호출 소요·토큰·비용은 보류** — ANTHROPIC_API_KEY 미준비(.env 없음). 키 준비 후 Task 16 Step 4 수행.
+- §11 항목 3(gitleaks 오탐): **보류** — 샌드박스에 gitleaks 바이너리 반입 불가. Docker 이미지(v8.18.4 동봉) 안에서 skipif 2케이스 + fixture 스캔으로 측정 예정. 초기 allowlist(G13)로 시작.
+- 참고: semgrep 자체 룰 9종 fixture(10파일) 1.24s, repo_checks 1ms. 상세는 `docs/measurements.md`.
+- **§11 항목 2(벤치마크 목록): 기획에 확정 재요청 — M7 착수 전 마감 게이트.**
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

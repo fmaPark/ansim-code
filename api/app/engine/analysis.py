@@ -5,6 +5,7 @@ pipeline.py의 변경을 최소화하기 위해(M2·M3 병렬 세션과의 충�
 run_static_stage() 한 번 + (Task 16) judge 한 번만 호출한다.
 """
 import logging
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -95,3 +96,66 @@ def llm_candidates(drafts: list[FindingDraft]) -> list[FindingDraft]:
     """LLM judge 대상 선별 — SEC-* 원천 제외(G2), P계열 review_needed만."""
     return [d for d in drafts
             if not d.rule_id.startswith("SEC-") and d.rule_id in LLM_RULES]
+
+
+# ── LLM 스테이지 (Task 16) ────────────────────────────────────────────────────
+
+_PII_FIELD_RE = re.compile(r"(?i)phone|birth|email|address|jumin|rrn|이름|전화|주소")
+_EXTERNAL_SEND_RE = re.compile(r"requests\.post|fetch\(|axios\.")
+_COLLECT_FIELD_RE = re.compile(r"""["']([A-Za-z_가-힣]{2,32})["']""")
+
+
+def synthesize_llm_drafts(root: Path, drafts: list[FindingDraft]) -> list[FindingDraft]:
+    """P1·P4는 static 트리거가 없다 — 파이프라인이 입력을 합성한다(계획 Task 16).
+
+    P1 = P2·P3 매칭 필드 집계(수집 필드 목록 요약), P4 = PII 필드 + 외부 전송 호출 동시 등장 파일.
+    """
+    synthesized: list[FindingDraft] = []
+
+    fields = []
+    for d in drafts:
+        if d.rule_id in {"P2", "P3"} and d.evidence:
+            fields += _COLLECT_FIELD_RE.findall(d.evidence)
+    if fields:
+        summary = ", ".join(sorted(set(fields))[:30])
+        synthesized.append(FindingDraft("P1", "medium", None, None,
+                                        f"수집 필드 목록: {summary}", "review_needed"))
+
+    from app.engine.repo_checks import _code_files, _read
+    for p in _code_files(root):
+        t = _read(p)
+        if _PII_FIELD_RE.search(t) and _EXTERNAL_SEND_RE.search(t):
+            synthesized.append(FindingDraft("P4", "medium", str(p.relative_to(root)), None,
+                                            "PII 필드와 외부 전송 호출이 같은 파일에 등장",
+                                            "review_needed"))
+    return synthesized
+
+
+def collect_snippets(root: Path, drafts: list[FindingDraft], registry: MaskRegistry,
+                     context: int = 10) -> dict[int, str]:
+    """LLM 후보 스니펫 수집 — 매칭 라인 ±10줄, 마스킹본(G2). 파기 전에 호출해야 한다."""
+    snippets: dict[int, str] = {}
+    for d in llm_candidates(drafts):
+        if not d.file_path:
+            snippets[id(d)] = registry.mask(d.evidence or "")
+            continue
+        try:
+            lines = (root / d.file_path).read_text(errors="ignore").splitlines()
+        except OSError:
+            snippets[id(d)] = registry.mask(d.evidence or "")
+            continue
+        center = (d.line or 1) - 1
+        lo, hi = max(0, center - context), min(len(lines), center + context + 1)
+        numbered = "\n".join(f"{i + 1}: {lines[i]}" for i in range(lo, hi))
+        snippets[id(d)] = registry.mask(numbered)
+    return snippets
+
+
+async def run_llm_stage(scan, drafts: list[FindingDraft], root: Path,
+                        registry: MaskRegistry, client=None) -> None:
+    """P1·P4 합성 → 스니펫 수집(파기 전) → judge 12 병렬. drafts를 제자리 확장한다."""
+    drafts.extend(synthesize_llm_drafts(root, drafts))
+    snippets = collect_snippets(root, drafts, registry)
+    from app.llm.judge import judge_findings   # 순환 import 회피(judge가 analysis를 쓴다)
+
+    await judge_findings(scan, drafts, snippets, client=client, registry=registry)

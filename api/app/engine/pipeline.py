@@ -73,6 +73,8 @@ async def run_scan(scan_id):
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     # M4: 정적 룰(gitleaks·semgrep·repo_checks) + 마스킹(P0-2) — Task 12~15
                     drafts, registry = await asyncio.to_thread(analysis.run_static_stage, res.root)
+                    # M4: LLM judge — P1·P4 합성 + 스니펫(파기 전) + 12 병렬, status 불변(G3)
+                    await analysis.run_llm_stage(scan, drafts, res.root, registry)
                     analysis.persist_findings(db, scan.id, drafts)
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")
