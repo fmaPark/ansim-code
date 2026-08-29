@@ -19,7 +19,7 @@
 **병렬 변형(작업자·세션 여유 시):** S1 완료 후 3개 레인 동시 진행 → 레인 A: S2 그대로 / 레인 B: S3a(Task 12–14) / 레인 C: S3c(Task 23 FE 골격). A·B 병합 후 S3b(Task 15–16), 이후 S4 → S5'(Task 22·24·25 — 23 제외) → S6.
 병합 순서 A → B → C 권장. 공유 접점은 `api/app/engine/pipeline.py` 연결부와 `api/app/config.py`뿐(레인 C는 `web/`만 수정) — B·C 병합 시 이 두 파일만 충돌 주의.
 
-**베이스 브랜치:** PR #3 머지 후에는 `origin/main`, 미머지 상태면 `docs/mvp-implementation-plan`에서 분기(계획 파일이 그 브랜치에 있음). 각 세션은 직전 세션 브랜치가 머지된 최신 베이스에서 분기.
+**베이스 브랜치:** `origin/main`(PR #3 머지 완료 — 계획 파일 포함). 각 세션은 직전 세션 브랜치가 머지된 최신 베이스에서 분기.
 
 ---
 
@@ -29,7 +29,7 @@
 executing-plans 스킬을 사용해 docs/plans/mvp-implementation.md 계획을 실행해줘.
 
 이번 세션 범위: Task 1~5 (M1 기반 구축)만. 범위 밖 태스크는 절대 건드리지 말 것.
-브랜치: docs/mvp-implementation-plan(PR #3 머지 전) 기준 feat/m1-foundation 분기. main 직접 작업 금지.
+브랜치: main(PR #3 머지됨) 기준 feat/m1-foundation 분기. main 직접 작업 금지.
 
 규칙:
 - 계획의 Global Constraints(G1~G16)·각 태스크 선행 조건·DoD를 그대로 따를 것. P0 3건(G1 파기·G2 마스킹·G3 등급 결정론)은 어떤 판단보다 우선.
