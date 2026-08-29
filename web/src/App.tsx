@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
+import Report from './pages/Report'
 import ScanProgress from './pages/ScanProgress'
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/scan/:id" element={<ScanProgress />} />
+          <Route path="/report/:id" element={<Report />} />
           <Route
             path="*"
             element={

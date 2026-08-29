@@ -1822,9 +1822,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 **Interfaces:**
 - Produces: Report 페이지 탭 4개 — `발견 사항`(FindingCard 목록: 조항 인용 배지·severity·status·grade_blocking 강조·evidence 코드블록·fix_prompt 접기+CopyButton·judge_explanation), `SBOM`(15속성 테이블 + "JSON 다운로드" 버튼 — `/sbom` 응답을 Blob으로 저장), `체크리스트`, `공급망`(supply_chain matrix). 상단 고정 영역: GradePill(등급 색), disclaimer 문구 상시, UpgradeBlock("이 N건만 해결하면 {등급}으로 올라갑니다" + blocking 목록 앵커), `개발자용 ↔ 시민용(easy)` 토글, `전체 수정 프롬프트 복사`(copy_all_fix_prompts), `재진단` 버튼(git: 즉시 호출 / zip: 파일 선택 후 rescan). `previous_comparison` 존재 시 DiffPanel: "위험 → 주의" 등급 변화 + 해결/잔여/신규 카운트와 목록, `fingerprint_changed=false`면 "코드 변경 없음" 표시. CopyButton은 `navigator.clipboard.writeText` + 복사됨 토스트.
 
-- [ ] **Step 1: 구현 → 수동 검증 체크리스트** — ① 등급·상향 블록 표시 ② 항목별/전체 복사 동작(붙여넣기 확인) ③ easy 토글 시 시민용 문구만 ④ SBOM JSON 다운로드 파일 열림 ⑤ review_needed 뱃지·"검토 필요 n건" 병기 ⑥ 재진단(zip 재업로드) 후 DiffPanel 3분류·등급 변화 ⑦ disclaimer가 모든 뷰에 상시 노출.
-- [ ] **Step 2: `tsc --noEmit`·`npm run build` 클린**
-- [ ] **Step 3: Commit** — `feat: FE 리포트 화면 (상향 블록·복사·easy·SBOM·체크리스트·diff)`
+- [x] **Step 1: 구현 → 수동 검증 체크리스트** — ① 등급·상향 블록 표시 ② 항목별/전체 복사 동작(붙여넣기 확인) ③ easy 토글 시 시민용 문구만 ④ SBOM JSON 다운로드 파일 열림 ⑤ review_needed 뱃지·"검토 필요 n건" 병기 ⑥ 재진단(zip 재업로드) 후 DiffPanel 3분류·등급 변화 ⑦ disclaimer가 모든 뷰에 상시 노출.
+- [x] **Step 2: `tsc --noEmit`·`npm run build` 클린**
+- [x] **Step 3: Commit** — `feat: FE 리포트 화면 (상향 블록·복사·easy·SBOM·체크리스트·diff)`
 
 **완료 기준(DoD):** 유스케이스 1·3의 화면 요소 전부 실데이터로 동작.
 
