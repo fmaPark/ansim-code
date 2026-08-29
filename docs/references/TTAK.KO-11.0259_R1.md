@@ -1,3 +1,15 @@
+---
+type: Standard
+title: TTAK.KO-11.0259/R1 — 오픈소스 소프트웨어 보안취약점 관리 지침
+description: 오픈소스 취약점의 특징 4가지와 SDLC 단계별 점검 사항, OSRB 조직 구성, 5단계 관리 프로세스를 규정한 TTA 표준의 마크다운 변환본.
+resource: TTAK.KO-11.0259/R1
+status: stable
+tags: [tta-standard, 오픈소스, 보안취약점, sdlc]
+generated: { by: "human:개발-풀스택", at: "2026-08-29T00:00:00Z" }
+sources:
+  - { id: pdf, resource: "TTAK.KO-11.0259_R1.pdf — 원본 PDF (저장소 미포함)", title: "TTAK.KO-11.0259/R1 원본 PDF", author: "TTA", last_modified: "2024-12-06" }
+---
+
 > **표준번호**: TTAK.KO-11.0259/R1 | **표준명(국문)**: 오픈소스 소프트웨어 보안취약점 관리 지침 | **표준명(영문)**: Open Source Software Management Guideline for Security Vulnerability | **제정/개정일**: 제정 2019.12.11.(TTAK.KO-11.0259) / 개정 2024.12.06.(TTAK.KO-11.0259/R1)
 > 원본: TTAK.KO-11.0259_R1.pdf — 본 문서는 PDF 원문을 마크다운으로 변환한 참고자료입니다.
 

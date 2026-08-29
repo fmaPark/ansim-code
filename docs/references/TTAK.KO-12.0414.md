@@ -1,3 +1,15 @@
+---
+type: Standard
+title: TTAK.KO-12.0414 — 인공지능(AI) 서비스 개인정보보호 프레임워크
+description: AI 서비스의 개인정보보호 6대 원칙과 생명주기 단계별 보호조치를 규정한 TTA 표준의 마크다운 변환본.
+resource: TTAK.KO-12.0414
+status: stable
+tags: [tta-standard, ai, 개인정보보호]
+generated: { by: "human:개발-풀스택", at: "2026-08-29T00:00:00Z" }
+sources:
+  - { id: pdf, resource: "TTAK.KO-12.0414.pdf — 원본 PDF (저장소 미포함)", title: "TTAK.KO-12.0414 원본 PDF", author: "TTA", last_modified: "2024-12-06" }
+---
+
 # 인공지능(AI) 서비스 개인정보보호 프레임워크
 
 > **표준번호**: TTAK.KO-12.0414 | **표준명(국문)**: 인공지능(AI) 서비스 개인정보보호 프레임워크 | **표준명(영문)**: Privacy Protection Framework for AI Services | **제정일**: 2024.12.06.
