@@ -1230,7 +1230,7 @@ def test_unpinned_without_lock():                  # SCA-11
 **Interfaces:**
 - Produces: `run_gitleaks(root) -> list[RawSecret(rule_id, file, line, secret_value, match)]` — `gitleaks detect --no-git -s {root} -c /srv/rules/gitleaks/ansim.toml -f json -r {out}` subprocess(exit 0=무발견, 1=발견 — 둘 다 정상, 그 외 예외). gitleaks RuleID → 안심코드 rule_id 매핑(`aws-access-token`→SEC-04, `ansim-comment-secret`→SEC-02, `ansim-envfile`→SEC-03, 기본 룰 나머지→SEC-01, `ansim-krn-rrn`·`ansim-kr-phone`·`ansim-kr-account`→SEC-05). `secret_value`는 마스킹(Task 14) 전까지 메모리에만 존재 — **DB·로그 기록 금지(G2)**.
 
-- [ ] **Step 1: `rules/gitleaks/ansim.toml` 작성**
+- [x] **Step 1: `rules/gitleaks/ansim.toml` 작성**
 
 ```toml
 title = "AnsimCode secret rules"
@@ -1269,7 +1269,7 @@ regexes = ['''your[-_]?api[-_]?key''', '''changeme''', '''sk-test-''', '''exampl
 paths = ['''(^|/)docs?/''', '''README''', '''(^|/)tests?/fixtures/''']
 ```
 
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 2: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_gitleaks.py
@@ -1290,8 +1290,8 @@ def test_comment_secret_detected(tmp_path):
 
 주의: AKIA 예시가 allowlist의 `example` 정규식과 충돌하지 않도록 allowlist 정규식은 **소문자 한정**(`(?i)` 미사용)으로 확정 — 충돌 시 테스트가 잡는다.
 
-- [ ] **Step 3: 실행해 실패 확인 → 러너 구현 → green** — 로컬에 gitleaks가 없으면 이 테스트는 `pytest.mark.skipif(shutil.which("gitleaks") is None)`로 표시하고 `docker compose run --rm api pytest tests/test_gitleaks.py`로 검증(이미지에 바이너리 동봉 — Task 1).
-- [ ] **Step 4: Commit** — `feat: gitleaks 통합 + 시크릿 룰 5종 + 플레이스홀더 allowlist`
+- [x] **Step 3: 실행해 실패 확인 → 러너 구현 → green** — 로컬에 gitleaks가 없으면 이 테스트는 `pytest.mark.skipif(shutil.which("gitleaks") is None)`로 표시하고 `docker compose run --rm api pytest tests/test_gitleaks.py`로 검증(이미지에 바이너리 동봉 — Task 1). *(실행 세션: 샌드박스에 gitleaks 바이너리 설치 불가 — 실바이너리 2케이스는 skipif, subprocess 경계 스텁으로 명령 규약·exit 코드·파싱·매핑 5케이스 green. docker 이미지 안 재검증 필요)*
+- [x] **Step 4: Commit** — `feat: gitleaks 통합 + 시크릿 룰 5종 + 플레이스홀더 allowlist`
 
 **완료 기준(DoD):** 양성 2건 탐지·플레이스홀더 0건, exit 0/1 모두 정상 처리, secret_value가 로그에 남지 않음.
 
