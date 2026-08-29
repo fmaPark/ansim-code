@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 소스코드(git URL/zip)를 받아 TTA 표준 4종 기반 진단 룰 31종 + 15속성 SBOM + 안전등급(안심·주의·위험) + 이중 리포트를 제공하는 웹 서비스를 7일 안에 로컬 Docker Compose 데모로 완성한다.
+**Goal:** 소스코드(git URL/zip)를 받아 TTA 표준 4종 기반 진단 룰 31종 + 15속성 SBOM + 안전등급(안심·주의·위험) + 이중 리포트를 제공하는 웹 서비스를 로컬 Docker Compose 데모로 완성한다. 총 기간은 **7일 이내(상한)** — 일자 분기 없이 마일스톤 게이트로 진행을 판정한다.
 
 **Architecture:** React SPA(nginx 서빙) + FastAPI 단일 서비스. Analysis Engine은 백엔드 내장 Python 모듈 파이프라인(0259 §11 5단계 매핑)이며 FastAPI BackgroundTasks + DB 상태 폴링으로 비동기 실행(uvicorn 단일 워커 고정). 원본 코드는 스캔별 격리 임시 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다.
 
@@ -41,32 +41,41 @@
 
 ---
 
-## 7일 일정 · 일자별 마일스톤
+## 마일스톤 순서 · 선행 조건 (기간 상한: 7일 이내)
 
-캘린더는 TDD 개발 기간(2026-08-24~08-31, **목표 완료 08-30, 08-31은 제출 전용**) 기준. 착수일이 밀린 경우 Day 번호를 유지한 채 잔여일에 재배치한다. Critical Path: M1→M2→M3→M5→M6→M7 (M4는 M1 이후 병행 가능 트랙이나 1인 개발이므로 Day 4 배정).
+총 기간은 **7일 이내가 상한**이다(TDD 개발 기간 2026-08-24~08-31, 목표 완료 08-30 — 08-31은 제출 전용). **일자별 분기는 두지 않는다** — 진행은 아래 게이트 통과로만 판정하며, 선행 조건이 겹치지 않는 트랙은 최대한 병렬로 진행한다. Critical Path: M1→M2→M3→M5→M6→M7 (TDD §7). M4는 M1 직후 병렬 트랙이고, FE 골격(Task 23)도 M1 직후 API 계약 기반으로 선착수할 수 있다.
 
-| Day | 날짜 | 마일스톤 | 태스크 | Day 완료 기준(게이트) |
+```mermaid
+graph LR
+    M1[M1 기반 구축] --> M2[M2 SBOM] --> M3[M3 취약점 대조] --> M5[M5 리포트·등급]
+    M1 --> M4[M4 룰 엔진+LLM] --> M5
+    M5 --> M6[M6 Frontend] --> M7[M7 검증·데모]
+    M1 -. Task 23 FE 골격 선착수 .-> M6
+```
+
+| 순서 | 마일스톤 | 태스크 | 선행 조건 | 완료 기준(게이트) |
 | --- | --- | --- | --- | --- |
-| 1 | 08-24 | **M1 기반 구축** | 1–5 | `docker compose up` 3서비스 기동, `/health` 200. POST /api/scans(git·zip 모두) → 지문 계산 → **강제 예외에도 작업 디렉토리 잔존 0**(P0-1 테스트 green) → status 폴링 동작 |
-| 2 | 08-25 | **M2 SBOM 생성** | 6–8 | fixture 저장소(Py+npm)에 대해 15속성 SBOM JSON이 `GET /sbom`으로 내려오고 결합형태 3분류·공급망 분류가 정확. 실패 경로 `status=failed` 확인 |
-| 3 | 08-26 | **M3 취약점 대조** | 9–11 | 알려진 취약 패키지 fixture에서 CVE + CVSS 3값 + KISA 교차 "국내 보안공지 발령" 표시. OSV 타임아웃 시 부분 결과. SCA 룰 12종 finding 생성. **게이트: KISA 데이터셋 확정(§11 항목 5) 기록** |
-| 4 | 08-27 | **M4 룰 엔진 + LLM** | 12–16 | 시크릿·개인정보·보조 룰 전체 실행, 주민번호 체크섬 분기 테스트 green, **LLM 페이로드 시크릿 0건**(P0-2 테스트 green), judge 실호출 + 12 병렬. **게이트: 소요시간·오탐률 실측치 기록(§11 항목 1·3) + 기획에 벤치마크 목록 확정 재요청(§11 항목 2 — Day 5 마감)** |
-| 5 | 08-28 | **M5 리포트·등급** | 17–21 | **같은 입력 → 같은 등급**(P0-3 테스트 green), 등급 상향 조건 N건 표시, 개발자/시민 리포트 + 수정 프롬프트, 체크리스트 API, 재진단 diff 3분류 API |
-| 6 | 08-29 | **M6 Frontend 통합** | 22–25 | 브라우저에서 업로드→진행 단계→리포트→복사→공개(.ansimcode)→배지→재진단 diff 전 흐름 완주. zip 공개 시 403 안내. **게이트: 기획 카피 3건(§11 항목 4·7·8) 수신 시 문구 교체** |
-| 7 | 08-30 | **M7 검증·데모** | 26–28 | 벤치마크 TPR/FPR 측정표, PyGoat 완주, 인젝션 페이로드에도 등급 조작 없음, dogfooding 완주, 데모 리허설 + LLM 캐시 폴백 준비 |
-| — | 08-31 | 제출 전용 | — | 영상·소스·README 패키징 (개발 없음) |
+| 1 | **M1 기반 구축** | 1–5 | 없음 | `docker compose up` 3서비스 기동, `/health` 200. POST /api/scans(git·zip 모두) → 지문 계산 → **강제 예외에도 작업 디렉토리 잔존 0**(P0-1 테스트 green) → status 폴링 동작 |
+| 2 | **M2 SBOM 생성** | 6–8 | M1 (Task 6·7은 Task 1 직후 병렬 착수 가능) | fixture 저장소(Py+npm)에 대해 15속성 SBOM JSON이 `GET /sbom`으로 내려오고 결합형태 3분류·공급망 분류가 정확. 실패 경로 `status=failed` 확인 |
+| 3 | **M3 취약점 대조** | 9–11 | M2 (`cvss.py`·`osv.py`·KISA 로더 모듈 자체는 Task 1 직후 병렬 작성 가능) | 알려진 취약 패키지 fixture에서 CVE + CVSS 3값 + KISA 교차 "국내 보안공지 발령" 표시. OSV 타임아웃 시 부분 결과. SCA 룰 12종 finding 생성. **게이트: KISA 데이터셋 확정(§11 항목 5) 기록** |
+| 병렬 | **M4 룰 엔진 + LLM** | 12–16 | M1 — M2·M3와 병렬 트랙 (단 Task 15는 Task 11의 semgrep 러너 선행 — 병렬 진행 시 러너부터 선작성. 태스크별 `선행 조건` 줄 참조) | 시크릿·개인정보·보조 룰 전체 실행, 주민번호 체크섬 분기 테스트 green, **LLM 페이로드 시크릿 0건**(P0-2 테스트 green), judge 실호출 + 12 병렬. **게이트: 소요시간·오탐률 실측치 기록(§11 항목 1·3) + 기획에 벤치마크 목록 확정 재요청(§11 항목 2 — M7 착수 전 마감)** |
+| 4 | **M5 리포트·등급** | 17–21 | M3 + M4 (`calc_grade` 순수 함수는 선행 없이 병렬 작성 가능) | **같은 입력 → 같은 등급**(P0-3 테스트 green), 등급 상향 조건 N건 표시, 개발자/시민 리포트 + 수정 프롬프트, 체크리스트 API, 재진단 diff 3분류 API |
+| 5 | **M6 Frontend 통합** | 22–25 | M5 (Task 23은 M1 직후 병렬 착수 가능) | 브라우저에서 업로드→진행 단계→리포트→복사→공개(.ansimcode)→배지→재진단 diff 전 흐름 완주. zip 공개 시 403 안내. **게이트: 기획 카피 3건(§11 항목 4·7·8) 수신 시 문구 교체** |
+| 6 | **M7 검증·데모** | 26–28 | M6 + **외부: 기획 확정 벤치마크 목록**(§11 항목 2) | 벤치마크 TPR/FPR 측정표, PyGoat 완주, 인젝션 페이로드에도 등급 조작 없음, dogfooding 완주, 데모 리허설 + LLM 캐시 폴백 준비. 이후 제출 패키징(08-31 제출 전용 — 개발 없음) |
+
+**태스크 단위 병렬화:** 각 태스크 머리의 **선행 조건** 줄이 최소 의존만 명시한다 — 거기 없는 태스크와는 병렬 진행 가능. 마일스톤 게이트 통과 = 소속 태스크 DoD 전부 + 표의 게이트 검증.
 
 ## 미확정 항목 처리 (TDD §11 → 2026-08-29 사용자 확정)
 
 | §11 항목 | 이 계획의 처리 |
 | --- | --- |
 | 1. LLM 호출 상한 | **초안 수치 채택**: judge 12 병렬·변환 30항목 배치. Task 16에서 실측 후 `docs/measurements.md`에 확정치 기록 |
-| 2. 벤치마크 취약점 목록 | **아직 미확정** — 외부 의존성. Task 26은 기획 확정 목록(`expected_findings.yaml`) 수신을 선행 조건으로 하며 Day 5 마감 게이트. 미수신 시 개발이 룰 커버리지 기준 초안을 작성해 기획 승인만 받는 폴백(순환 검증 회피 원칙은 "개발이 목록에 룰을 맞추지 않는다"로 유지) |
+| 2. 벤치마크 취약점 목록 | **아직 미확정** — 외부 의존성. Task 26은 기획 확정 목록(`expected_findings.yaml`) 수신을 선행 조건으로 하며 **M7 착수 전 마감 게이트**(M4 완료 시점에 재요청). 미수신 시 개발이 룰 커버리지 기준 초안을 작성해 기획 승인만 받는 폴백(순환 검증 회피 원칙은 "개발이 목록에 룰을 맞추지 않는다"로 유지) |
 | 3. 플레이스홀더 allowlist | 초기 목록(G13)으로 시작, Task 16 실측으로 보강 |
 | 4. 주민번호 무효 처리 | **review_needed 기본값으로 구현**(Task 13). 기획 확정 시 상수 1곳 변경 |
 | 5. KISA 데이터셋 | data.go.kr/15155789로 진행, Task 10 첫 단계에서 실데이터 확인 후 확정 기록 |
 | 6. 미커버 §7.3 4건 | 의도적 보류(계획 제외). 여유 시 휴면 파기만 P10 흡수 검토 |
-| 7·8. 법적 고지·zip 안내 문구 | **placeholder 문구로 구현**(Task 22·25에 문구 명시), 기획 확정 시 교체 — Day 6 게이트 |
+| 7·8. 법적 고지·zip 안내 문구 | **placeholder 문구로 구현**(Task 22·25에 문구 명시), 기획 확정 시 교체 — M6 완료 전 게이트 |
 
 ## 저장소 파일 구조
 
@@ -139,11 +148,13 @@ ansim-code/
 
 ---
 
-# Day 1 — M1 기반 구축
+# M1 — 기반 구축 (선행: 없음)
 
 ### Task 1: Docker Compose 3서비스 + FastAPI 골격
 
 **TDD 참조:** §4.8 배포 구성도, §4.2 기술 스택, §10(health·로그)
+
+**선행 조건:** 없음 — 최초 태스크
 
 **Files:**
 - Create: `docker-compose.yml`, `.env.example`, `api/Dockerfile`, `api/requirements.txt`, `api/app/main.py`, `api/app/config.py`, `web/Dockerfile`, `web/nginx.conf`, `web/` Vite 스캐폴드
@@ -304,6 +315,8 @@ curl -s -o /dev/null -w "%{http_code}" localhost:8080   # 200 (Vite 기본 페�
 ### Task 2: DB 모델 4엔티티 + 룰 카탈로그 시드
 
 **TDD 참조:** §4.3 데이터 모델(엔티티·필드 전체), §4.5 룰 카탈로그 31종, 0259 §11.5(previous_scan_id)
+
+**선행 조건:** Task 1. (Task 3·4와 병렬 가능)
 
 **Files:**
 - Create: `api/app/db.py`, `api/app/models.py`, `api/app/engine/catalog.py`, `rules/catalog.yaml`, `api/tests/test_models.py`, `api/tests/conftest.py`
@@ -488,6 +501,8 @@ def rule_catalog_version(rules_dir=None) -> str:   # TDD §4.5: rules/ 콘텐츠
 
 **TDD 참조:** §8 업로드 코드 보호(P0)·입력 검증, §4.1 Ingestion(§11.1 환경 분석), §6 악성 업로드 리스크
 
+**선행 조건:** Task 1. (Task 2·4와 병렬 가능)
+
 **Files:**
 - Create: `api/app/engine/workspace.py`, `api/app/engine/ingest.py`, `api/tests/test_ingest.py`, `api/tests/fixtures/` (양성 zip·zip bomb 유사·traversal zip 생성 헬퍼)
 
@@ -618,6 +633,8 @@ def ingest_zip(upload_path: Path, workdir: Path) -> IngestResult:
 
 **TDD 참조:** §4.3(지문 정의·CRLF/LF 정규화·OS 부산물 제외 — M2 항목을 지문 구현과 함께 선행), ADR §5 등급 재현성
 
+**선행 조건:** Task 1(config 스킵 상수). (Task 2·3과 병렬 가능)
+
 **Files:**
 - Create: `api/app/engine/fingerprint.py`, `api/tests/test_fingerprint.py`
 
@@ -682,6 +699,8 @@ def tree_fingerprint(root: Path) -> str:
 ### Task 5: 스캔 API + 파이프라인 오케스트레이터 골격
 
 **TDD 참조:** §4.4 API(POST/GET /api/scans), §4.1 데이터 흐름·§11 단계 매핑(`current_stage`), §4.3 status 규칙, G12
+
+**선행 조건:** Task 2·3·4
 
 **Files:**
 - Create: `api/app/routes/scans.py`, `api/app/engine/pipeline.py`, `api/app/schemas.py`, `api/tests/test_scan_api.py`
@@ -809,15 +828,17 @@ curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
 
 - [ ] **Step 6: Commit** — `feat: 스캔 API + BackgroundTasks 파이프라인 골격 (§11 단계·failed 확정)`
 
-**완료 기준(DoD):** Day 1 게이트 전체 — git·zip 접수, 지문·룰버전 기록, 예외 시 failed + purged_at, 폴링 동작.
+**완료 기준(DoD):** M1 게이트 전체 — git·zip 접수, 지문·룰버전 기록, 예외 시 failed + purged_at, 폴링 동작.
 
 ---
 
-# Day 2 — M2 SBOM 생성
+# M2 — SBOM 생성 (선행: M1)
 
 ### Task 6: Python 의존성 파서 + import 추출
 
 **TDD 참조:** §4.1 Dependency Parser(§11.2 현황 진단), §4.5 미선언 의존성(Python은 stdlib `ast`), §4.2 파싱 라이브러리, G7(코드 실행 금지)
+
+**선행 조건:** Task 1. (M1 잔여 태스크·Task 7 이후 트랙과 병렬 가능)
 
 **Files:**
 - Create: `api/app/engine/deps_python.py`, `api/app/engine/imports_py.py`, `api/tests/test_deps_python.py`
@@ -884,6 +905,8 @@ def extract_python_imports(root: Path) -> set[str]:
 
 **TDD 참조:** §4.1 Dependency Parser, §4.3 SbomComponent ⑦(component_hash=lock integrity), §4.5 SCA-09·11·12 입력
 
+**선행 조건:** Task 6(`Dependency` 자료형 공유)
+
 **Files:**
 - Create: `api/app/engine/deps_npm.py`, `api/tests/test_deps_npm.py`
 
@@ -929,6 +952,8 @@ def test_git_dependency_flagged_nonregistry(tmp_path):
 ### Task 8: SBOM Builder 15속성 + 결합형태 3분류 + 공급망 분류 + export API
 
 **TDD 참조:** §4.3 SbomComponent(15속성 매핑·⑨ 3축 판정), 0309 §5.2·§6, §3(0322 §5.1.1 공급망 분류), §4.4 `GET /sbom`
+
+**선행 조건:** Task 5·6·7
 
 **Files:**
 - Create: `api/app/engine/sbom.py`, `api/app/routes/reports.py`(sbom 엔드포인트부터), `api/tests/test_sbom.py`
@@ -979,15 +1004,17 @@ def test_supply_chain_classification(tmp_path):
 - [ ] **Step 5: 실패 경로 재확인** — 깨진 `package.json`(JSON 오류) fixture → 해당 파서만 건너뛰고 스캔은 done(파싱 불가 마커), 완전 빈 저장소 → done + 컴포넌트 0 + `자체개발`
 - [ ] **Step 6: Commit** — `feat: 15속성 SBOM 빌더 + 결합형태 3분류 + 공급망 분류 + export API`
 
-**완료 기준(DoD):** Day 2 게이트 — 15속성 키 전수 출력, 3분류·공급망 분류 테스트 green, `/sbom` JSON 다운로드 가능.
+**완료 기준(DoD):** M2 게이트 — 15속성 키 전수 출력, 3분류·공급망 분류 테스트 green, `/sbom` JSON 다운로드 가능.
 
 ---
 
-# Day 3 — M3 취약점 대조
+# M3 — 취약점 대조 (선행: M2)
 
 ### Task 9: OSV 클라이언트 + CVSS 3값 파생
 
 **TDD 참조:** §4.6(OSV.dev — purl 배치 질의·무인증), §4.3 ⑭ CVSS 3값(벡터 파생·부재 시 null+사유)·⑩ 취약점별 출처, §6(OSV 장애 → 부분 결과 + "일부 미대조"), 0309 §6.10·§6.14
+
+**선행 조건:** Task 8(파이프라인 연결·SBOM 행 입력). `cvss.py`·`osv.py` 모듈 자체는 Task 1 직후 병렬 작성 가능
 
 **Files:**
 - Create: `api/app/engine/osv.py`, `api/app/engine/cvss.py`, `api/tests/test_osv.py`, `api/tests/test_cvss.py`
@@ -1056,6 +1083,8 @@ def derive_cvss3(vector):
 
 **TDD 참조:** §4.6(KISA 보호나라 KrCERT — data.go.kr/15155789, 본문 CVE 추출→OSV 교차→"국내 보안공지 발령"+공지 링크, **데이터셋 최종 확정은 실데이터 확인 후 — §11 항목 5**), §6(OSV 장애 시 KISA만으로 부분 결과)
 
+**선행 조건:** Task 9(OSV 결과와 교차). CSV 확정(Step 1)·로더는 Task 1 직후 병렬 가능
+
 **Files:**
 - Create: `api/app/engine/kisa.py`, `api/tests/test_kisa.py`, `data/kisa/krcert_notices.csv`(다운로드 스냅샷), `data/kisa/SNAPSHOT_DATE`
 
@@ -1089,6 +1118,8 @@ def test_cve_extraction_from_any_column(tmp_path):
 ### Task 11: Semgrep 러너 + SCA 룰 12종 완성 + 0322 매트릭스
 
 **TDD 참조:** §4.5 SCA 룰 표(12종 로직은 Task 2 카탈로그 표가 사양), §4.2(Semgrep subprocess·metadata 조항 기입·레지스트리 룰 금지 G13), §3(0322 §5.1.2 표 5-1 매트릭스 리포트), §4.5(JS/TS import는 Semgrep 패턴)
+
+**선행 조건:** Task 8·9·10. semgrep 러너·js-imports 룰은 Task 1 직후 병렬 작성 가능
 
 **Files:**
 - Create: `api/app/engine/semgrep_runner.py`, `rules/semgrep/js-imports.yaml`, `api/app/engine/repo_checks.py`(미선언 의존성 부분), `api/app/engine/sca_rules.py`, `api/tests/test_sca_rules.py`
@@ -1137,15 +1168,17 @@ def test_unpinned_without_lock():                  # SCA-11
 - [ ] **Step 4: 파이프라인 연결 + fixture 저장소 E2E** — 취약 버전 고정 fixture(예: `requirements.txt: flask==0.12`, `package-lock.json: lodash 4.17.15`)로 스캔 → SCA-02 finding + KISA 교차 여부 확인
 - [ ] **Step 5: Commit** — `feat: Semgrep 러너 + SCA 룰 12종 + 0322 표 5-1 매트릭스`
 
-**완료 기준(DoD):** Day 3 게이트 — SCA 12종이 fixture에서 기대 finding 생성, semgrep JSON 파싱 안정(빈 결과·문법 오류 파일 포함), 매트릭스 dict가 리포트 입력으로 준비됨.
+**완료 기준(DoD):** M3 게이트 — SCA 12종이 fixture에서 기대 finding 생성, semgrep JSON 파싱 안정(빈 결과·문법 오류 파일 포함), 매트릭스 dict가 리포트 입력으로 준비됨.
 
 ---
 
-# Day 4 — M4 룰 엔진 + LLM
+# M4 — 룰 엔진 + LLM (선행: M1 — M2·M3와 병렬 트랙)
 
 ### Task 12: gitleaks 통합 + 시크릿 룰 5종(TOML) + allowlist
 
 **TDD 참조:** §4.5 시크릿 룰 표(SEC-01~05 사양은 Task 2 카탈로그 표), §4.2(gitleaks custom TOML·allowlist), §8 시크릿 마스킹 전제, 0259 §9.5(주석 내 시크릿)
+
+**선행 조건:** Task 1(이미지 내 gitleaks)·5(파이프라인 연결). M2·M3 트랙과 병렬 — M4 트랙 시작점
 
 **Files:**
 - Create: `api/app/engine/gitleaks_runner.py`, `rules/gitleaks/ansim.toml`, `api/tests/test_gitleaks.py`, `api/tests/fixtures/secrets/`(양성·음성 케이스 파일)
@@ -1224,6 +1257,8 @@ def test_comment_secret_detected(tmp_path):
 
 **TDD 참조:** §4.5 주민등록번호 체크섬(가중치·판정 규칙 원문), §11 항목 4(무효→review_needed 기본값 — 2026-08-29 사용자 확정: 기본값으로 구현), §9 Unit(유효→confirmed / 무효 13자리→review_needed 각각 검증)
 
+**선행 조건:** Task 12(`RawSecret` 소비)
+
 **Files:**
 - Create: `api/app/engine/pii.py`, `api/tests/test_pii.py`
 
@@ -1285,6 +1320,8 @@ def validate_rrn(candidate: str) -> bool:
 
 **TDD 참조:** §8 시크릿 마스킹(P0) 원문, §9 P0 검증(LLM 페이로드에 원문 없음), §4.1(시크릿 룰 LLM 미경유)
 
+**선행 조건:** Task 5·12·13
+
 **Files:**
 - Create: `api/app/engine/masking.py`, `api/tests/test_masking.py`
 
@@ -1328,6 +1365,8 @@ def test_secret_rules_never_reach_llm(pipeline_with_llm_stub):
 ### Task 15: 개인정보 10종(P1~P10) + 보조 4종(AUX) 룰
 
 **TDD 참조:** §4.5 개인정보 10종 표(조항·방식 원문은 Task 2 카탈로그 표에 이관됨), 0414 §7.3.1~§7.3.5, 0259 §9.4(보조 룰 + 2차 출처 병기)
+
+**선행 조건:** Task 11(semgrep 러너)·14(evidence 마스킹). 룰 YAML 작성 자체는 병렬 가능
 
 **Files:**
 - Create: `rules/semgrep/privacy.yaml`, `rules/semgrep/aux-security.yaml`, `api/app/engine/repo_checks.py`(P7·P8·P9 확장), `api/tests/test_privacy_rules.py`
@@ -1403,6 +1442,8 @@ rules:
 
 **TDD 참조:** §4.2 LLM 행(모델 이원화·temperature=0·`llm_model_id`는 응답 기록), §4.5 등급 결정론(LLM은 review_needed 전용·승격/강등 불가), §8 LLM 안전(구조화 프롬프트·코드=데이터), §6(Anthropic 장애 → 리허설 캐시 폴백), §10(호출 수·비용 카운터), §11 항목 1·3(실측)
 
+**선행 조건:** Task 14·15
+
 **Files:**
 - Create: `api/app/llm/client.py`, `api/app/llm/judge.py`, `api/tests/test_judge.py`, `docs/measurements.md`
 
@@ -1452,18 +1493,20 @@ def test_model_id_recorded_from_response(judge_env):
 ```
 
 - [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — JSON 파싱 실패 응답은 1회 재요청 후 포기(설명 없이 유지 — 파이프라인은 계속). ANTHROPIC_API_KEY 부재 시 judge 단계 전체 스킵(로그 경고, review_needed 그대로) — 키 없이도 데모 외 개발 가능.
-- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — Day 5 마감 게이트.**
+- [ ] **Step 4: 실호출 실측(§11 항목 1·3 게이트)** — 실키로 fixture 스캔 1회: judge 12 병렬 소요 시간·토큰·비용, gitleaks 오탐(allowlist 통과 플레이스홀더) 목록을 `docs/measurements.md`에 기록. 상한 조정 필요 시 `settings` 수치 변경 + TDD §11에 확정치 회신 메모. **기획에 벤치마크 목록(§11 항목 2) 확정 재요청 — M7 착수 전 마감 게이트.**
 - [ ] **Step 5: Commit** — `feat: LLM judge 12병렬 + 캐시 폴백 + 비용 카운터 (review_needed 전용)`
 
-**완료 기준(DoD):** Day 4 게이트 — judge가 status 불변·설명 기록, 캐시 폴백 동작, 페이로드 마스킹(14의 테스트 green 유지), 실측치가 measurements.md에 기록.
+**완료 기준(DoD):** M4 게이트 — judge가 status 불변·설명 기록, 캐시 폴백 동작, 페이로드 마스킹(14의 테스트 green 유지), 실측치가 measurements.md에 기록.
 
 ---
 
-# Day 5 — M5 리포트·등급
+# M5 — 리포트·등급 (선행: M3 + M4)
 
 ### Task 17: Grade Calculator — 등급 결정론(P0-3) + grade_blocking + 상향 조건
 
 **TDD 참조:** §4.5 등급 산정 규칙 표(위험/주의/안심 조건 원문)·등급 결정론·등급 상향 조건 표시, 0259 §11.3(위험 평가 지수), §9 B3 DoD
+
+**선행 조건:** Task 9·15(파이프라인 연결 기준). `calc_grade` 순수 함수 자체는 선행 없이 병렬 작성 가능
 
 **Files:**
 - Create: `api/app/engine/grade.py`, `api/tests/test_grade.py`
@@ -1518,6 +1561,8 @@ def test_determinism_same_input_same_grade():  # B3 DoD (TDD §9)
 
 **TDD 참조:** §3(이중 리포트·수정 프롬프트), §4.2(변환=claude-haiku-4-5·30항목 일괄 배치 초안), §4.1 Report Generator(§11.4 대책 수립)
 
+**선행 조건:** Task 15·16
+
 **Files:**
 - Create: `api/app/llm/convert.py`, `api/tests/test_convert.py`
 
@@ -1544,6 +1589,8 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
 ### Task 19: 이중 리포트 조립 + report API
 
 **TDD 참조:** §3(개발자용 조항 인용 + 시민용), §4.4 `/report`(`?mode=easy`), §4.5(6대 원칙 축 요약·상향 조건 블록·"인증 아님" 문구), 0259 §9.3(감사보고서 형식 — 플래그 파일마다 해결법), 0322 §5.1.2(매트릭스 출력), §6(OSV incomplete → "일부 미대조")
+
+**선행 조건:** Task 9·11·17·18
 
 **Files:**
 - Create: `api/app/report/builder.py`, `api/tests/test_report.py`
@@ -1594,6 +1641,8 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
 
 **TDD 참조:** §3(0414 §7.1~7.2 + §7.3 조직·물리 + 0259 §10 통합 체크리스트), §4.4 `/checklist`, §7 포기 순서 ①(압박 시 정적 페이지로 — 그래서 데이터도 정적 시드)
 
+**선행 조건:** Task 5. (어느 트랙과도 병렬 가능)
+
 **Files:**
 - Create: `api/app/report/checklist.py`, `api/tests/test_checklist.py`
 - Modify: `api/app/routes/reports.py`
@@ -1611,6 +1660,8 @@ JSON 배열로만 답하라: [{"id": ..., "easy": "비전공 시민을 위한 �
 ### Task 21: 재진단 백엔드 — rescan API + diff 3분류
 
 **TDD 참조:** §4.4 `/rescan`(git 재clone / zip 재업로드 분기), §4.7 유스케이스 3(diff — (rule_id, file, line) 대조·해결/잔여/신규·지문 비교), §4.3 previous_scan_id(0259 §11.5 이력관리 대장), §3(재진단 = 0322 §5.2·0309 §7.4·0259 §9.6 근거)
+
+**선행 조건:** Task 5·17. (전체 E2E 확인은 Task 19 이후)
 
 **Files:**
 - Create: `api/app/engine/diff.py`, `api/tests/test_rescan.py`
@@ -1640,15 +1691,17 @@ async def test_rescan_links_previous_and_reports_grade_change(client, zip_v1, zi
 - [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — rescan은 기존 POST /scans 파이프라인 재사용(previous_scan_id만 추가). 지문 비교로 `fingerprint_changed`(동일 지문 재스캔 = "코드 미변경" 표시 — §4.7).
 - [ ] **Step 3: Commit** — `feat: 재진단 rescan + 발견 diff 3분류 + 등급 변화 비교`
 
-**완료 기준(DoD):** Day 5 게이트 — git/zip 분기, diff 3분류 정확, 등급 변화·지문 변경 여부 응답 포함.
+**완료 기준(DoD):** M5 게이트 — git/zip 분기, diff 3분류 정확, 등급 변화·지문 변경 여부 응답 포함.
 
 ---
 
-# Day 6 — M6 Frontend 통합 + 공개 플로우
+# M6 — Frontend 통합 + 공개 플로우 (선행: M5)
 
 ### Task 22: 공개 플로우 백엔드 — publish 2단계·공개 페이지 데이터·SVG 배지
 
 **TDD 참조:** §4.4(`/publish` 2단계·`/public/grades`·`/public/badge` — Cache-Control·ETag), §4.5 등급 공개 범위(git 전용·`.ansimcode` 소유 증명·zip 403), §4.7 유스케이스 2, ADR-001 v1.3 전체, §11 항목 7·8(placeholder 카피 — 2026-08-29 사용자 확정)
+
+**선행 조건:** Task 3(`ingest_git` 재사용)·19(easy_report)
 
 **Files:**
 - Create: `api/tests/test_publish.py`
@@ -1660,7 +1713,7 @@ async def test_rescan_links_previous_and_reports_grade_change(client, zip_v1, zi
   - `POST /api/scans/{id}/publish` body `{"confirm": true}` (2단계): 저장소를 shallow clone(Task 3 `ingest_git` 재사용, 워크스페이스 즉시 파기)해 루트 `.ansimcode` 내용(`strip()`)과 토큰 대조 → 일치 시 `scan.is_public=True`, `public_slug=token_urlsafe(8)` → `200 {"public_url": "/g/{slug}", "badge_markdown": "[![안심코드](http://localhost:8080/api/public/badge/{slug}.svg)](http://localhost:8080/g/{slug})"}`. 불일치 `409 {"detail": "..."}`.
   - `GET /api/public/grades/{slug}`: `{"grade", "easy_report": easy_report_json, "provenance": {...G11 4종...}, "scanned_at", "disclaimer": LEGAL_NOTICE}`.
   - `GET /api/public/badge/{slug}.svg`: 아래 템플릿, 헤더 `Cache-Control: max-age=300, must-revalidate` + `ETag: W/"{sha256(slug+grade+scanned_at)[:16]}"`, `If-None-Match` 일치 시 304 (GitHub camo 캐싱 대응 — TDD §4.4).
-  - placeholder 카피 상수(기획 확정 시 이 두 상수만 교체 — Day 6 게이트):
+  - placeholder 카피 상수(기획 확정 시 이 두 상수만 교체 — M6 완료 전 게이트):
 
 ```python
 LEGAL_NOTICE = ("본 등급은 인증이 아닌 자가점검 보조 결과입니다. "
@@ -1690,11 +1743,13 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 
 **TDD 참조:** §4.4 API 계약, §4.1(`current_stage` 폴링·체감 대기 관리), ADR §5(zip UX 동등 완성도 — 드래그 앤 드롭·명확한 오류 안내), §7 M6
 
+**선행 조건:** Task 5(API 계약). 백엔드 M2~M5 트랙과 병렬 가능
+
 **Files:**
 - Create: `web/src/api/client.ts`, `web/src/pages/Home.tsx`, `web/src/pages/ScanProgress.tsx`, `web/src/components/GradePill.tsx`, `web/src/App.tsx`(라우팅), `web/src/styles.css`
 
 **Interfaces:**
-- Produces: `client.ts` — Task 19 리포트 JSON 계약의 TypeScript 타입(`ScanStatus`, `Report`, `Finding`, `PublicGrade`, `PreviousComparison`)과 함수 `startGitScan(url)`, `startZipScan(file)`, `getScan(id)`, `pollScan(id, onUpdate)`(2초 간격, done/failed에서 중단), `getReport(id, mode)`, `getSbom(id)`, `getChecklist(id)`, `rescan(id, file?)`, `publish(id, confirm?)`. 라우트: `/`(Home), `/scan/:id`(Progress→완료 시 `/report/:id`), `/report/:id`, `/g/:slug`(공개). **스타일은 단일 `styles.css` + CSS 변수(가정: UI 라이브러리 미도입 — 7일 일정, 화면 6종)**.
+- Produces: `client.ts` — Task 19 리포트 JSON 계약의 TypeScript 타입(`ScanStatus`, `Report`, `Finding`, `PublicGrade`, `PreviousComparison`)과 함수 `startGitScan(url)`, `startZipScan(file)`, `getScan(id)`, `pollScan(id, onUpdate)`(2초 간격, done/failed에서 중단), `getReport(id, mode)`, `getSbom(id)`, `getChecklist(id)`, `rescan(id, file?)`, `publish(id, confirm?)`. 라우트: `/`(Home), `/scan/:id`(Progress→완료 시 `/report/:id`), `/report/:id`, `/g/:slug`(공개). **스타일은 단일 `styles.css` + CSS 변수(가정: UI 라이브러리 미도입 — 7일 이내 상한 일정, 화면 6종)**.
 - Home: git URL 입력 + zip 드래그 앤 드롭 존(50MB 초과·비zip 즉시 클라이언트 검증 오류 표시), 에러 배너(서버 ValidationError detail 그대로 노출 — "명확한 오류 안내").
 - ScanProgress: `current_stage`를 0259 §11 단계명 그대로 스텝퍼로 표시(`환경분석→현황진단→위험분석→대책수립→완료`), failed 시 error_message + 처음으로 링크.
 
@@ -1710,6 +1765,8 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 ### Task 24: FE 리포트 화면 — 등급·상향 블록·복사·easy·SBOM·체크리스트·diff
 
 **TDD 참조:** §3(수정 프롬프트 복사 액션 항목별·전체 일괄), §4.5(등급 상향 조건 블록·"인증 아님" 상시 표기), §4.7 유스케이스 1·3(diff 화면 — "해결 N·잔여 M·신규 K"), §4.4(`?mode=easy`), §7 M6
+
+**선행 조건:** Task 19·21·23
 
 **Files:**
 - Create: `web/src/pages/Report.tsx`, `web/src/components/FindingCard.tsx`, `web/src/components/CopyButton.tsx`, `web/src/components/UpgradeBlock.tsx`, `web/src/components/DiffPanel.tsx`, `web/src/components/SixPrinciples.tsx`
@@ -1729,6 +1786,8 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 
 **TDD 참조:** §4.7 유스케이스 2(공개·배지 안내·시민 조회), §4.5 공개 범위(zip 불가 안내), ADR §5(데모는 로컬 — 배지 시연은 자체 공개 페이지), §11 항목 7·8 카피 게이트
 
+**선행 조건:** Task 22·23
+
 **Files:**
 - Create: `web/src/components/PublishFlow.tsx`, `web/src/pages/PublicGrade.tsx`
 
@@ -1739,15 +1798,17 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 - [ ] **Step 2: 기획 카피 게이트 확인** — §11 항목 7·8 문구 수신 여부 확인, 수신 시 `public.py` 상수 2개 교체 커밋(`docs: 기획 확정 카피 반영`), 미수신 시 placeholder 유지를 리스크 로그에 1줄.
 - [ ] **Step 3: Commit** — `feat: FE 공개 플로우(.ansimcode)·시민용 공개 페이지·배지 안내`
 
-**완료 기준(DoD):** Day 6 게이트 — 브라우저에서 전 흐름(업로드→진행→리포트→복사→공개→배지→재진단 diff) 완주.
+**완료 기준(DoD):** M6 게이트 — 브라우저에서 전 흐름(업로드→진행→리포트→복사→공개→배지→재진단 diff) 완주.
 
 ---
 
-# Day 7 — M7 검증·데모
+# M7 — 검증·데모 (선행: M6 + 기획 벤치마크 목록)
 
 ### Task 26: 자체 벤치마크 저장소 + TPR/FPR 측정
 
-**TDD 참조:** §9 벤치마크 검증(별도 저장소·기획 선확정 목록·순환 검증 회피·전체 룰 기준 공개·"데모 시연 n종" 명시), §11 항목 2(미확정 — 2026-08-29 사용자 확인: Day 5 마감 게이트 + 폴백), §6(진단 룰 품질 리스크)
+**TDD 참조:** §9 벤치마크 검증(별도 저장소·기획 선확정 목록·순환 검증 회피·전체 룰 기준 공개·"데모 시연 n종" 명시), §11 항목 2(미확정 — 2026-08-29 사용자 확인: M7 착수 전 마감 게이트 + 폴백), §6(진단 룰 품질 리스크)
+
+**선행 조건:** Task 19 + 외부: 기획 확정 취약점 목록(§11 항목 2)
 
 **Files:**
 - Create: 별도 저장소 `ansim-benchmark`(GitHub 공개 — git URL 입력 데모 겸용), 이 저장소에는 `verification/measure_detection.py`, `verification/expected_findings.yaml`(기획 목록 사본)
@@ -1767,6 +1828,8 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 ### Task 27: 제3자 앱(PyGoat) + 인젝션 방어 시연 + dogfooding
 
 **TDD 참조:** §9(제3자 취약 앱 — **PyGoat 확정, 2026-08-29 사용자 결정**·인젝션 시연 페이로드 원문·자기진단), §6(프롬프트 인젝션 리스크), §8 LLM 안전, §7 M7
+
+**선행 조건:** Task 26(인젝션 페이로드가 벤치마크 저장소에 포함)·19
 
 **Files:**
 - Create: `verification/injection_payloads.md`(페이로드 사양·기대 결과), `docs/measurements.md`에 결과 append
@@ -1795,6 +1858,8 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 **TDD 참조:** §6(Anthropic 장애 → 리허설 캐시 폴백), §9 수동(리허설 체크리스트), §3(Docker Compose 로컬 기동 + 데모 영상 + 소스 제출), ADR §5(배지 시연은 로컬 자체 공개 페이지·2차 발표 질의 대비), §7(08-31 제출 전용)
 
+**선행 조건:** Task 24·25·26·27
+
 **Files:**
 - Create: `README.md` 실행 가이드 확장, `docs/demo-script.md`
 - Modify: `.env.example` 최종화
@@ -1808,7 +1873,7 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - [ ] **Step 4: 최종 스모크 + 패키징** — 클린 머신 조건 재현(`docker compose down -v && docker system prune` 후 재빌드 기동), 전체 pytest green, `git archive`로 소스 zip. 영상 촬영은 기획 담당(demo-script.md 전달).
 - [ ] **Step 5: Commit** — `docs: 데모 스크립트·실행 가이드·제출 패키징`
 
-**완료 기준(DoD):** Day 7 게이트 — 클린 재빌드로 전 시나리오 완주, 키 무효 상태에서도 데모 재생 가능, README만으로 기동 재현.
+**완료 기준(DoD):** M7 게이트 — 클린 재빌드로 전 시나리오 완주, 키 무효 상태에서도 데모 재생 가능, README만으로 기동 재현.
 
 ---
 
