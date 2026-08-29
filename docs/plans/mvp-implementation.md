@@ -1562,7 +1562,7 @@ def test_model_id_recorded_from_response(judge_env):
   - `안심`: confirmed 0건(review_needed만 있어도 안심 — "검토 필요 n건" 병기는 리포트 몫). low CVE는 등급 비기여.
   - blocking: 현재 등급을 만든 발견들(위험이면 위험 트리거 전부, 주의면 confirmed 전부+high/medium CVE 전부). `upgrade_target`·`upgrade_count`: blocking을 제거한 입력으로 **재귀 1회 재계산**해 도달 등급과 건수 산출("이 N건 해결 시 {주의|안심}").
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_grade.py
@@ -1593,9 +1593,9 @@ def test_determinism_same_input_same_grade():  # B3 DoD (TDD §9)
     assert all(calc_grade(*inp).grade == "주의" for _ in range(50))
 ```
 
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green** — 구현은 위 규칙의 직역(분기 3개 + blocking 수집 + 제거 후 재계산). 파이프라인 `위험분석` 말미에 연결: `scan.grade` 저장, blocking finding에 `grade_blocking=True` 업데이트.
-- [ ] **Step 3: 파이프라인 결정론 통합 테스트** — 동일 fixture zip 2회 스캔(LLM 스텁 응답을 서로 다르게) → 지문·룰버전 동일 → **등급 동일** 단언.
-- [ ] **Step 4: Commit** — `feat: 등급 결정론 산정기 + grade_blocking + 상향 조건 (P0-3)`
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green** — 구현은 위 규칙의 직역(분기 3개 + blocking 수집 + 제거 후 재계산). 파이프라인 `위험분석` 말미에 연결: `scan.grade` 저장, blocking finding에 `grade_blocking=True` 업데이트.
+- [x] **Step 3: 파이프라인 결정론 통합 테스트** — 동일 fixture zip 2회 스캔(LLM 스텁 응답을 서로 다르게) → 지문·룰버전 동일 → **등급 동일** 단언.
+- [x] **Step 4: Commit** — `feat: 등급 결정론 산정기 + grade_blocking + 상향 조건 (P0-3)`
 
 **완료 기준(DoD):** B3 DoD green — LLM 응답이 달라도 등급 불변, 상향 조건(N건·목표 등급) 정확.
 
