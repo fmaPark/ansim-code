@@ -1842,9 +1842,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 **Interfaces:**
 - Produces: PublishFlow(Report 내 모달) — git 스캔: [공개하기]→1단계 토큰+`.ansimcode` 커밋 안내(토큰 복사 버튼)→[커밋했어요, 확인]→2단계 성공 시 공개 URL·배지 마크다운(복사 버튼) 표시, 409 시 재안내. zip 스캔: 버튼 비활성 + `ZIP_PUBLISH_NOTICE` 툴팁(서버 403 detail 그대로). PublicGrade(`/g/:slug`) — 시민용: 큰 GradePill, easy_report 문구 목록, provenance 4종(지문·룰버전·모델·취약DB시점) 접기, `LEGAL_NOTICE` 상시, "이 등급은 공개 git 저장소 소유자가 직접 공개했습니다" 표기.
 
-- [ ] **Step 1: 구현 → 수동 검증** — ① 실공개 git 저장소(테스트용 본인 repo)에 `.ansimcode` 커밋해 2단계 성공 ② 배지 SVG가 README 마크다운 미리보기에서 렌더 ③ 잘못된 토큰 409 경로 ④ zip 스캔에서 비활성+안내 ⑤ `/g/{slug}` 시민 화면.
-- [ ] **Step 2: 기획 카피 게이트 확인** — §11 항목 7·8 문구 수신 여부 확인, 수신 시 `public.py` 상수 2개 교체 커밋(`docs: 기획 확정 카피 반영`), 미수신 시 placeholder 유지를 리스크 로그에 1줄.
-- [ ] **Step 3: Commit** — `feat: FE 공개 플로우(.ansimcode)·시민용 공개 페이지·배지 안내`
+- [x] **Step 1: 구현 → 수동 검증** — ① 실공개 git 저장소(테스트용 본인 repo)에 `.ansimcode` 커밋해 2단계 성공 ② 배지 SVG가 README 마크다운 미리보기에서 렌더 ③ 잘못된 토큰 409 경로 ④ zip 스캔에서 비활성+안내 ⑤ `/g/{slug}` 시민 화면.
+- [x] **Step 2: 기획 카피 게이트 확인** — §11 항목 7·8 문구 수신 여부 확인, 수신 시 `public.py` 상수 2개 교체 커밋(`docs: 기획 확정 카피 반영`), 미수신 시 placeholder 유지를 리스크 로그에 1줄.
+- [x] **Step 3: Commit** — `feat: FE 공개 플로우(.ansimcode)·시민용 공개 페이지·배지 안내`
 
 **완료 기준(DoD):** M6 게이트 — 브라우저에서 전 흐름(업로드→진행→리포트→복사→공개→배지→재진단 diff) 완주.
 

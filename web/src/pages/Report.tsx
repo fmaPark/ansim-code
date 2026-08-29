@@ -19,6 +19,7 @@ import CopyButton from '../components/CopyButton'
 import DiffPanel from '../components/DiffPanel'
 import FindingCard from '../components/FindingCard'
 import GradePill from '../components/GradePill'
+import PublishFlow from '../components/PublishFlow'
 import SixPrinciples from '../components/SixPrinciples'
 import UpgradeBlock from '../components/UpgradeBlock'
 
@@ -153,6 +154,7 @@ export default function Report() {
                 {rescanBusy ? '재진단 시작 중…' : '재진단'}
               </button>
             )}
+            {id && scan && <PublishFlow scanId={id} sourceType={scan.source_type} />}
           </div>
         </div>
 

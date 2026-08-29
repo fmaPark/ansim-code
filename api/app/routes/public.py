@@ -26,10 +26,11 @@ ZIP_PUBLISH_NOTICE = ("zip 업로드 진단은 소유 증명이 불가능해 등
 
 GRADE_COLORS = {SAFE: "#2b8a3e", CAUTION: "#f08c00", DANGER: "#c2255c"}
 
-BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" role="img">
-<rect width="70" height="20" fill="#555"/><rect x="70" width="70" height="20" fill="{color}"/>
+# 우측 폭 100px — "주의 2026-08-29"(11px)가 계획 초안의 70px에서는 잘려서 넓혔다
+BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="170" height="20" role="img">
+<rect width="70" height="20" fill="#555"/><rect x="70" width="100" height="20" fill="{color}"/>
 <g fill="#fff" font-family="sans-serif" font-size="11" text-anchor="middle">
-<text x="35" y="14">안심코드</text><text x="105" y="14">{grade} {date}</text></g></svg>"""
+<text x="35" y="14">안심코드</text><text x="120" y="14">{grade} {date}</text></g></svg>"""
 
 BASE_URL = "http://localhost:8080"   # 로컬 데모 진입점 (ADR §5 — 클라우드 배포 없음)
 

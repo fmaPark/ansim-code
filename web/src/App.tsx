@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
+import PublicGrade from './pages/PublicGrade'
 import Report from './pages/Report'
 import ScanProgress from './pages/ScanProgress'
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/scan/:id" element={<ScanProgress />} />
           <Route path="/report/:id" element={<Report />} />
+          <Route path="/g/:slug" element={<PublicGrade />} />
           <Route
             path="*"
             element={

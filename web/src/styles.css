@@ -290,3 +290,50 @@ th { background: var(--bg); white-space: nowrap; }
 .diff-new .diff-col-head { color: var(--danger); }
 .diff-col ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
 .diff-empty { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+/* ── 공개 모달 ─────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 37, 41, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.modal {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 22px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.publish-steps { padding-left: 20px; font-size: 14.5px; }
+.publish-steps li { margin: 6px 0; }
+.publish-steps li.done { color: var(--safe); }
+.publish-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.token-box, .badge-markdown {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin: 0;
+  overflow-x: auto;
+  flex: 1;
+}
+.publish-success { font-size: 17px; font-weight: 700; color: var(--safe); }
+.publish-zip-wrap { display: inline-block; cursor: help; }
+
+/* ── 시민용 공개 페이지 ────────────────────────────────── */
+.public-hero { text-align: center; padding: 34px 20px; }
+.public-owner-note { margin: 14px 0 4px; font-size: 15px; }
+.provenance summary { cursor: pointer; font-weight: 600; font-size: 14.5px; }
+.provenance table { margin-top: 12px; }
+.provenance th { width: 160px; }
+.provenance code { font-size: 12.5px; word-break: break-all; }
+.disclaimer-strip.legal { margin-top: 16px; }
