@@ -14,6 +14,7 @@ class Dependency:
     relationship: str              # "direct" | "transitive" (SBOM ⑪)
     registry_source: bool          # 공개 레지스트리 출처 여부 (SCA-10 입력)
     vendored_path: str | None      # 저장소에 복제된 경우의 경로 (SBOM ⑨ 입력)
+    in_lock: bool = False          # lock 파일에서 확인된 항목인지 (SCA-12 입력)
 
 
 @dataclass

@@ -138,7 +138,8 @@ def _from_locks(root: Path) -> list[Dependency]:
                 deps.append(Dependency(
                     ecosystem="pypi", name=pkg_name, version=pkg.get("version"), declared_in=rel,
                     is_pinned=bool(pkg.get("version")), integrity=integrity,
-                    relationship="transitive", registry_source=registry, vendored_path=None))
+                    relationship="transitive", registry_source=registry, vendored_path=None,
+                    in_lock=True))
     return deps
 
 
@@ -173,4 +174,5 @@ def parse_python_deps(root: Path) -> list[Dependency]:
             existing.is_pinned = True
         if existing.integrity is None:
             existing.integrity = locked.integrity
+        existing.in_lock = True
     return list(merged.values())

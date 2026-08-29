@@ -1171,7 +1171,7 @@ def test_cve_extraction_from_any_column(tmp_path):
 **Interfaces:**
 - Produces: `run_semgrep(root, config_paths: list[str]) -> list[RawFinding(check_id, path, line, message, metadata: dict)]` — `semgrep scan --config {c} --json --metrics=off --timeout 60 --exclude node_modules --exclude venv` subprocess, 결과 JSON `results[]` 파싱(exit 0·1 모두 정상 취급, 그 외 예외). `evaluate_sca_rules(deps, sbom_rows, imports_py: set, imports_js: set, root) -> list[FindingDraft(rule_id, severity, file_path, line, evidence, status="confirmed")]` — SCA-01~12 전체(로직은 Task 2 표). `matrix_0322(supply_chain_class, sbom_rows) -> dict` — 0322 §5.1.2 표 5-1 룩업: 분류별 위험요인 목록(`오픈소스`: 라이선스 위반·취약점 전파·업데이트 중단, `바이너리`: 출처 불명·검증 불가, `자체개발`: 자체 결함 관리) + 해당 컴포넌트 수. **G4: 이 매트릭스·AGPL/SSPL은 P0 충돌 시 첫 번째 양보 대상.**
 
-- [ ] **Step 1: js-imports 룰 작성** — `rules/semgrep/js-imports.yaml`:
+- [x] **Step 1: js-imports 룰 작성** — `rules/semgrep/js-imports.yaml`:
 
 ```yaml
 rules:
@@ -1189,7 +1189,7 @@ rules:
 
 수집 후처리: `$MOD`가 `.`/`/`로 시작하면 로컬(제외), `@scope/name`은 두 토큰 유지, 그 외 첫 세그먼트. node 내장(`fs`·`path`·`node:*` 등 stdlib 목록 상수) 제외.
 
-- [ ] **Step 2: 실패하는 테스트 작성** — 대표 3케이스:
+- [x] **Step 2: 실패하는 테스트 작성** — 대표 3케이스:
 
 ```python
 # api/tests/test_sca_rules.py
@@ -1208,9 +1208,9 @@ def test_unpinned_without_lock():                  # SCA-11
     # requirements.txt `requests>=2.0`, lock 없음 → SCA-11 confirmed
 ```
 
-- [ ] **Step 3: 실행해 실패 확인 → 구현 → green** — SCA-02(OSV 결과→컴포넌트별 finding, severity=cvss_severity), SCA-04(fixed_version 존재&미만), SCA-05(release_date 3년 초과·정보성), SCA-06(Task 8 `detect_vendored` 재사용), SCA-08~12는 Dependency·SbomComponent 필드 판정. 전부 `status="confirmed"`(G3 — 결정적 사실 판정).
-- [ ] **Step 4: 파이프라인 연결 + fixture 저장소 E2E** — 취약 버전 고정 fixture(예: `requirements.txt: flask==0.12`, `package-lock.json: lodash 4.17.15`)로 스캔 → SCA-02 finding + KISA 교차 여부 확인
-- [ ] **Step 5: Commit** — `feat: Semgrep 러너 + SCA 룰 12종 + 0322 표 5-1 매트릭스`
+- [x] **Step 3: 실행해 실패 확인 → 구현 → green** — SCA-02(OSV 결과→컴포넌트별 finding, severity=cvss_severity), SCA-04(fixed_version 존재&미만), SCA-05(release_date 3년 초과·정보성), SCA-06(Task 8 `detect_vendored` 재사용), SCA-08~12는 Dependency·SbomComponent 필드 판정. 전부 `status="confirmed"`(G3 — 결정적 사실 판정).
+- [x] **Step 4: 파이프라인 연결 + fixture 저장소 E2E** — 취약 버전 고정 fixture(예: `requirements.txt: flask==0.12`, `package-lock.json: lodash 4.17.15`)로 스캔 → SCA-02 finding + KISA 교차 여부 확인
+- [x] **Step 5: Commit** — `feat: Semgrep 러너 + SCA 룰 12종 + 0322 표 5-1 매트릭스`
 
 **완료 기준(DoD):** M3 게이트 — SCA 12종이 fixture에서 기대 finding 생성, semgrep JSON 파싱 안정(빈 결과·문법 오류 파일 포함), 매트릭스 dict가 리포트 입력으로 준비됨.
 

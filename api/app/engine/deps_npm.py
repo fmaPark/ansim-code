@@ -116,6 +116,7 @@ def parse_npm_deps(root: Path) -> list[Dependency]:
                     existing.version = str(meta["version"])
                     existing.is_pinned = True
                 existing.integrity = meta.get("integrity") or existing.integrity
+                existing.in_lock = True
                 if resolved and not _is_registry(resolved):
                     existing.registry_source = False
             else:
@@ -125,6 +126,6 @@ def parse_npm_deps(root: Path) -> list[Dependency]:
                     declared_in=lock_rel, is_pinned=bool(meta.get("version")),
                     integrity=meta.get("integrity"), relationship="transitive",
                     registry_source=_is_registry(resolved) if resolved else True,
-                    vendored_path=None)
+                    vendored_path=None, in_lock=True)
 
     return list(deps.values())

@@ -13,7 +13,7 @@ from packageurl import PackageURL
 from app.config import SKIP_DIRS
 from app.engine.deps_types import Dependency
 
-VENDOR_DIRS = ("vendor", "vendors", "third_party", "thirdparty", "libs", "lib/vendor")
+VENDOR_DIRS = ("vendor", "vendors", "third_party", "thirdparty", "libs")
 LICENSE_FILES = ("LICENSE", "LICENCE", "COPYING", "NOTICE")
 BINARY_SUFFIXES = {".so", ".dll", ".jar", ".exe", ".dylib", ".a", ".class", ".war", ".pyd"}
 
@@ -37,6 +37,20 @@ _LICENSE_PATTERNS = [
 
 _SUPPLIER = {"pypi": "PyPI", "npm": "npm registry"}
 
+# 0309 §5.2 15속성 — SBOM 응답·룰 입력이 공유하는 키 순서.
+SBOM_ATTRIBUTE_KEYS = (
+    "validation_tool", "supplier", "author", "component_name", "version", "unique_id",
+    "component_hash", "license_name", "license_usage", "vulnerability_db", "relationship",
+    "release_date", "cve_ids", "cvss_base", "cvss_severity",
+)
+# 15속성 밖의 보조 필드 — §6.14 3값 중 나머지·null 사유·내부 생태계 구분.
+SBOM_EXTRA_KEYS = ("cvss_impact", "cvss_exploitability", "cvss_null_reason", "ecosystem")
+
+
+def component_row(component) -> dict:
+    """SbomComponent → 룰 러너·API가 쓰는 dict(컬럼명 그대로)."""
+    return {k: getattr(component, k) for k in SBOM_ATTRIBUTE_KEYS + SBOM_EXTRA_KEYS}
+
 
 def _rel(root: Path, p: Path) -> str:
     return p.relative_to(root).as_posix()
@@ -45,9 +59,11 @@ def _rel(root: Path, p: Path) -> str:
 def detect_vendored(root: Path) -> dict[str, bool]:
     """vendor 계열 디렉토리 하위 1단계 → {상대경로: LICENSE·COPYING 존재 여부} (SCA-06 입력)."""
     found: dict[str, bool] = {}
-    for name in VENDOR_DIRS:
-        base = root / name
-        if not base.is_dir():
+    for base in sorted(root.rglob("*")):
+        # 저장소 루트가 아니라 하위 경로에 vendor/가 있는 배치(zip 안 프로젝트 폴더 등)도 잡는다.
+        if not base.is_dir() or base.name not in VENDOR_DIRS:
+            continue
+        if set(base.relative_to(root).parts) & SKIP_DIRS:
             continue
         for child in sorted(base.iterdir()):
             if not child.is_dir() or child.name in SKIP_DIRS:
@@ -194,7 +210,8 @@ def vendored_dependencies(root: Path, declared: list[Dependency]) -> list[Depend
         exts = {f.suffix.lower() for f in vdir.rglob("*") if f.is_file()}
         ecosystem = "npm" if (exts & {".js", ".ts", ".mjs", ".cjs"} or (vdir / "package.json").is_file()) else "pypi"
         extra.append(Dependency(
-            ecosystem=ecosystem, name=name, version=None, declared_in=path.split("/")[0],
+            ecosystem=ecosystem, name=name, version=None,
+            declared_in=path.rsplit("/", 1)[0] or path,      # 예: app/vendor
             is_pinned=False, integrity=None, relationship="direct",
             registry_source=False, vendored_path=path))
     return extra

@@ -15,7 +15,10 @@ from app.engine.deps_npm import npm_parse_markers, parse_npm_deps
 from app.engine.deps_python import parse_python_deps, python_parse_markers
 from app.engine.kisa import kisa_snapshot_label, load_kisa
 from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
-from app.engine.sbom import build_sbom, classify_supply_chain, vendored_dependencies
+from app.engine.imports_py import extract_python_imports
+from app.engine.sbom import build_sbom, classify_supply_chain, component_row, vendored_dependencies
+from app.engine.sca_rules import evaluate_sca_rules, matrix_0322
+from app.engine.semgrep_runner import extract_js_imports
 from app.engine.workspace import scan_workspace
 from app.models import Finding, SbomComponent, Scan
 
@@ -81,7 +84,8 @@ def stage_sbom(db, scan, root: Path) -> dict:
 
 def _apply_vulns(component: SbomComponent, infos) -> None:
     """OSV 결과를 SBOM ⑩⑬⑭⑮에 채운다 — CVSS는 가장 높은 Base를 대표값으로 쓴다."""
-    component.vulnerability_db = [{"id": v.id, "source": v.source} for v in infos]
+    component.vulnerability_db = [
+        {"id": v.id, "source": v.source, "fixed": v.fixed_version} for v in infos]   # SCA-04 입력
     component.cve_ids = sorted({cve for v in infos for cve in v.cve_ids})
 
     scored = [(derive_cvss3(v.cvss_vector), v) for v in infos]
@@ -144,6 +148,26 @@ def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
     return findings
 
 
+def stage_sca_rules(db, scan, root: Path, deps, components: list[SbomComponent]) -> list[Finding]:
+    """§11.3 위험 분석 3단계 — SCA 룰 12종 + 0322 표 5-1 매트릭스 (Task 11).
+
+    SCA-03은 KISA 교차 단계가 이미 만들었으므로 여기서 다시 만들지 않는다.
+    """
+    rows = [component_row(c) for c in components]
+    drafts = evaluate_sca_rules(deps, rows, extract_python_imports(root),
+                                extract_js_imports(root), root)
+    findings = [Finding(scan_id=scan.id, rule_id=d.rule_id, severity=d.severity,
+                        file_path=d.file_path, line=d.line, evidence=d.evidence,
+                        status=d.status) for d in drafts]
+    db.add_all(findings)
+
+    report = dict(scan.report_json or {})
+    report["matrix_0322"] = matrix_0322(scan.supply_chain_class, rows)
+    _set(db, scan, report_json=report)
+    log.info("SCA 룰 finding 저장", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
+    return findings
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -167,6 +191,8 @@ async def run_scan(scan_id):
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     await stage_osv(db, scan, ctx["components"])
                     await asyncio.to_thread(stage_kisa, db, scan, ctx["components"])
+                    await asyncio.to_thread(stage_sca_rules, db, scan, res.root,
+                                            ctx["deps"], ctx["components"])
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:
