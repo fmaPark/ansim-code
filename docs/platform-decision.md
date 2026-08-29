@@ -1,3 +1,24 @@
+---
+type: Decision Record
+title: ADR-001 플랫폼 선정 — 웹 vs 데스크톱 vs 하이브리드
+description: 웹 서비스 + 보안 강화로 확정한 플랫폼 결정과 근거. 등급 공개는 git 전용 opt-in + 소유 증명으로 한정한다.
+status: stable
+tags: [ansimcode, adr, 플랫폼, 보안]
+generated: { by: "human:개발-풀스택", at: "2026-08-26T00:00:00Z" }
+verified:
+  - { by: "human:기획", at: "2026-08-24T00:00:00Z" }
+stale_after: "2026-08-31T00:00:00Z"
+sources:
+  - { id: tdd, resource: ./tdd.md, title: "TDD — 안심코드", author: "human:개발-풀스택", last_modified: "2026-08-26" }
+  - { id: spec-final, resource: ../협의체_기록/최종확정명세_반영검토_및_개발회신.md, title: "최종 확정 명세 반영 검토 결과 및 개발 회신", author: "human:개발-풀스택", last_modified: "2026-08-26" }
+  - { id: review-v03, resource: ../협의체_기록/TDD_v0.3_검토의견_개발회신.md, title: "TDD v0.3 검토의견 개발 회신", author: "human:개발-풀스택" }
+  - { id: aikido, resource: "https://www.aikido.dev/platform", title: "Aikido — 웹 SaaS SAST, 일회용 컨테이너 후 즉시 파기", last_modified: "2026-08-24" }
+  - { id: codescan, resource: "https://codescan.kr/", title: "CodeScan — 배포 사이트 URL 외형 점검, 무가입", last_modified: "2026-08-24" }
+  - { id: vibecheck, resource: "https://www.vibezcheck.dev/", title: "VibeCheck — GitHub URL 입력 소스 스캔, 무가입", last_modified: "2026-08-24" }
+  - { id: std0259, resource: ./references/TTAK.KO-11.0259_R1.md, title: "TTAK.KO-11.0259/R1 — §1 적용 범위가 결정 근거", author: "TTA", last_modified: "2024-12-06" }
+  - { id: std0414, resource: ./references/TTAK.KO-12.0414.md, title: "TTAK.KO-12.0414 — §7.3.5 파기 정책의 자기 적용", author: "TTA", last_modified: "2024-12-06" }
+---
+
 # ADR-001. 플랫폼 선정 — 웹 vs 데스크톱 vs 하이브리드
 
 | 항목 | 내용 |

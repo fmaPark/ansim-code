@@ -1,3 +1,17 @@
+---
+type: Playbook
+title: 안심코드(AnsimCode) MVP Implementation Plan
+description: 7개 마일스톤 28개 태스크로 구성된 MVP 구현 실행 계획. 각 태스크에 TDD 참조와 DoD를 병기했다.
+status: draft
+tags: [ansimcode, plan, mvp, executing-plans]
+generated: { by: "human:개발-풀스택", at: "2026-08-29T00:00:00Z" }
+stale_after: "2026-08-31T00:00:00Z"
+sources:
+  - { id: tdd, resource: ../tdd.md, title: "TDD v0.4 — 이 계획의 모든 판단 근거", author: "human:개발-풀스택", last_modified: "2026-08-26" }
+  - { id: adr001, resource: ../platform-decision.md, title: "ADR-001 v1.3 플랫폼 선정", author: "human:개발-풀스택", last_modified: "2026-08-26" }
+  - { id: clauses, resource: ../references/clause-index.md, title: "TTA 표준 조항 색인" }
+---
+
 # 안심코드(AnsimCode) MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -141,7 +155,10 @@ ansim-code/
 ├─ verification/
 │  ├─ measure_detection.py     # TPR/FPR 측정 (expected vs actual)
 │  └─ injection_payloads.md    # 인젝션 페이로드 사양 (벤치마크 저장소에 심을 내용)
-└─ docs/plans/mvp-implementation.md   # 이 문서
+├─ tools/
+│  └─ okf_check.py             # docs/ 번들 OKF 적합성·링크·앵커 점검
+└─ docs/                       # OKF v0.2 지식 번들 (index.md 진입점)
+   └─ plans/mvp-implementation.md   # 이 문서
 ```
 
 벤치마크 앱은 **별도 저장소**(`ansim-benchmark`, 자기진단 오염 방지 — TDD §9)로 만들며 이 저장소에는 측정 스크립트만 둔다.
