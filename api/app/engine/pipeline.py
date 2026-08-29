@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.db import SessionLocal
+from app.engine import analysis
 from app.engine import fingerprint as fp
 from app.engine import ingest as ing
 from app.engine.catalog import rule_catalog_version
@@ -70,6 +71,9 @@ async def run_scan(scan_id):
                          rule_catalog_version=rule_catalog_version())     # G11: 파기 전 확정
                     _set(db, scan, current_stage="현황진단")   # §11.2 — Task 6~8
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
+                    # M4: 정적 룰(gitleaks·semgrep·repo_checks) + 마스킹(P0-2) — Task 12~15
+                    drafts, registry = await asyncio.to_thread(analysis.run_static_stage, res.root)
+                    analysis.persist_findings(db, scan.id, drafts)
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:

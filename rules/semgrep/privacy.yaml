@@ -1,0 +1,54 @@
+# 개인정보 룰(P2·P3·P6)의 static 트리거 — TTAK.KO-12.0414 §7.3 (Task 15)
+# 100% 자체 룰(G13 — 레지스트리 룰 미사용). P5·P7~P10은 repo_checks.py가 판단.
+rules:
+  - id: P6-plaintext-pii-store            # 0414 §7.3.4 — confirmed
+    languages: [python]
+    severity: ERROR
+    message: "개인정보로 보이는 값을 암호화 없이 저장합니다"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute("...", (..., $RRN, ...))
+          - pattern: $F.write($RRN)
+      - metavariable-regex:
+          metavariable: $RRN
+          regex: "(?i)^(.*_)?(rrn|jumin|resident(_?no)?|ssn)$"   # encrypt(rrn) 경유는 미매칭
+    metadata: { standard_ref: "TTAK.KO-12.0414 §7.3.4", ansim_rule: P6 }
+
+  - id: P2-collect-without-consent        # 0414 §7.3.2 — static 트리거 → LLM
+    languages: [python]
+    severity: WARNING
+    message: "동의 처리 없이 개인정보 필드를 수집하는 패턴"
+    patterns:
+      - pattern-either:
+          - pattern: request.form[$K]
+          - pattern: request.json[$K]
+          - pattern: request.values[$K]
+      - metavariable-regex:
+          metavariable: $K
+          regex: "(?i).*(name|phone|birth|email|address|jumin|rrn).*"
+    metadata: { standard_ref: "TTAK.KO-12.0414 §7.3.2", ansim_rule: P2 }
+
+  - id: P2-collect-without-consent-js     # 0414 §7.3.2 — JS/TS
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "동의 처리 없이 개인정보 필드를 수집하는 패턴"
+    patterns:
+      - pattern: req.body.$K
+      - metavariable-regex:
+          metavariable: $K
+          regex: "(?i).*(name|phone|birth|email|address|jumin|rrn).*"
+    metadata: { standard_ref: "TTAK.KO-12.0414 §7.3.2", ansim_rule: P2 }
+
+  - id: P3-sensitive-without-consent      # 0414 §7.3.2 민감정보 — static 트리거 → LLM
+    languages: [python]
+    severity: WARNING
+    message: "민감정보(건강·사상·범죄 등) 필드를 별도 동의 처리 없이 다루는 패턴"
+    patterns:
+      - pattern-either:
+          - pattern: request.form[$K]
+          - pattern: request.json[$K]
+          - pattern: request.values[$K]
+      - metavariable-regex:
+          metavariable: $K
+          regex: "(?i).*(건강|병력|사상|종교|범죄|criminal|health|religion|disease|medical).*"
+    metadata: { standard_ref: "TTAK.KO-12.0414 §7.3.2", ansim_rule: P3 }

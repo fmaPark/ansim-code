@@ -41,6 +41,8 @@ def pipeline_result(tmp_path, monkeypatch):
     ]
 
     def fake_run(cmd, **kw):
+        if cmd[0] == "semgrep":   # Task 15 이후 static stage가 semgrep도 부른다 — 빈 결과 스텁
+            return subprocess.CompletedProcess(cmd, 0, stdout=b'{"results": []}', stderr=b"")
         with open(cmd[cmd.index("-r") + 1], "w") as f:
             json.dump(findings_json, f)
         return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"")

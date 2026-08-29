@@ -1418,7 +1418,7 @@ def test_secret_rules_never_reach_llm(pipeline_with_llm_stub):
 **Interfaces:**
 - Produces: Semgrep 룰(파일 단위 패턴: P2·P3·P5·P6·P10의 static 트리거, AUX-01~04)과 repo 단위 검사(P7·P8·P9 — `run_repo_checks(root, deps) -> list[FindingDraft]`). 판정 정책(G3): P6·P7·P8·P9·AUX-* → `confirmed`. P2·P3·P5·P10 → static 트리거 후 **LLM 경유 예정이므로 `review_needed`** 생성(Task 16이 판정 설명을 덧붙임). P1·P4는 static 트리거 없이 Task 16에서 수집 필드 요약을 입력으로 생성. 모든 YAML `metadata.standard_ref`에 조항 기입, AUX는 `metadata.secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드"` 병기.
 
-- [ ] **Step 1: 대표 Semgrep 룰 작성** — `privacy.yaml` 발췌(전체는 카탈로그 표 로직대로 각 룰 작성):
+- [x] **Step 1: 대표 Semgrep 룰 작성** — `privacy.yaml` 발췌(전체는 카탈로그 표 로직대로 각 룰 작성):
 
 ```yaml
 rules:
@@ -1473,10 +1473,10 @@ rules:
 
 (AUX-02: `DEBUG = True`·`$APP.run(..., debug=True, ...)`, AUX-03: `allow_origins=["*"]`·`res.header("Access-Control-Allow-Origin", "*")`, P3: 민감 키워드 metavariable-regex `(건강|병력|사상|종교|범죄|criminal|health|religion)`, P5: `requests.get`/`fetch`+`BeautifulSoup|cheerio|puppeteer` 조합 파일에 PII 정규식, P10: 모델 클래스 존재 파일 대비 `delete|destroy|expire|retention` 부재 — repo_checks에서 판단. 각각 같은 형식으로 작성.)
 
-- [ ] **Step 2: repo_checks 구현(P7·P8·P9)** — P9: `rglob`로 `privacy*`·`*개인정보처리방침*` 파일/라우트 문자열 검색, 부재 시 confirmed finding(file_path=None — "저장소 전체" 표기). P7: 라우트 정의(`@app.route`·`router.get` 등) 중 `admin|user|mypage` 경로에 인증 장식자/미들웨어(`login_required|Depends|authenticate|passport`) 부재 파일 플래그. P8: PII 취급 파일 존재 & `import logging|winston|pino` 전무 → confirmed(low).
-- [ ] **Step 3: 실패하는 테스트 작성 → 실행 FAIL → green** — 룰별 양성·음성 fixture 파일(TDD §9 Unit: 룰별 양성·음성 케이스): P6 양성(`db.execute("insert", (rrn,))`)·음성(`encrypt(rrn)` 경유), P2 양성/음성, AUX-01 양성(f-string execute)·음성(파라미터 바인딩), AUX-04, P9 부재/존재 저장소 2개. 단언: rule_id·status가 카탈로그 표의 verdict와 일치.
-- [ ] **Step 4: 파이프라인 연결** — `위험분석` 스테이지: semgrep(privacy+aux) + repo_checks + gitleaks(12·13) 결과를 FindingDraft로 통합, evidence 마스킹(14) 후 Finding insert.
-- [ ] **Step 5: Commit** — `feat: 개인정보 10종 + 보조 4종 룰 (Semgrep YAML·repo 검사)`
+- [x] **Step 2: repo_checks 구현(P7·P8·P9)** *(실행 세션: P5·P10도 파일 조합·부재 판정이라 semgrep 단일 패턴 대신 repo_checks로 구현 — verdict는 카탈로그대로 review_needed)* — P9: `rglob`로 `privacy*`·`*개인정보처리방침*` 파일/라우트 문자열 검색, 부재 시 confirmed finding(file_path=None — "저장소 전체" 표기). P7: 라우트 정의(`@app.route`·`router.get` 등) 중 `admin|user|mypage` 경로에 인증 장식자/미들웨어(`login_required|Depends|authenticate|passport`) 부재 파일 플래그. P8: PII 취급 파일 존재 & `import logging|winston|pino` 전무 → confirmed(low).
+- [x] **Step 3: 실패하는 테스트 작성 → 실행 FAIL → green** — 룰별 양성·음성 fixture 파일(TDD §9 Unit: 룰별 양성·음성 케이스): P6 양성(`db.execute("insert", (rrn,))`)·음성(`encrypt(rrn)` 경유), P2 양성/음성, AUX-01 양성(f-string execute)·음성(파라미터 바인딩), AUX-04, P9 부재/존재 저장소 2개. 단언: rule_id·status가 카탈로그 표의 verdict와 일치.
+- [x] **Step 4: 파이프라인 연결** *(실행 세션: M2·M3 병렬 세션과의 pipeline.py 충돌 최소화를 위해 오케스트레이션을 `engine/analysis.py`로 모으고 pipeline은 위험분석 단계에서 2줄만 추가. Task 11 semgrep 러너는 M4 트랙 선작성분(`semgrep_runner.py`) — M3 병합 시 통합 필요)* — `위험분석` 스테이지: semgrep(privacy+aux) + repo_checks + gitleaks(12·13) 결과를 FindingDraft로 통합, evidence 마스킹(14) 후 Finding insert.
+- [x] **Step 5: Commit** — `feat: 개인정보 10종 + 보조 4종 룰 (Semgrep YAML·repo 검사)`
 
 **완료 기준(DoD):** 31종 룰 전체가 카탈로그와 1:1로 실행 경로에 연결(P1·P4는 LLM 단계 대기), 룰별 양성·음성 테스트 green, YAML metadata에 조항 전수 기입.
 
