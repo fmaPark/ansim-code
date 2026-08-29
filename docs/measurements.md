@@ -25,8 +25,8 @@ tags: [ansimcode, measurements]
 
 ### §11 항목 3 — gitleaks 오탐(allowlist) 실측
 
-**보류** — gitleaks 바이너리가 샌드박스에 없어 allowlist 통과 플레이스홀더 목록 실측 불가.
-Docker 이미지 안에서 `pytest tests/test_gitleaks.py`(skipif 해제분 2케이스) + fixture 스캔으로 측정 예정.
+~~**보류**~~ → **해소(이슈 #15)** — 아래 "이슈 #13·#15" 섹션에 확정치 기록 (2026-08-29).
+당시 상황: gitleaks 바이너리가 샌드박스에 없어 allowlist 통과 플레이스홀더 목록 실측 불가.
 초기 allowlist(G13): `your-api-key`·`changeme`·`sk-test-`·`example`(소문자 한정)·`dummy`·`<...>` + docs/README/fixtures 경로.
 
 ### 정적 스테이지 소요 (참고 — G14 예산 배분용)
@@ -82,7 +82,8 @@ SCA-03 "국내 보안공지 발령" finding 생성, `report_json`이 `parse_mark
 - **§11 항목 1(LLM 실호출 실측) — 여전히 보류.** `.env`의 `ANTHROPIC_API_KEY`가 플레이스홀더라
   실호출이 401로 떨어진다. Task 18의 변환 결과는 전부 **규칙 기반 폴백 문구**로 채워졌다
   (설계상 의도된 경로 — 리포트가 비지 않는다). 키 준비 후 배치당 토큰·소요·비용 측정 필요.
-- **M4 결함 발견(M5 범위 밖, 미수정): gitleaks finding의 `file_path`가 워크스페이스 절대경로.**
+- **M4 결함 발견(M5 범위 밖, 미수정 → 이슈 #13으로 이관, 2026-08-29 수정 완료 — 아래 섹션):
+  gitleaks finding의 `file_path`가 워크스페이스 절대경로.**
   `app/engine/gitleaks_runner.py`가 `-s <절대 임시경로>`로 실행해 gitleaks의 `File` 필드를 그대로
   싣고(`pii.classify_secret`이 `file_path=raw.file`), semgrep 계열(상대경로)과 표기가 갈린다.
   임시 디렉토리명이 스캔마다 무작위라 **diff 키 `(rule_id, file_path, line)`가 스캔 간 절대
@@ -92,3 +93,41 @@ SCA-03 "국내 보안공지 발령" finding 생성, `report_json`이 `parse_mark
 - 참고 특성(스펙대로 동작): diff 키에 `line`이 들어가 있어(TDD §4.7) 같은 결함이라도 줄 번호가
   밀리면 `해결 + 신규`로 계산된다. 실측에서 `DEBUG = True`가 2행→3행으로 이동하자 AUX-02가
   그렇게 잡혔다. 스펙 변경 없이는 불가피하다.
+
+## 이슈 #13·#15 (2026-08-29, 실행 세션: claude/fix-issues-13-15-3cbb4c)
+
+측정 환경: macOS 호스트 + Docker Compose(gitleaks v8.18.4 동봉 이미지). 실행 커맨드:
+
+```
+docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest tests/test_gitleaks.py -v -s
+```
+
+### 이슈 #13 — gitleaks `file_path` 상대경로 정규화 (수정 완료)
+
+`run_gitleaks`가 gitleaks `File`(절대경로)을 `root` 기준 상대경로로 정규화하도록 수정
+(semgrep 러너와 동일 이디엄: `relative_to(root).as_posix()`, root 밖 경로는 그대로 폴백).
+실바이너리 회귀 검증: 동일 콘텐츠를 서로 다른 두 워크스페이스에서 스캔 →
+`(rule_id, file, line)` 키 집합 일치 + `diff_findings` 전량 `remaining`
+(`test_rescan_workspaces_yield_identical_keys`). 재진단 통합 테스트에도
+지문 무변경 시 `resolved_count == 0`·`new_count == 0` 단언 추가(`test_rescan.py`).
+
+### 이슈 #15 — §11 항목 3 allowlist 오탐률 확정치
+
+플레이스홀더 코퍼스 15종(주석 시크릿형 9 + `.env` 2 + docs/README 경로 2 + 더미 전화·주민번호 2)
++ 대조군 4종(형식-유효 AKIA 키·주석 실비밀번호·실`.env`·유효 체크섬 주민번호)으로
+`test_allowlist_placeholder_pass_rate`가 측정·회귀 고정한다. baseline(allowlist 제거 설정)
+스캔으로 코퍼스 전원이 hit 후보임을 자체 검증한 뒤 통과율을 계산한다.
+
+| 시점 | allowlist 적중률 | 잔여 오탐 |
+| --- | --- | --- |
+| 보강 전 (G13 초기 목록) | **8/15 (53%)** | `.env.example` 커밋, `REPLACE_ME`, `your-secret-*`, `sample`, `placeholder`, `010-1234-5678`, `123456-1234567` |
+| 보강 후 | **15/15 (100%)** | 없음 — 대조군 4종 전부 계속 탐지(과확장 없음) |
+
+보강 내역(`rules/gitleaks/ansim.toml` `[allowlist]`):
+`your[-_]?api[-_]?key` → `your[-_]?(api[-_]?key|key|secret|token|password)` 확장,
+`(?i)replace[-_]me`(구분자 필수로 형식-유효 키 충돌 차단)·`sample`·`placeholder`(소문자 한정
+원칙 유지)·관습적 더미 전화번호(`010-1234-5678`)·더미 주민번호(`123456-1234567`) regex 추가,
+paths에 `\.env\.example$` 추가. 형식-유효 `AKIA…EXAMPLE` 탐지 유지는
+`test_hardcoded_key_detected_placeholder_ignored`가 계속 고정한다.
+
+skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 안에서 해제 실행 — green.

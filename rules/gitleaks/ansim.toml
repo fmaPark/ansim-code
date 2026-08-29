@@ -32,7 +32,14 @@ description = "계좌번호 패턴"
 regex = '''(?i)(계좌|account[_-]?(no|num))\s*[:=]?\s*['"]?\d{2,3}-\d{2,4}-\d{4,8}'''
 
 [allowlist]
-description = "플레이스홀더 오탐 제외 (TDD §4.5 — M4 실측으로 보강)"
-# 주의: AKIA…EXAMPLE 같은 형식-유효 키가 걸러지지 않도록 소문자 한정((?i) 미사용) — Task 12 확정
-regexes = ['''your[-_]?api[-_]?key''', '''changeme''', '''sk-test-''', '''example''', '''dummy''', '''<.*>''']
-paths = ['''(^|/)docs?/''', '''README''', '''(^|/)tests?/fixtures/''']
+description = "플레이스홀더 오탐 제외 (TDD §4.5 — §11 항목 3 실측으로 보강, 이슈 #15)"
+# 주의: AKIA…EXAMPLE 같은 형식-유효 키가 걸러지지 않도록 사전 단어류는 소문자 한정((?i) 미사용) — Task 12 확정.
+# REPLACE[-_]ME만 (?i) 허용: 구분자 필수 조건이 형식-유효 키(영숫자 연속)와의 충돌을 막는다.
+regexes = [
+  '''your[-_]?(api[-_]?key|key|secret|token|password)''',
+  '''changeme''', '''sk-test-''', '''example''', '''dummy''', '''<.*>''',
+  '''(?i)replace[-_]me''', '''sample''', '''placeholder''',
+  '''010[-\s]?1234[-\s]?5678''',              # 관습적 더미 전화번호
+  '''123456[-\s]?[1-4]234567''',              # 관습적 더미 주민번호
+]
+paths = ['''(^|/)docs?/''', '''README''', '''(^|/)tests?/fixtures/''', '''\.env\.example$''']

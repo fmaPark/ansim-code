@@ -133,3 +133,62 @@ def test_rescan_workspaces_yield_identical_keys(tmp_path):
 
     d = diff_findings(scans[0], scans[1])
     assert d["resolved"] == [] and d["new"] == [] and len(d["remaining"]) == len(scans[1])
+
+
+# #15 실측 코퍼스 — 플레이스홀더(allowlist가 전부 걸러야 함) vs 대조군(계속 탐지돼야 함)
+_PLACEHOLDERS = {
+    "p01.py": "# api_key = your-api-key-here-please\n",
+    "p02.py": "# password = changeme123\n",
+    "p03.py": "# secret = sk-test-4eC39HqLyjWDarjtT1zdp7dc\n",
+    "p04.py": "# token = dummy-token-000000\n",
+    "p05.py": "# api-key = example-key-123456\n",
+    "p06/.env": "API_KEY=<your-key-here>\n",
+    "p07/.env.example": "DB_PASSWORD=Xk29rT8mQz\n",       # .env.example 커밋은 관행
+    "docs/p08.md": "# password = RealLooking123456\n",     # docs 경로 allowlist
+    "p09/README.md": "# api_key = AnotherLooking123456\n",
+    "p10.py": "# api_key = REPLACE_ME_WITH_KEY\n",
+    "p11.py": "# secret = your-secret-key-goes-here\n",
+    "p12.py": "# token = sample-token-abc123\n",
+    "p13.py": "# api_key = placeholder-value-1234\n",
+    "p14.py": 'phone = "010-1234-5678"\n',                 # 관습적 더미 전화번호
+    "p15.py": 'rrn = "123456-1234567"\n',                  # 관습적 더미 주민번호
+}
+_CONTROLS = {
+    "real1.py": 'AWS_KEY = "AKIAIOSFODNN7EXAMPLE"\n',      # 형식-유효 — 걸러지면 안 됨
+    "real2.py": "# prod db password = Sup3rSecret99\n",
+    "real3/.env": "DB_PASSWORD=Xk29rT8mQz\n",
+    "real4.py": 'rrn = "900101-1234567"\n',
+}
+
+
+@pytest.mark.skipif(not HAS_GITLEAKS, reason="gitleaks 바이너리 없음 — docker compose run api pytest로 검증")
+def test_allowlist_placeholder_pass_rate(tmp_path, monkeypatch):
+    """#15 — §11 항목 3: 플레이스홀더 allowlist 적중률 실측 (목표 100%, 대조군 무손실)."""
+    from app.engine import gitleaks_runner
+
+    repo = tmp_path / "repo"
+    for rel, content in {**_PLACEHOLDERS, **_CONTROLS}.items():
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content)
+
+    # baseline: allowlist 없는 설정으로 스캔 — 코퍼스 전원이 hit 후보인지 자체 검증
+    stripped = tmp_path / "cfg" / "no-allowlist.toml"
+    stripped.parent.mkdir()
+    stripped.write_text(gitleaks_runner.config_path().read_text().split("[allowlist]")[0])
+    monkeypatch.setattr(gitleaks_runner, "config_path", lambda: stripped)
+    baseline_files = {h.file for h in run_gitleaks(repo)}
+    monkeypatch.undo()
+
+    candidates = set(_PLACEHOLDERS) & baseline_files
+    assert candidates == set(_PLACEHOLDERS), \
+        f"코퍼스 자체 결함 — baseline 미발화: {set(_PLACEHOLDERS) - baseline_files}"
+
+    hit_files = {h.file for h in run_gitleaks(repo)}
+    false_positives = hit_files & set(_PLACEHOLDERS)
+    passed = len(candidates) - len(false_positives)
+    print(f"\n[§11 항목 3] allowlist 적중률: {passed}/{len(candidates)} "
+          f"({passed / len(candidates):.0%}) | 잔여 오탐: {sorted(false_positives)}")
+
+    assert not false_positives                       # 플레이스홀더 오탐 0
+    assert set(_CONTROLS) <= hit_files               # allowlist 과확장으로 실탐지 손실 없음
