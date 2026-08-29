@@ -7,7 +7,12 @@ ADMIN_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://ansim:
 TEST_DATABASE_URL = ADMIN_DATABASE_URL.rsplit("/", 1)[0] + "/" + TEST_DB_NAME
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
+import io  # noqa: E402
+import zipfile  # noqa: E402
+
 import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 
 
@@ -34,3 +39,20 @@ def database():
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
+
+
+@pytest_asyncio.fixture
+async def client(database):
+    # ASGITransport는 lifespan을 돌리지 않는다 — 테이블 생성은 database 픽스처가 맡는다.
+    from app.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+        yield c
+
+
+@pytest.fixture
+def small_zip():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("app/main.py", "import os\nx = 1\n")
+    return buf.getvalue()

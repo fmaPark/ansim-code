@@ -752,7 +752,7 @@ def tree_fingerprint(root: Path) -> str:
 **Interfaces:**
 - Produces: `POST /api/scans` — JSON `{git_url}` 또는 multipart `file=zip` → `202 {"scan_id": "..."}`. `GET /api/scans/{id}` → `{"status","current_stage","grade","error_message","previous_comparison":null}`(비교는 Task 21이 채움). `pipeline.run_scan(scan_id)` — async, BackgroundTasks로 실행. **스테이지 순서와 §11 매핑(이후 태스크가 각 스테이지를 채운다):** `환경분석`(ingest+지문, §11.1) → `현황진단`(deps+SBOM, §11.2) → `위험분석`(OSV+KISA+룰+LLM+등급, §11.3) → `대책수립`(리포트, §11.4) → `완료`. 재진단 연결(§11.5)은 Task 21.
 
-- [ ] **Step 0: 공용 테스트 픽스처 작성 (`api/tests/conftest.py`)**
+- [x] **Step 0: 공용 테스트 픽스처 작성 (`api/tests/conftest.py`)**
 
 ```python
 import io, zipfile, pytest, pytest_asyncio
@@ -774,7 +774,7 @@ def small_zip():
 
 (DB는 compose의 postgres 사용 — `DATABASE_URL`로 테스트 DB `ansim_test`를 가리키고 세션 시작/종료에 create_all/drop_all. 이후 모든 API 테스트가 이 두 픽스처를 쓴다.)
 
-- [ ] **Step 1: 실패하는 테스트 작성** — httpx `ASGITransport` + 로컬 fixture git repo:
+- [x] **Step 1: 실패하는 테스트 작성** — httpx `ASGITransport` + 로컬 fixture git repo:
 
 ```python
 # api/tests/test_scan_api.py
@@ -797,9 +797,9 @@ async def test_scan_lifecycle_zip(client, small_zip):   # conftest: client·smal
     r = await client.post("/api/scans", files={"file": ("a.zip", small_zip, "application/zip")})
     assert r.status_code == 202
     sid = r.json()["scan_id"]
-    # BackgroundTasks는 테스트에서 직접 await
-    from app.engine.pipeline import run_scan
-    await run_scan(sid)
+    # ASGITransport는 응답을 돌려준 뒤 BackgroundTasks를 그 자리에서 실행한다 —
+    # POST가 반환된 시점에 run_scan은 이미 끝나 있다(직접 await하면 이중 실행).
+    # 실패 경로를 보려면 POST **전에** monkeypatch를 건다.
     s = (await client.get(f"/api/scans/{sid}")).json()
     assert s["status"] in ("done", "failed")
     assert s["status"] != "running"            # G12: 영원히 running 없음
@@ -811,8 +811,8 @@ async def test_pipeline_failure_sets_failed(client, monkeypatch):
     # zip 접수 후 run_scan → status=failed, error_message 기록, purged_at 존재
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — 오케스트레이터 뼈대(각 stage 함수는 아직 지문·접수만 수행, 이후 태스크가 확장):
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — 오케스트레이터 뼈대(각 stage 함수는 아직 지문·접수만 수행, 이후 태스크가 확장):
 
 ```python
 # api/app/engine/pipeline.py — 뼈대
@@ -849,18 +849,19 @@ async def run_scan(scan_id):
         logging.exception("scan failed")
         _set(db, scan, status="failed", error_message=str(e)[:500])   # G12
     finally:
+        purge_upload(scan_id)   # G1: 워크스페이스 밖의 업로드 원본도 무조건 파기
         db.close()
 
-def _ingest(scan, ws):
+def stage_ingest(scan, ws):   # 이름은 테스트의 monkeypatch 대상과 일치해야 한다
     if scan.source_type == "git":
         return ing.ingest_git(scan.source_ref, ws)
-    return ing.ingest_zip(ws / "upload.zip", ws)   # 라우트가 업로드를 ws에 저장? → 아래 주의
+    return ing.ingest_zip(upload_path(scan.id), ws)
 ```
 
-**주의(설계 확정):** zip 업로드 파일은 라우트에서 `settings`의 업로드 보관 디렉토리(`/tmp/ansim-uploads/{scan_id}.zip`)에 저장하고 파이프라인이 읽은 뒤 **finally에서 업로드 원본도 함께 삭제**한다(원본 코드 파기 대상에 포함 — G1). `routes/scans.py`는 202 즉시 반환 + `background_tasks.add_task(run_scan, scan.id)`.
+**주의(설계 확정):** zip 업로드 파일은 라우트에서 `settings.upload_dir`(`/tmp/ansim-uploads/{scan_id}.zip`)에 저장한다. 이 경로는 `scan_workspace` **밖**이라 `TemporaryDirectory.cleanup()`이 닿지 않으므로, 파이프라인의 최외곽 `finally`에서 `purge_upload(scan_id)`로 직접 지우고(G1) 기동 시 `purge_orphan_uploads()`로 이전 프로세스의 잔존분도 정리한다. `routes/scans.py`는 202 즉시 반환 + `background_tasks.add_task(run_scan, scan.id)`이며, git URL(JSON)과 zip(multipart)이 한 경로에 오므로 content-type으로 직접 분기한다.
 
-- [ ] **Step 4: 테스트 green 확인** — 성공 경로 done, 강제 실패 경로 failed+purged_at → PASS
-- [ ] **Step 5: 통합 스모크** — `docker compose up -d --build` 후:
+- [x] **Step 4: 테스트 green 확인** — 성공 경로 done, 강제 실패 경로 failed+purged_at → PASS
+- [x] **Step 5: 통합 스모크** — `docker compose up -d --build` 후:
 
 ```bash
 curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
@@ -869,7 +870,7 @@ curl -s -X POST localhost:8000/api/scans -H 'content-type: application/json' \
 
 폴링으로 `환경분석→완료` 전이 확인.
 
-- [ ] **Step 6: Commit** — `feat: 스캔 API + BackgroundTasks 파이프라인 골격 (§11 단계·failed 확정)`
+- [x] **Step 6: Commit** — `feat: 스캔 API + BackgroundTasks 파이프라인 골격 (§11 단계·failed 확정)`
 
 **완료 기준(DoD):** M1 게이트 전체 — git·zip 접수, 지문·룰버전 기록, 예외 시 failed + purged_at, 폴링 동작.
 

@@ -7,7 +7,9 @@ from fastapi import FastAPI
 
 from app.db import SessionLocal, engine
 from app.engine.catalog import load_rules, rule_catalog_version
+from app.engine.pipeline import purge_orphan_uploads
 from app.models import Base, Rule
+from app.routes import scans
 
 # LogRecord가 항상 채우는 속성 — 이 이름들만 빼면 나머지는 호출부가 extra=로 실은 값이다.
 _RESERVED = frozenset(
@@ -56,11 +58,13 @@ async def lifespan(app: FastAPI):
     # 마이그레이션 도구는 쓰지 않는다(가정: 데모 규모 — 스키마 변경 시 docker compose down -v).
     Base.metadata.create_all(engine)
     seed_rules()
+    purge_orphan_uploads()   # G1: 이전 프로세스가 남긴 업로드 원본이 있으면 지운다
     yield
 
 
 setup_json_logging()
 app = FastAPI(title="AnsimCode API", lifespan=lifespan)
+app.include_router(scans.router)
 
 
 @app.get("/health")
