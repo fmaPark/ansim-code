@@ -10,8 +10,11 @@ from app.db import SessionLocal
 from app.engine import fingerprint as fp
 from app.engine import ingest as ing
 from app.engine.catalog import rule_catalog_version
+from app.engine.deps_npm import npm_parse_markers, parse_npm_deps
+from app.engine.deps_python import parse_python_deps, python_parse_markers
+from app.engine.sbom import build_sbom, classify_supply_chain, vendored_dependencies
 from app.engine.workspace import scan_workspace
-from app.models import Scan
+from app.models import SbomComponent, Scan
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +53,29 @@ def stage_ingest(scan, ws):
     return ing.ingest_zip(upload_path(scan.id), ws)
 
 
+def stage_sbom(db, scan, root: Path) -> dict:
+    """§11.2 현황 진단 — 의존성 파싱 → 15속성 SBOM → 공급망 분류 (Task 6·7·8).
+
+    깨진 매니페스트·setup.py 전용 저장소는 예외로 죽이지 않고 마커로 남긴다.
+    """
+    deps = parse_python_deps(root) + parse_npm_deps(root)
+    deps += vendored_dependencies(root, deps)
+    markers = python_parse_markers(root) + npm_parse_markers(root)
+    rows = build_sbom(deps, root)
+
+    for row in rows:
+        db.add(SbomComponent(scan_id=scan.id, **row))
+    report = dict(scan.report_json or {})
+    report["parse_markers"] = [{"kind": m.kind, "detail": m.detail} for m in markers]
+    _set(db, scan,
+         supply_chain_class=classify_supply_chain(deps, root),
+         report_json=report)
+    log.info("SBOM 생성", extra={"scan_id": str(scan.id), "component_count": len(rows),
+                                 "supply_chain_class": scan.supply_chain_class,
+                                 "parse_marker_count": len(markers)})
+    return {"deps": deps, "sbom_rows": rows, "markers": markers}
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -69,6 +95,7 @@ async def run_scan(scan_id):
                          fingerprint_type="git_commit" if res.commit_hash else "tree_hash",
                          rule_catalog_version=rule_catalog_version())     # G11: 파기 전 확정
                     _set(db, scan, current_stage="현황진단")   # §11.2 — Task 6~8
+                    await asyncio.to_thread(stage_sbom, db, scan, res.root)
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
                 _set(db, scan, status="done", current_stage="완료")

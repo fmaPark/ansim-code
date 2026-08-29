@@ -1007,7 +1007,7 @@ def test_git_dependency_flagged_nonregistry(tmp_path):
 - Produces: `build_sbom(deps: list[Dependency], root: Path) -> list[dict]` — 15속성 dict(모델 컬럼명 그대로). `unique_id`=purl(packageurl-python: `PackageURL(type="pypi"|"npm", name=..., version=...)`), `license_usage` 판정, `supplier`/`author`/`license_name`/`release_date`는 이 단계에선 매니페스트에서 얻는 범위만(레지스트리 원격 조회는 하지 않음 — 가정: OSV 응답·lock 메타로 충분, 부족 필드는 null 허용이되 15속성 **키는 전부 출력**). `classify_supply_chain(deps, root) -> "자체개발"|"오픈소스"|"바이너리"`(0322 §5.1.1: 의존성 0 → 자체개발, 바이너리 파일(.so/.dll/.jar/.exe) 동봉 → 바이너리 포함, 그 외 → 오픈소스 활용). `detect_vendored(root) -> dict[dirname, has_license]` — `vendor/`·`vendors/`·`third_party/`·`libs/` 하위 1단계 디렉토리와 LICENSE·COPYING* 존재 여부.
 - `GET /api/scans/{id}/sbom` → `{"components":[...15속성...], "supply_chain_class": "...", "generated_by": "AnsimCode"}` (프론트가 그대로 JSON 다운로드 — TDD §3).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```python
 # api/tests/test_sbom.py
@@ -1042,11 +1042,11 @@ def test_supply_chain_classification(tmp_path):
     assert classify_supply_chain([_dep()], tmp_path) == "바이너리"
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** → FAIL
-- [ ] **Step 3: 구현** — ⑨ 결합형태 3축 판정(TDD §4.3): 매니페스트 선언=`동적 참조` / vendored 디렉토리+LICENSE·COPYING 존재=`파일단위 복제` / vendored+LICENSE 부재=`복제·고지 없음`("수정 후 사용" 해시 대조는 V2 — 구현 금지). `component_hash`=lock integrity(⑦, 없으면 null → SCA-09 입력). `cvss_*`·`cve_ids`·`vulnerability_db`·`release_date`는 null로 시작(Task 9가 채움). 파이프라인 `현황진단` 스테이지에서 두 파서(6·7) 호출 → `build_sbom` → `SbomComponent` 벌크 insert, `supply_chain_class` 저장.
-- [ ] **Step 4: 테스트 green + 통합 확인** — fixture 저장소(requirements+package.json 동시 보유)를 zip으로 스캔 → `GET /sbom`에 두 생태계 컴포넌트 모두 존재
-- [ ] **Step 5: 실패 경로 재확인** — 깨진 `package.json`(JSON 오류) fixture → 해당 파서만 건너뛰고 스캔은 done(파싱 불가 마커), 완전 빈 저장소 → done + 컴포넌트 0 + `자체개발`
-- [ ] **Step 6: Commit** — `feat: 15속성 SBOM 빌더 + 결합형태 3분류 + 공급망 분류 + export API`
+- [x] **Step 2: 실행해 실패 확인** → FAIL
+- [x] **Step 3: 구현** — ⑨ 결합형태 3축 판정(TDD §4.3): 매니페스트 선언=`동적 참조` / vendored 디렉토리+LICENSE·COPYING 존재=`파일단위 복제` / vendored+LICENSE 부재=`복제·고지 없음`("수정 후 사용" 해시 대조는 V2 — 구현 금지). `component_hash`=lock integrity(⑦, 없으면 null → SCA-09 입력). `cvss_*`·`cve_ids`·`vulnerability_db`·`release_date`는 null로 시작(Task 9가 채움). 파이프라인 `현황진단` 스테이지에서 두 파서(6·7) 호출 → `build_sbom` → `SbomComponent` 벌크 insert, `supply_chain_class` 저장.
+- [x] **Step 4: 테스트 green + 통합 확인** — fixture 저장소(requirements+package.json 동시 보유)를 zip으로 스캔 → `GET /sbom`에 두 생태계 컴포넌트 모두 존재
+- [x] **Step 5: 실패 경로 재확인** — 깨진 `package.json`(JSON 오류) fixture → 해당 파서만 건너뛰고 스캔은 done(파싱 불가 마커), 완전 빈 저장소 → done + 컴포넌트 0 + `자체개발`
+- [x] **Step 6: Commit** — `feat: 15속성 SBOM 빌더 + 결합형태 3분류 + 공급망 분류 + export API`
 
 **완료 기준(DoD):** M2 게이트 — 15속성 키 전수 출력, 3분류·공급망 분류 테스트 green, `/sbom` JSON 다운로드 가능.
 

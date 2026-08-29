@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 from app.config import SKIP_DIRS
-from app.engine.deps_types import Dependency
+from app.engine.deps_types import Dependency, ParseMarker
 
 _NON_REGISTRY_PREFIXES = ("git+", "git:", "github:", "file:", "link:", "http://", "https://",
                           "portal:", "workspace:")
@@ -29,6 +29,20 @@ def find_npm_lockfiles(root: Path) -> list[str]:
     for name in _LOCK_FILES:
         found += [f.relative_to(root).as_posix() for f in _iter_files(root, name)]
     return sorted(found)
+
+
+def npm_parse_markers(root: Path) -> list[ParseMarker]:
+    """깨진 매니페스트·lock은 예외로 죽이지 않고 마커로 남긴다(스캔은 done으로 완주)."""
+    markers: list[ParseMarker] = []
+    for pattern in ("package.json", "package-lock.json", "npm-shrinkwrap.json"):
+        for f in _iter_files(root, pattern):
+            try:
+                json.loads(f.read_text(encoding="utf-8", errors="ignore"))
+            except (json.JSONDecodeError, OSError) as e:
+                markers.append(ParseMarker(
+                    kind="npm_manifest_unparsable",
+                    detail=f"{f.relative_to(root).as_posix()} 파싱 불가: {type(e).__name__}"))
+    return markers
 
 
 def _is_registry(spec: str) -> bool:
