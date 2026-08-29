@@ -359,7 +359,7 @@ curl -s -o /dev/null -w "%{http_code}" localhost:8080   # 200 (Vite 기본 페�
 **Interfaces:**
 - Produces: SQLAlchemy 모델 `Scan`, `SbomComponent`, `Finding`, `Rule` (필드는 TDD §4.3 표와 1:1). `catalog.load_rules() -> list[dict]`, `catalog.rule_catalog_version(rules_dir) -> str`(rules/ 전체 파일의 정렬된 (상대경로, sha256) 목록의 sha256 — TDD §4.5). startup에서 `Base.metadata.create_all` + Rule upsert 시드. **마이그레이션 도구는 쓰지 않는다(가정: 데모 규모 — 스키마 변경 시 `docker compose down -v`).**
 
-- [ ] **Step 1: 모델 작성** — TDD §4.3 표의 필드를 그대로 컬럼으로. 핵심만 발췌:
+- [x] **Step 1: 모델 작성** — TDD §4.3 표의 필드를 그대로 컬럼으로. 핵심만 발췌:
 
 ```python
 # api/app/models.py
@@ -441,12 +441,16 @@ class Rule(Base):
     standard_ref: Mapped[str] = mapped_column(String(64))          # 예: TTAK.KO-12.0414 §7.3.4
     secondary_ref: Mapped[str | None] = mapped_column(String(128)) # 보조 룰 2차 출처
     title: Mapped[str] = mapped_column(String(128))
-    type: Mapped[str] = mapped_column(String(8))                   # sca|static|llm
-    severity_default: Mapped[str] = mapped_column(String(8))
+    # sca|static|llm|static+llm — TDD §4.3은 3종이나 §4.5 방식 컬럼이 P2·P3·P5·P10에
+    # `static + LLM`을 요구해 4번째 값이 실재한다. String(8)이면 시드 시 절단 오류.
+    type: Mapped[str] = mapped_column(String(16))
+    severity_default: Mapped[str] = mapped_column(String(16))      # …|cvss_derived
     derivation: Mapped[str] = mapped_column(String(8))             # direct|aux (§4.5 구분 표기)
 ```
 
-- [ ] **Step 2: `rules/catalog.yaml` 작성 — 31종 전체.** 아래 표를 그대로 YAML 항목으로 옮긴다(컬럼: id, title, standard_ref, secondary_ref, type, severity_default, derivation, verdict — verdict는 `confirmed_capable`(static 단독 확신) 또는 `review_only`(LLM 경유·G3)). **이 표가 룰 구현(Task 11·12·13·15)의 단일 사양이다.**
+- [x] **Step 2: `rules/catalog.yaml` 작성 — 31종 전체.** 아래 표를 그대로 YAML 항목으로 옮긴다(컬럼: id, title, standard_ref, secondary_ref, type, severity_default, derivation, verdict, detection). **이 표가 룰 구현(Task 11·12·13·15)의 단일 사양이므로 '검출 로직 요지'도 `detection` 필드로 함께 옮긴다.**
+
+한국어 산문을 타입 가능한 값으로 정규화한다 — `verdict`는 `confirmed`(static 단독 확신) \| `review_only`(LLM 경유·G3) \| `checksum_dependent`(표의 '체크섬따름' — SEC-05), `severity_default`의 '<abbr>CVSS</abbr>따름'은 `cvss_derived`. `verdict`·`detection`은 `Rule` 모델에 컬럼이 없는 **YAML 전용 필드**이며 룰 러너가 소비한다. AUX-02·03·04의 근거 조항 '상동'은 AUX-01과 같은 `TTAK.KO-11.0259 §9.4` + `secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」`로 전개한다.
 
 | id | title | 근거 조항 | type | sev | verdict | 검출 로직 요지 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -482,7 +486,7 @@ class Rule(Base):
 | AUX-03 | CORS 와일드카드 | 상동 | static | medium | confirmed | `allow_origins=["*"]`, `Access-Control-Allow-Origin: *` |
 | AUX-04 | 안전하지 않은 역직렬화 | 상동 | static | high | confirmed | `pickle.loads`, Loader 없는 `yaml.load`, `eval`/`exec` on input |
 
-- [ ] **Step 3: 실패하는 테스트 작성** — `api/tests/test_models.py`
+- [x] **Step 3: 실패하는 테스트 작성** — `api/tests/test_models.py`
 
 ```python
 def test_catalog_loads_31_rules():
@@ -501,8 +505,8 @@ def test_rule_catalog_version_changes_with_content(tmp_path):
     assert rule_catalog_version(tmp_path) != v1
 ```
 
-- [ ] **Step 4: 실행해 실패 확인** — `cd api && pytest tests/test_models.py -v` → FAIL(모듈 없음)
-- [ ] **Step 5: `catalog.py` 구현**
+- [x] **Step 4: 실행해 실패 확인** — `cd api && pytest tests/test_models.py -v` → FAIL(모듈 없음)
+- [x] **Step 5: `catalog.py` 구현**
 
 ```python
 # api/app/engine/catalog.py
@@ -525,8 +529,8 @@ def rule_catalog_version(rules_dir=None) -> str:   # TDD §4.5: rules/ 콘텐츠
 
 `main.py` startup에 `Base.metadata.create_all(engine)` + Rule upsert 시드(카탈로그 → Rule 테이블 merge). `requirements.txt`에 `pyyaml` 추가.
 
-- [ ] **Step 6: 테스트 green 확인 + DB 기동 통합 확인** — `pytest` PASS 후 `docker compose up -d --build api` → 로그에 시드 31건, `docker compose exec db psql -U ansim -c "select count(*) from rules"` = 31
-- [ ] **Step 7: Commit** — `feat: DB 모델 4엔티티 + 룰 카탈로그 31종 시드`
+- [x] **Step 6: 테스트 green 확인 + DB 기동 통합 확인** — `pytest` PASS 후 `docker compose up -d --build api` → 로그에 시드 31건, `docker compose exec db psql -U ansim -c "select count(*) from rules"` = 31
+- [x] **Step 7: Commit** — `feat: DB 모델 4엔티티 + 룰 카탈로그 31종 시드`
 
 **완료 기준(DoD):** 4테이블 생성·rules 31행 시드, `rule_catalog_version`이 rules/ 내용 변경에 반응, 테스트 green.
 

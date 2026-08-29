@@ -9,6 +9,7 @@ anthropic==0.39.*
 pip-requirements-parser==32.*
 packageurl-python==0.15.*
 packaging==24.*
+pyyaml==6.*
 semver==3.*
 semgrep==1.*
 pytest==8.*

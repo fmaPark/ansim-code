@@ -1,0 +1,333 @@
+# 안심코드 진단 룰 카탈로그 — 31종 (표준 직접 도출 27 + 일반 보안 보조 4)
+# 근거: TDD §4.5 · docs/plans/mvp-implementation.md Task 2 Step 2 표
+# 이 파일이 룰 구현(Task 11·12·13·15)의 단일 사양이며, rules/ 전체의 콘텐츠 해시가
+# 곧 rule_catalog_version이 된다(TDD §4.5).
+#
+# 필드 어휘 (계획 표의 한국어 산문을 타입 가능한 값으로 정규화한 것):
+#   type              sca | static | llm | static+llm      — TDD §4.5 '방식' 컬럼
+#   severity_default  critical | high | medium | low | cvss_derived
+#                     cvss_derived = 계획 표의 'CVSS따름' (SCA-02는 cvss_severity를 따른다)
+#   verdict           confirmed | review_only | checksum_dependent
+#                     confirmed          = static 단독으로 확신 가능 → LLM 미경유
+#                     review_only        = LLM 경유 → 항상 review_needed (G3 등급 결정론)
+#                     checksum_dependent = 계획 표의 '체크섬따름' (SEC-05는 주민번호 체크섬이
+#                                          유효하면 confirmed, 무효면 review_needed)
+#   derivation        direct | aux                          — §4.5 "직접 도출 27 + 보조 4"
+# verdict·detection은 DB Rule 테이블에 시드되지 않는 YAML 전용 필드다(룰 러너가 소비).
+
+rules:
+  # ── SCA 룰 12종 (직접 도출) ──────────────────────────────────────────────
+  - id: SCA-01
+    title: 미선언 의존성
+    standard_ref: TTAK.KO-11.0259 §9.3
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: 코드 import(Py는 ast, JS는 Semgrep 패턴) − 매니페스트 선언 − stdlib·로컬 모듈 = 갭
+
+  - id: SCA-02
+    title: 알려진 취약 버전(CVE)
+    standard_ref: TTAK.KO-11.0309 §6.10 · TTAK.KO-11.0259 §11.3
+    secondary_ref: null
+    type: sca
+    severity_default: cvss_derived
+    verdict: confirmed
+    derivation: direct
+    detection: OSV 매칭 결과를 컴포넌트별 finding으로 생성. severity는 cvss_severity를 따른다
+
+  - id: SCA-03
+    title: 국내 보안공지 발령
+    standard_ref: TTAK.KO-11.0259 §11.3
+    secondary_ref: KISA 보호나라 보안공지(data.go.kr/15155789)
+    type: sca
+    severity_default: high
+    verdict: confirmed
+    derivation: direct
+    detection: OSV CVE ∩ KISA 공지 CVE → "국내 보안공지 발령" 표시 finding
+
+  - id: SCA-04
+    title: 패치 미적용
+    standard_ref: TTAK.KO-11.0259 §9.6 · §11.4
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: OSV fixed 버전이 존재하고 현재 버전 < fixed
+
+  - id: SCA-05
+    title: 장기 미갱신 컴포넌트
+    standard_ref: TTAK.KO-11.0309 §6.12
+    secondary_ref: null
+    type: sca
+    severity_default: low
+    verdict: confirmed
+    derivation: direct
+    detection: release_date가 3년 초과 과거(정보성 — Low는 등급 비기여)
+
+  - id: SCA-06
+    title: 라이선스 복제·고지 없음
+    standard_ref: TTAK.KO-11.0309 §6.8 · §6.9
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: vendored 디렉토리 존재 & LICENSE·COPYING 부재 (§6.9 3축 판정의 3분류)
+
+  - id: SCA-07
+    title: AGPL/SSPL 서비스 배포 경고
+    standard_ref: TTAK.KO-11.0322 §5.1.2 표 5-1
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: license_name ∈ {AGPL-3.0, SSPL-1.0} → 경고 + 표 5-1('서비스' 행) 위험요인 문구
+
+  - id: SCA-08
+    title: 라이선스 불명
+    standard_ref: TTAK.KO-11.0309 §6.8
+    secondary_ref: null
+    type: sca
+    severity_default: low
+    verdict: confirmed
+    derivation: direct
+    detection: 메타데이터에서 라이선스 미확인
+
+  - id: SCA-09
+    title: 컴포넌트 해시 부재
+    standard_ref: TTAK.KO-11.0309 §6.7
+    secondary_ref: null
+    type: sca
+    severity_default: low
+    verdict: confirmed
+    derivation: direct
+    detection: lock 파일 없음 또는 integrity/hash 필드 부재
+
+  - id: SCA-10
+    title: 출처 불명 컴포넌트
+    standard_ref: TTAK.KO-11.0309 §6.2 · §6.6
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: git URL·로컬 경로·비레지스트리 의존성
+
+  - id: SCA-11
+    title: 버전 미고정
+    standard_ref: TTAK.KO-11.0259 §9.3
+    secondary_ref: null
+    type: sca
+    severity_default: low
+    verdict: confirmed
+    derivation: direct
+    detection: 와일드카드·범위 선언 & lock 부재
+
+  - id: SCA-12
+    title: 매니페스트-lock 불일치
+    standard_ref: TTAK.KO-11.0259 §9.3
+    secondary_ref: null
+    type: sca
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: 선언 패키지가 lock에 없거나 그 반대 (§9.3 갭 분석)
+
+  # ── 시크릿 룰 5종 (직접 도출) — static 전용, LLM 미경유 (TDD §8 P0-2) ────
+  - id: SEC-01
+    title: API 키·토큰 하드코딩
+    standard_ref: TTAK.KO-11.0259 §9.3 · §9.5
+    secondary_ref: null
+    type: static
+    severity_default: critical
+    verdict: confirmed
+    derivation: direct
+    detection: gitleaks 기본 룰셋(aws-access-token 등) + 플레이스홀더 allowlist
+
+  - id: SEC-02
+    title: 주석 내 시크릿·내부 정보
+    standard_ref: TTAK.KO-11.0259 §9.5
+    secondary_ref: null
+    type: static
+    severity_default: high
+    verdict: confirmed
+    derivation: direct
+    detection: 주석 라인 내 시크릿 패턴·내부 URL·내부 IP (gitleaks custom)
+
+  - id: SEC-03
+    title: 환경파일 커밋
+    standard_ref: TTAK.KO-11.0259 §9.5
+    secondary_ref: null
+    type: static
+    severity_default: critical
+    verdict: confirmed
+    derivation: direct
+    detection: .env·*.pem·credentials.json 등 파일 존재 + 내용에 실제 값
+
+  - id: SEC-04
+    title: 클라우드 자격증명
+    standard_ref: TTAK.KO-11.0259 §9.3
+    secondary_ref: null
+    type: static
+    severity_default: critical
+    verdict: confirmed
+    derivation: direct
+    detection: AWS AKIA·GCP service-account JSON·Azure 연결 문자열 (gitleaks)
+
+  - id: SEC-05
+    title: 한국형 PII 하드코딩
+    standard_ref: TTAK.KO-11.0259 §9.5 · TTAK.KO-12.0414 §7.3.4
+    secondary_ref: null
+    type: static
+    severity_default: critical
+    verdict: checksum_dependent
+    derivation: direct
+    detection: >-
+      주민번호 13자리는 체크섬 유효 → confirmed, 무효 → review_needed(§11 항목 4 기본값).
+      휴대전화·계좌번호 패턴은 review_needed(오탐으로 '위험' 남발 방지 — TDD §6 리스크)
+
+  # ── 개인정보 룰 10종 (직접 도출) — 0414 §7.3 ────────────────────────────
+  - id: P1
+    title: 과다 수집 의심
+    standard_ref: TTAK.KO-12.0414 §7.3.2
+    secondary_ref: null
+    type: llm
+    severity_default: medium
+    verdict: review_only
+    derivation: direct
+    detection: 수집 필드 목록을 LLM에 전달해 최소화 위반 의견을 받는다
+
+  - id: P2
+    title: 동의 없는 수집
+    standard_ref: TTAK.KO-12.0414 §7.3.2
+    secondary_ref: null
+    type: static+llm
+    severity_default: high
+    verdict: review_only
+    derivation: direct
+    detection: PII 필드 수집 코드 & 동의 처리 부재 패턴 → LLM 맥락 판단
+
+  - id: P3
+    title: 민감정보 별도 동의 부재
+    standard_ref: TTAK.KO-12.0414 §7.3.2
+    secondary_ref: null
+    type: static+llm
+    severity_default: high
+    verdict: review_only
+    derivation: direct
+    detection: 건강·사상·범죄 등 민감 키워드 필드 → LLM
+
+  - id: P4
+    title: 목적 외 이용·제3자 제공 의심
+    standard_ref: TTAK.KO-12.0414 §7.3.3
+    secondary_ref: null
+    type: llm
+    severity_default: medium
+    verdict: review_only
+    derivation: direct
+    detection: PII + 외부 API/SDK 전송 코드 문맥 → LLM
+
+  - id: P5
+    title: 공개 개인정보 무동의 수집(크롤링)
+    standard_ref: TTAK.KO-12.0414 §7.3.2
+    secondary_ref: null
+    type: static+llm
+    severity_default: medium
+    verdict: review_only
+    derivation: direct
+    detection: requests/BeautifulSoup/puppeteer + PII 필드 파싱 조합 → LLM
+
+  - id: P6
+    title: 암호화 미적용 평문 저장
+    standard_ref: TTAK.KO-12.0414 §7.3.4
+    secondary_ref: null
+    type: static
+    severity_default: critical
+    verdict: confirmed
+    derivation: direct
+    detection: PII(체크섬 유효 주민번호 등)를 DB insert/파일 write에 암호화 없이 사용
+
+  - id: P7
+    title: 접근통제 부재
+    standard_ref: TTAK.KO-12.0414 §7.3.4
+    secondary_ref: null
+    type: static
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: admin·user 라우트에 인증 데코레이터/미들웨어 부재 (repo_checks)
+
+  - id: P8
+    title: 접속기록 관리 부재
+    standard_ref: TTAK.KO-12.0414 §7.3.4
+    secondary_ref: null
+    type: static
+    severity_default: low
+    verdict: confirmed
+    derivation: direct
+    detection: PII 취급 코드 존재 & 로깅 설정 전무 (repo_checks)
+
+  - id: P9
+    title: 처리방침 미공개
+    standard_ref: TTAK.KO-12.0414 §7.3.1
+    secondary_ref: null
+    type: static
+    severity_default: medium
+    verdict: confirmed
+    derivation: direct
+    detection: privacy 라우트·정적 파일(privacy*, 개인정보처리방침*) 부재 (repo_checks)
+
+  - id: P10
+    title: 파기 로직 부재
+    standard_ref: TTAK.KO-12.0414 §7.3.5
+    secondary_ref: null
+    type: static+llm
+    severity_default: medium
+    verdict: review_only
+    derivation: direct
+    detection: DB 모델 존재 & delete/retention/expire 부재 → LLM
+
+  # ── 일반 보안 보조 룰 4종 (§9.4에서 직접 도출되지 않아 2차 출처를 병기한다) ──
+  - id: AUX-01
+    title: SQL Injection 패턴
+    standard_ref: TTAK.KO-11.0259 §9.4
+    secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」
+    type: static
+    severity_default: high
+    verdict: confirmed
+    derivation: aux
+    detection: 문자열 조립 쿼리(f-string·+·template literal)를 execute에 전달
+
+  - id: AUX-02
+    title: 디버그 모드 활성
+    standard_ref: TTAK.KO-11.0259 §9.4
+    secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」
+    type: static
+    severity_default: medium
+    verdict: confirmed
+    derivation: aux
+    detection: DEBUG=True, app.run(debug=True)
+
+  - id: AUX-03
+    title: CORS 와일드카드
+    standard_ref: TTAK.KO-11.0259 §9.4
+    secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」
+    type: static
+    severity_default: medium
+    verdict: confirmed
+    derivation: aux
+    detection: 'allow_origins=["*"], Access-Control-Allow-Origin: *'
+
+  - id: AUX-04
+    title: 안전하지 않은 역직렬화
+    standard_ref: TTAK.KO-11.0259 §9.4
+    secondary_ref: 행안부·KISA 「소프트웨어 개발보안 가이드」
+    type: static
+    severity_default: high
+    verdict: confirmed
+    derivation: aux
+    detection: pickle.loads, Loader 없는 yaml.load, 입력에 대한 eval/exec

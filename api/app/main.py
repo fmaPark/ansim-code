@@ -1,10 +1,15 @@
 import json
 import logging
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-# logging.LogRecord가 항상 채우는 속성 — 이 이름들만 빼면 나머지는 호출부가 extra=로 실은 값이다.
+from app.db import SessionLocal, engine
+from app.engine.catalog import load_rules, rule_catalog_version
+from app.models import Base, Rule
+
+# LogRecord가 항상 채우는 속성 — 이 이름들만 빼면 나머지는 호출부가 extra=로 실은 값이다.
 _RESERVED = frozenset(
     logging.LogRecord(name="", level=0, pathname="", lineno=0, msg="", args=None, exc_info=None).__dict__
 ) | {"message", "asctime", "taskName"}
@@ -32,8 +37,30 @@ def setup_json_logging():
     logging.basicConfig(level=logging.INFO, handlers=[h], force=True)
 
 
+def seed_rules():
+    """rules/catalog.yaml → Rule 테이블 upsert. verdict·detection은 YAML 전용이라 제외된다."""
+    columns = set(Rule.__table__.columns.keys())
+    rows = load_rules()
+    with SessionLocal() as db:
+        for row in rows:
+            db.merge(Rule(**{k: v for k, v in row.items() if k in columns}))
+        db.commit()
+    logging.info(
+        "룰 카탈로그 시드 완료",
+        extra={"rule_count": len(rows), "rule_catalog_version": rule_catalog_version()},
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 마이그레이션 도구는 쓰지 않는다(가정: 데모 규모 — 스키마 변경 시 docker compose down -v).
+    Base.metadata.create_all(engine)
+    seed_rules()
+    yield
+
+
 setup_json_logging()
-app = FastAPI(title="AnsimCode API")
+app = FastAPI(title="AnsimCode API", lifespan=lifespan)
 
 
 @app.get("/health")
