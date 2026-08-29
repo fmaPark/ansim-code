@@ -15,7 +15,7 @@ from app.engine.gitleaks_runner import run_gitleaks
 from app.engine.masking import MaskRegistry
 from app.engine.pii import classify_secret
 from app.engine.repo_checks import run_repo_checks
-from app.engine.semgrep_runner import SemgrepHit, run_semgrep
+from app.engine.semgrep_runner import SemgrepHit, run_ansim_semgrep
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def run_static_stage(root: Path) -> tuple[list[FindingDraft], MaskRegistry]:
         drafts.append(d)
 
     # ── semgrep 룰 (Task 15: P2·P3·P6·AUX-01~04) ──
-    drafts.extend(drafts_from_semgrep(run_semgrep(root)))
+    drafts.extend(drafts_from_semgrep(run_ansim_semgrep(root)))
 
     # ── repo 단위 검사 (Task 15: P5·P7·P8·P9·P10) ──
     drafts.extend(run_repo_checks(root))

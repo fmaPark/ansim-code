@@ -41,9 +41,9 @@ def semgrep_hits(tmp_path_factory):
     (root / "pos_aux4.py").write_text("import pickle\n\ndef load(d):\n    return pickle.loads(d)\n")
     (root / "neg_aux4.py").write_text(
         "import yaml\n\ndef load(f):\n    return yaml.load(f, Loader=yaml.SafeLoader)\n")
-    from app.engine.semgrep_runner import run_semgrep
+    from app.engine.semgrep_runner import run_ansim_semgrep
 
-    return run_semgrep(root)
+    return run_ansim_semgrep(root)
 
 
 def _rules_hit_in(hits, filename):
