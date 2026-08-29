@@ -73,7 +73,20 @@ def test_upgrade_block_lists_blocking_ids():
     assert dev["upgrade"]["target"] == "주의"
     assert dev["upgrade"]["count"] == 2
     assert dev["upgrade"]["blocking_finding_ids"] == [1, 7]
-    assert "주의" in dev["upgrade"]["message"]
+    assert dev["upgrade"]["blocking_cve_ids"] == []
+    assert dev["upgrade"]["message"] == "이 2건만 해결하면 주의로 올라갑니다"
+
+
+def test_upgrade_message_particle_and_cve_blockers():
+    """받침 있는 '안심'은 '안심으로'. count는 발견+CVE 합계라 두 목록 길이 합과 같다."""
+    grade_result = SimpleNamespace(upgrade_target="안심", upgrade_count=3,
+                                   blocking_finding_ids=[1], blocking_cve_ids=["CVE-1", "CVE-2"])
+    dev, _ = build_reports(scan_stub(grade="주의"), [finding(1, blocking=True)], [], MATRIX,
+                           incomplete=False, grade_result=grade_result)
+
+    up = dev["upgrade"]
+    assert up["message"] == "이 3건만 해결하면 안심으로 올라갑니다"
+    assert up["count"] == len(up["blocking_finding_ids"]) + len(up["blocking_cve_ids"])
 
 
 def test_incomplete_osv_sets_provenance_flag():

@@ -61,16 +61,29 @@ def _six_principles(findings) -> list[dict]:
     return axes
 
 
+def _particle(word: str) -> str:
+    """'로/으로' 선택 — 받침 있는 '안심'은 '안심으로', 없는 '주의'는 '주의로'."""
+    if not word:
+        return "로"
+    last = ord(word[-1])
+    if not 0xAC00 <= last <= 0xD7A3:            # 한글 음절이 아니면 기본형
+        return "로"
+    jong = (last - 0xAC00) % 28
+    return "로" if jong in (0, 8) else "으로"   # 받침 없음·ㄹ 받침은 '로'
+
+
 def _upgrade(grade: str, grade_result) -> dict | None:
     """등급 상향 조건 블록 — 재진단 루프의 payoff (TDD §4.5)."""
     if grade == SAFE or grade_result is None or not grade_result.upgrade_target:
         return None
+    target = grade_result.upgrade_target
     count = grade_result.upgrade_count
     return {
-        "target": grade_result.upgrade_target,
-        "count": count,
-        "message": f"이 {count}건만 해결하면 {grade_result.upgrade_target}로 올라갑니다",
+        "target": target,
+        "count": count,          # 발견 + CVE 합계 — 아래 두 목록의 길이 합과 같다
+        "message": f"이 {count}건만 해결하면 {target}{_particle(target)} 올라갑니다",
         "blocking_finding_ids": list(grade_result.blocking_finding_ids),
+        "blocking_cve_ids": list(grade_result.blocking_cve_ids),
     }
 
 
