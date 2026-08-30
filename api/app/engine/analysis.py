@@ -13,7 +13,7 @@ from app.engine.catalog import load_rules
 from app.engine.findings import FindingDraft
 from app.engine.gitleaks_runner import run_gitleaks
 from app.engine.masking import MaskRegistry
-from app.engine.pii import classify_secret
+from app.engine.pii import classify_secret, evidence_note
 from app.engine.repo_checks import run_repo_checks
 from app.engine.semgrep_runner import SemgrepHit, run_ansim_semgrep
 
@@ -60,7 +60,7 @@ def run_static_stage(root: Path) -> tuple[list[FindingDraft], MaskRegistry]:
     for raw in run_gitleaks(root):
         registry.add(raw.secret_value)
         d = classify_secret(raw)
-        d.evidence = registry.mask(raw.match)   # 저장 직전 마스킹 (G2 ①)
+        d.evidence = registry.mask(raw.match) + evidence_note(raw)   # 저장 직전 마스킹 (G2 ①)
         drafts.append(d)
 
     # ── semgrep 룰 (Task 15: P2·P3·P6·AUX-01~04) ──

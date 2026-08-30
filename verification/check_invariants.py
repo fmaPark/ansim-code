@@ -23,17 +23,18 @@ from pathlib import Path
 # api/app/config.py·engine/repo_checks.py와 같은 값을 쓴다(스캔 대상 정의가 곧 검사 범위다).
 SKIP_DIRS = {"node_modules", "venv", ".venv", ".git", "__pycache__", "__MACOSX", "dist", "build"}
 CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx"}
+DOC_EXTS = {".md", ".html", ".htm", ".txt", ".pdf", ".rst"}   # repo_checks.py의 DOC_EXTS (P9)
 
 # 각 패턴은 api/app/engine의 대응 정규식과 1:1이다. 엔진이 바뀌면 여기도 같이 바꾼다.
 LOGGING = re.compile(r"import logging|require\(['\"]winston['\"]\)|require\(['\"]pino['\"]\)|"
-                     r"from ['\"]winston['\"]|from ['\"]pino['\"]")          # repo_checks.py:98 (P8)
-PRIVACY_FILE = re.compile(r"(?i)privacy|개인정보처리방침")                     # repo_checks.py:104 (P9)
-PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy")                            # repo_checks.py:104 (P9)
-DELETION = re.compile(r"(?i)\b(delete|destroy|expire|retention|purge)\b|파기")  # repo_checks.py:64 (P10)
-PII_FIELD = re.compile(r"(?i)phone|birth|email|address|jumin|rrn|이름|전화|주소")  # analysis.py:103 (P4)
-EXTERNAL_SEND = re.compile(r"requests\.post|fetch\(|axios\.")                # analysis.py:104 (P4)
+                     r"from ['\"]winston['\"]|from ['\"]pino['\"]")       # repo_checks.py:_LOGGING (P8)
+PRIVACY_FILE = re.compile(r"(?i)privacy|개인정보처리방침")              # repo_checks.py:_PRIVACY_FILE (P9)
+PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy")                      # repo_checks.py:_PRIVACY_ROUTE (P9)
+DELETION = re.compile(r"(?i)\b(delete|destroy|expire|retention|purge)\b|파기")  # repo_checks.py:_DELETION (P10)
+PII_FIELD = re.compile(r"(?i)phone|birth|email|address|jumin|rrn|이름|전화|주소")  # analysis.py (P4)
+EXTERNAL_SEND = re.compile(r"requests\.post|fetch\(|axios\.")                   # analysis.py (P4)
 AUTH = re.compile(r"login_required|Depends\(|authenticate|passport|jwt_required|"
-                  r"@auth|check_auth|requires_auth")                         # repo_checks.py:53 (P7)
+                  r"@auth|check_auth|requires_auth")                        # repo_checks.py:_AUTH (P7)
 PY_IMPORT = re.compile(r"^\s*(?:import\s+([A-Za-z_][\w.]*)|from\s+([A-Za-z_][\w.]*)\s+import)",
                        re.MULTILINE)
 JS_IMPORT = re.compile(r"""require\(['"]([^'"]+)['"]\)|from\s+['"]([^'"]+)['"]""")
@@ -131,8 +132,9 @@ def check(root: Path) -> list[str]:
             violations.append(f"① P8 마스킹: {path.relative_to(root)}에 로깅 라이브러리 반입")
 
     # ② 처리방침 파일명·라우트 부재 (P9)
-    for path in _iter_files(root):          # 파일명은 비코드 파일까지 본다
-        if PRIVACY_FILE.search(path.name):
+    # 엔진과 동일하게 문서 확장자만 본다 — 코드 파일은 처리방침이 아니다(이슈 #34).
+    for path in _iter_files(root):
+        if path.suffix.lower() in DOC_EXTS and PRIVACY_FILE.search(path.name):
             violations.append(f"② P9 마스킹: 처리방침으로 읽히는 파일명 {path.relative_to(root)}")
     for path in code_files:
         if PRIVACY_ROUTE.search(_read(path)):
