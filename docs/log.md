@@ -2,6 +2,11 @@
 
 이 번들의 **문서 단위** 변경 이력이다. 문서별 상세 개정 이력(어떤 조항·어떤 결정이 바뀌었는지)은 각 문서 말미의 개정 이력 표가 정본이며, 이 파일은 그 롤업이다.
 
+## 2026-08-30
+
+* **Update**: `tdd.md` v0.5(§4.1 아키텍처 다이어그램·§4.2 기술 스택 표) / `plans/mvp-implementation.md`(Tech Stack) — 프론트엔드 표기를 React 18 → **React 19.2**로 정정. 실제 구현이 `web/package-lock.json` 기준 react·react-dom 19.2.8이라 설계 문서 표기와 어긋나 있었다. 설계 판단 변경이 아닌 표기 정정이므로 `plans/mvp-implementation.md`·`platform-decision.md`의 "TDD v0.4" 참조(그 판단 집합을 근거로 삼았다는 기록)는 그대로 둔다.
+* **Creation**: 루트 `AGENTS.md` — 에이전트용 저장소 지침(스택·파일 단위 명령·규약). `CLAUDE.md`는 `@AGENTS.md` import 한 줄만 두어 내용 분기를 차단한다(심링크는 Windows 클론에서 평문 파일로 깨지므로 쓰지 않는다). 이 번들 밖 파일이라 OKF frontmatter 대상이 아니다.
+
 ## 2026-08-29
 
 * **Creation**: `references/sw-dev-security-guide-2021/` — 행정안전부·한국인터넷진흥원 「소프트웨어 개발보안 가이드」(2021.11., 376쪽) 원문 전체의 장 단위 마크다운 변환본 5건 + 색인. 설계단계 보안설계 기준 20개(SR1-1 ~ SR4-1)와 구현단계 보안약점 제거 기준 49개의 원문 기준이다.

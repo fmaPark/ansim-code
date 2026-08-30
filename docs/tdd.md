@@ -25,10 +25,10 @@ sources:
 | 기획 / PM | 기획 1인 |
 | 프로젝트 | 2026 ICT 표준 챌린지 공모전 데모 |
 | 기반 문서 | 기획서 v3(10종 룰 반영), [ADR-001 플랫폼 선정](./platform-decision.md), 최종 확정 명세·검토 기록(`협의체_기록/`) |
-| 버전 | v0.4 |
+| 버전 | v0.5 |
 | Status | Draft |
 | Created | 2026-08-24 |
-| Last Updated | 2026-08-26 |
+| Last Updated | 2026-08-30 |
 | 개발 기간 | 2026-08-24 ~ 2026-08-31 — **목표 완료 08-30, 08-31은 제출 전용** |
 
 ---
@@ -127,7 +127,7 @@ graph TB
 
     subgraph AnsimCode["안심코드 — Docker Compose"]
         direction TB
-        FE[🌐 Frontend<br/>React 18 + TypeScript + Vite]
+        FE[🌐 Frontend<br/>React 19.2 + TypeScript + Vite]
         API[⚙️ Backend API<br/>FastAPI · Python 3.12]
 
         subgraph Engine["Analysis Engine — 0259 §11 보안취약점 관리 프로세스 구현"]
@@ -201,7 +201,7 @@ graph TB
 | 계층 | 선택 | 이유 |
 | --- | --- | --- |
 | Backend | Python 3.12 + FastAPI | 팀 선호 스택. 정적 분석에 필요한 Python `ast` 모듈·파서 생태계가 풍부. Pydantic으로 SBOM JSON 스키마 검증. async로 OSV/LLM 외부 호출 병렬화 |
-| Frontend | React 18 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
+| Frontend | React 19.2 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
 | DB | PostgreSQL 16 | 팀 선호. JSONB로 SBOM·finding의 가변 구조 저장, 관계형으로 scan-finding 연결 |
 | 정적 분석 | Semgrep CE + gitleaks | Semgrep: 단일 엔진으로 Python·JS/TS 겸용, YAML 커스텀 룰의 metadata에 TTA 조항을 직접 기입해 Finding 매핑이 1:1. 레지스트리 룰은 라이선스 제약(non-competing)으로 미사용 — 100% 자체 룰 작성. gitleaks: regex+entropy 시크릿 검출, 단일 바이너리, custom rule(TOML)로 **한국 특화 패턴**(주민등록번호 체크섬 등) 추가, `[allowlist]`로 플레이스홀더(`your-api-key-here`, `changeme`, `sk-test-` 등) 제외. 둘 다 subprocess + JSON 출력으로 통합(외부 전송 없음, TruffleHog식 실검증은 시크릿 외부 전송이라 원칙상 배제) |
 | LLM | Anthropic Claude API | 실호출 확정. **가정**: 판정(judge)은 `claude-sonnet-5`, 쉬운 한국어 변환·수정 프롬프트 생성은 `claude-haiku-4-5`로 비용 절감. `temperature=0`(설명문 안정성용 — 등급 결정론은 §4.5의 구조로 담보). `llm_model_id`는 하드코딩이 아니라 **API 응답의 `model` 필드를 그대로 기록**(표기 오류 원천 차단) |
@@ -578,3 +578,4 @@ graph TB
 | v0.2 | 2026-08-25 | Implementation Plan을 일 단위 일정에서 마일스톤·선후행 관계 정의로 변경, Open Questions를 추후 확정 필요사항으로 정리(기한 표현 삭제), API 경로의 버전 표기(/v1/) 제거, 문서 버전 관리 도입 |
 | v0.3 | 2026-08-25 | 정적 분석 도구 확정 — Semgrep CE(자체 룰 전용) + gitleaks 채택, 의존성 파싱 라이브러리 명시, rule_catalog_version 산출 방식(rules/ 디렉토리 해시) 정의, 레지스트리 룰 라이선스 리스크 추가 |
 | v0.4 | 2026-08-26 | 최종 확정 명세 반영 — **P0 3건**(파기 finally·격리, LLM 전송 전 마스킹·시크릿 룰 LLM 미경유, 등급 결정론) / 조항 오귀속 정정(주석 검사 §9.3→§9.5) 및 매핑표 확장(0309 §6 전체·§7.2~7.4, 0259 §9.5~9.6·§10·§11, 0414 §7.3.1, 0322 §5.1.2) / 개인정보 룰 10종 확정(P5 크롤링·P9 처리방침 교체) + 한국형 PII(주민번호 체크섬) / 등급 2축·결정론·상향 조건 표시(§11.3 근거) / 재진단 git·zip 분기 + `previous_scan_id` + diff + 유스케이스 3 / 공개는 git 전용 + `.ansimcode` 소유 증명, zip 공개 제외(ADR v1.3) / SBOM CVSS 3값·결합형태 3분류·취약점별 출처 / KISA CVE 교차 / `current_stage`·`vuln_db_snapshot_date`·복사 버튼·배지 캐시 헤더 / Why Now 과징금 근거 교체 / 벤치마크 별도 저장소 + 제3자 앱 + TPR·FPR 공개 / 인젝션 시연·dogfooding / MVP 포기 순서 최종 확정 |
+| v0.5 | 2026-08-30 | 표기 정정 — 프론트엔드를 React 18 → **React 19.2**로(§4.1 시스템 아키텍처 다이어그램, §4.2 기술 스택 표). **설계 판단 변경 없음** — 실물(`web/package-lock.json` 기준 react·react-dom 19.2.8)과의 표기 불일치 해소다. 이 계획·ADR이 근거로 삼은 판단 집합은 v0.4와 동일하므로 `plans/mvp-implementation.md`·`platform-decision.md`의 "TDD v0.4" 참조는 그대로 둔다 |
