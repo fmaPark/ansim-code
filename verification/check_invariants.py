@@ -29,7 +29,11 @@ DOC_EXTS = {".md", ".html", ".htm", ".txt", ".pdf", ".rst"}   # repo_checks.py�
 LOGGING = re.compile(r"import logging|require\(['\"]winston['\"]\)|require\(['\"]pino['\"]\)|"
                      r"from ['\"]winston['\"]|from ['\"]pino['\"]")       # repo_checks.py:_LOGGING (P8)
 PRIVACY_FILE = re.compile(r"(?i)privacy|개인정보처리방침")              # repo_checks.py:_PRIVACY_FILE (P9)
-PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy")                      # repo_checks.py:_PRIVACY_ROUTE (P9)
+PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy(?:[-_]?policy)?['\"/]")  # repo_checks.py:_PRIVACY_ROUTE (P9)
+TEST_PATH = re.compile(r"(^|/)tests?/"                                 # config.py:_TEST_PATH
+                       r"|(^|/)test_[^/]+\.(py|js|jsx|ts|tsx)$"
+                       r"|(^|/)[^/]+_test\.(py|js|jsx|ts|tsx)$"
+                       r"|(^|/)[^/]+\.(test|spec)\.(js|jsx|ts|tsx)$")
 DELETION = re.compile(r"(?i)\b(delete|destroy|expire|retention|purge)\b|파기")  # repo_checks.py:_DELETION (P10)
 PII_FIELD = re.compile(r"(?i)phone|birth|email|address|jumin|rrn|이름|전화|주소")  # analysis.py (P4)
 EXTERNAL_SEND = re.compile(r"requests\.post|fetch\(|axios\.")                   # analysis.py (P4)
@@ -137,8 +141,10 @@ def check(root: Path) -> list[str]:
         if path.suffix.lower() in DOC_EXTS and PRIVACY_FILE.search(path.name):
             violations.append(f"② P9 마스킹: 처리방침으로 읽히는 파일명 {path.relative_to(root)}")
     for path in code_files:
-        if PRIVACY_ROUTE.search(_read(path)):
-            violations.append(f"② P9 마스킹: {path.relative_to(root)}에 /privacy 라우트")
+        rel = path.relative_to(root).as_posix()
+        # 엔진과 동일하게 테스트 경로의 라우트 문자열은 세지 않는다(이슈 #34 잔여분).
+        if not TEST_PATH.search(rel) and PRIVACY_ROUTE.search(_read(path)):
+            violations.append(f"② P9 마스킹: {rel}에 /privacy 라우트")
 
     # ③ 삭제 동사 부재 (P10)
     for path in code_files:
