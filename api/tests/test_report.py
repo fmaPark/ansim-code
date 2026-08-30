@@ -24,7 +24,7 @@ def finding(i, rule_id="AUX-02", status="confirmed", severity="medium",
 def scan_stub(grade="주의", **kw):
     base = dict(id=uuid.uuid4(), grade=grade, content_fingerprint="abc123",
                 fingerprint_type="git_commit", rule_catalog_version="ver1",
-                llm_model_id=None, vuln_db_snapshot_date="OSV@2026-08-27; KISA-CSV@2026-08-29",
+                llm_model_id=None, vuln_db_snapshot_date="OSV@2026-08-27; KISA-CSV@2025-12-04",
                 supply_chain_class="오픈소스", report_json={}, easy_report_json=None)
     base.update(kw)
     return SimpleNamespace(**base)

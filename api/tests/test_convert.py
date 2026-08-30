@@ -1,7 +1,7 @@
-"""Task 18 — 쉬운 한국어 + 수정 프롬프트 배치 생성(haiku·30항목).
+"""Task 18 — 쉬운 한국어 + 수정 프롬프트 배치 생성(flash-lite·30항목).
 
 배치 분할·id 매핑·불일치 폴백·마스킹(P0-2 재확인)을 fake transport로 검증한다.
-실호출 실측은 ANTHROPIC_API_KEY 준비 후 별도 수행(계획 문서 실측 기록에 보류 표기).
+실호출 실측은 GEMINI_API_KEY 준비 후 별도 수행(계획 문서 실측 기록에 보류 표기).
 """
 import json
 from types import SimpleNamespace
@@ -13,7 +13,7 @@ from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 from app.llm.convert import generate_texts
 
-FAKE_MODEL = "claude-haiku-4-5-20260101"   # 설정값과 달라야 G9 검증이 된다
+FAKE_MODEL = "gemini-3.1-flash-lite-20260101"   # 설정값과 달라야 G9 검증이 된다
 SECRET = "Sup3rSecret99"
 
 
@@ -71,10 +71,32 @@ async def test_maps_response_to_matching_finding(tmp_path):
 
     await generate_texts(env.scan, findings, client=env.client, registry=env.registry)
 
-    assert findings[0].easy_description == "쉬운 설명 7"
-    assert findings[0].fix_prompt == "수정 지시 7"
-    assert findings[1].easy_description == "쉬운 설명 9"
+    # 페이로드의 id는 Finding PK가 아니라 배치 순번이다 — 매핑도 순번 기준
+    assert findings[0].easy_description == "쉬운 설명 0"
+    assert findings[0].fix_prompt == "수정 지시 0"
+    assert findings[1].easy_description == "쉬운 설명 1"
     assert env.scan.llm_model_id == FAKE_MODEL           # G9: 응답의 model 필드 기록
+
+
+@pytest.mark.asyncio
+async def test_payload_carries_no_scan_scoped_id(tmp_path):
+    """캐시 키가 스캔에 종속되지 않는다 — 장애 폴백(TDD §6)이 스캔을 건너 살아야 한다.
+
+    같은 코드의 두 스캔은 Finding PK가 다르다. 페이로드에 PK가 실리면
+    LlmClient의 캐시 키 sha256(model+system+user)가 달라져 캐시가 절대 히트하지 않는다.
+    """
+    payload_of = {}
+    for tag, ids in [("scan1", (7, 9)), ("scan2", (10_001, 10_002))]:
+        env = _env(tmp_path / tag)
+        findings = [finding(ids[0], file_path="a.py", line=3),
+                    finding(ids[1], file_path="b.py", line=4)]
+        await generate_texts(env.scan, findings, client=env.client, registry=env.registry)
+        payload_of[tag] = env.transport.calls[0]["user"]
+        assert all(f.easy_description and f.fix_prompt for f in findings)
+
+    assert payload_of["scan1"] == payload_of["scan2"]     # → 캐시 키 동일
+    for pk in ("7", "9", "10001", "10002"):
+        assert f'"id": {pk}' not in payload_of["scan1"]   # PK 유출 없음
 
 
 @pytest.mark.asyncio
@@ -106,7 +128,7 @@ async def test_payload_is_masked_before_send(tmp_path):
 @pytest.mark.asyncio
 async def test_no_client_falls_back_for_every_finding(tmp_path, monkeypatch):
     """키가 없어도 모든 finding에 두 텍스트가 존재해야 한다(DoD — judge와 다른 정책)."""
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "gemini_api_key", "")
     scan = SimpleNamespace(llm_model_id=None)
     findings = [finding(1), finding(2, rule_id="P9", file_path=None, line=None)]
 

@@ -1,7 +1,7 @@
 """Task 16 — LLM judge: 12 병렬·review_needed 고정(G3)·캐시 폴백·모델 ID 기록(G9)·마스킹 2차 패스.
 
 LlmClient는 transport 주입 지점을 갖는다 — 실 API 없이 fake transport로 경계를 검증한다.
-실호출 실측(Step 4)은 ANTHROPIC_API_KEY 준비 후 별도 수행(계획 문서에 보류 표기).
+실호출 실측(Step 4)은 GEMINI_API_KEY 준비 후 별도 수행(계획 문서에 보류 표기).
 """
 import json
 from types import SimpleNamespace
@@ -12,7 +12,7 @@ from app.engine.findings import FindingDraft
 from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 
-FAKE_MODEL = "claude-sonnet-5-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
+FAKE_MODEL = "gemini-3.5-flash-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
 SECRET = "Sup3rSecret99"
 
 
@@ -110,6 +110,48 @@ async def test_cost_counters(judge_env):
     stats = judge_env.client.stats()
     assert stats["calls"] == len(judge_env.transport.calls) > 0
     assert stats["in_tokens"] == 100 * stats["calls"]
+
+
+@pytest.mark.asyncio
+async def test_judge_call_cap_limits_requests(judge_env, monkeypatch):
+    """스캔당 호출 상한(D2ⓑ) — 무료 티어 5 RPM에서 12 병렬이 429가 되는 문제의 조치.
+
+    상한을 넘는 후보는 설명 없이 review_needed로 남는다(등급은 static 경로라 무관 — G3).
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "judge_max_calls", 2)
+    drafts = [draft(rule_id="P2", file_path=f"f{i}.py", line=i) for i in range(6)]
+    for d in drafts:
+        judge_env.snippets[id(d)] = "x = 1"
+
+    await _run(judge_env, drafts)
+
+    assert len(judge_env.transport.calls) == 2            # 상한만큼만 호출
+    judged = [d for d in drafts if d.judge_explanation]
+    assert len(judged) == 2
+    assert all(d.status == "review_needed" for d in drafts)   # 제외분도 status 불변 (G3)
+
+
+@pytest.mark.asyncio
+async def test_judge_cap_picks_severest_deterministically(judge_env, monkeypatch):
+    """같은 입력이면 같은 대상이 뽑힌다 — 재진단 diff가 흔들리지 않아야 한다(G11)."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "judge_max_calls", 2)
+    picked = []
+    for _ in range(2):
+        drafts = [
+            FindingDraft("P2", "low", "z.py", 9, "e", "review_needed"),
+            FindingDraft("P3", "critical", "a.py", 1, "e", "review_needed"),
+            FindingDraft("P5", "high", "m.py", 5, "e", "review_needed"),
+        ]
+        for d in drafts:
+            judge_env.snippets[id(d)] = "x = 1"
+        await _run(judge_env, drafts)
+        picked.append([d.rule_id for d in drafts if d.judge_explanation])
+
+    assert picked[0] == picked[1] == ["P3", "P5"]         # critical → high 순, low 제외
 
 
 @pytest.mark.asyncio

@@ -40,12 +40,18 @@ rules:
   - id: SCA-03
     title: 국내 보안공지 발령
     standard_ref: TTAK.KO-11.0259 §11.3
-    secondary_ref: KISA 보호나라 보안공지(data.go.kr/15155789)
+    secondary_ref: KISA 보호나라 보안공지(data.go.kr/15155789) — 배포본은 게시판 목록만 제공(본문·링크 컬럼 없음)
     type: sca
     severity_default: high
     verdict: confirmed
     derivation: direct
-    detection: OSV CVE ∩ KISA 공지 CVE → "국내 보안공지 발령" 표시 finding
+    detection: |
+      두 경로 중 하나라도 맞으면 "국내 보안공지 발령" 표시 finding.
+      ① CVE 교차 — OSV CVE ∩ 공지 제목에서 추출한 CVE.
+      ② 제품명 교차 — 보안공지 제목의 제품명 ↔ 컴포넌트명(토큰 경계 일치, 4자 이상,
+         일반 명사 제외). OSV가 이미 취약 판정한 컴포넌트에만 적용하며 취약점별 출처에는
+         기록하지 않는다. 배포본에 공지 본문이 없어 CVE 교차만으로는 pypi/npm 생태계에서
+         발화하지 않기 때문이다(data/kisa/PROVENANCE.md).
 
   - id: SCA-04
     title: 패치 미적용
