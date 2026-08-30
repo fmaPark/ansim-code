@@ -1779,9 +1779,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 <text x="35" y="14">안심코드</text><text x="105" y="14">{grade} {date}</text></g></svg>"""
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 4케이스: zip publish→403+안내 문구, git 1단계→토큰, 2단계 토큰 불일치→409(모킹 clone), 2단계 일치→slug 발급 + 배지 200/ETag/304.
-- [ ] **Step 2: 실행해 실패 확인 → 구현 → green**
-- [ ] **Step 3: Commit** — `feat: 등급 공개 2단계(.ansimcode 소유 증명) + 공개 페이지 + SVG 배지`
+- [x] **Step 1: 실패하는 테스트 작성** — 4케이스: zip publish→403+안내 문구, git 1단계→토큰, 2단계 토큰 불일치→409(모킹 clone), 2단계 일치→slug 발급 + 배지 200/ETag/304.
+- [x] **Step 2: 실행해 실패 확인 → 구현 → green**
+- [x] **Step 3: Commit** — `feat: 등급 공개 2단계(.ansimcode 소유 증명) + 공개 페이지 + SVG 배지`
 
 **완료 기준(DoD):** git 전용 opt-in 2단계 동작, zip 403 안내, 배지 캐시 헤더·304, 공개 데이터에 G11 4종 포함.
 
@@ -1801,10 +1801,10 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 - Home: git URL 입력 + zip 드래그 앤 드롭 존(50MB 초과·비zip 즉시 클라이언트 검증 오류 표시), 에러 배너(서버 ValidationError detail 그대로 노출 — "명확한 오류 안내").
 - ScanProgress: `current_stage`를 0259 §11 단계명 그대로 스텝퍼로 표시(`환경분석→현황진단→위험분석→대책수립→완료`), failed 시 error_message + 처음으로 링크.
 
-- [ ] **Step 1: 타입·클라이언트 작성 → `npx tsc --noEmit` 통과**
-- [ ] **Step 2: Home·Progress 구현 → 수동 검증(TDD §9 수동)** — 체크: ① git URL 제출→진행 화면 전환 ② zip 드래그 앤 드롭 동작 ③ 60MB 더미 zip 거부 문구 ④ 잘못된 URL 제출 시 배너 ⑤ 스텝퍼가 단계 진행을 반영.
-- [ ] **Step 3: `npm run build` 성공 + `docker compose up -d --build web` 후 8080 스모크**
-- [ ] **Step 4: Commit** — `feat: FE 입력(git·zip DnD)·진행 단계 화면 + API 클라이언트 타입`
+- [x] **Step 1: 타입·클라이언트 작성 → `npx tsc --noEmit` 통과**
+- [x] **Step 2: Home·Progress 구현 → 수동 검증(TDD §9 수동)** — 체크: ① git URL 제출→진행 화면 전환 ② zip 드래그 앤 드롭 동작 ③ 60MB 더미 zip 거부 문구 ④ 잘못된 URL 제출 시 배너 ⑤ 스텝퍼가 단계 진행을 반영.
+- [x] **Step 3: `npm run build` 성공 + `docker compose up -d --build web` 후 8080 스모크**
+- [x] **Step 4: Commit** — `feat: FE 입력(git·zip DnD)·진행 단계 화면 + API 클라이언트 타입`
 
 **완료 기준(DoD):** 8080에서 실스캔 시작→단계 표시→완료 전환. tsc·build 클린.
 
@@ -1822,9 +1822,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 **Interfaces:**
 - Produces: Report 페이지 탭 4개 — `발견 사항`(FindingCard 목록: 조항 인용 배지·severity·status·grade_blocking 강조·evidence 코드블록·fix_prompt 접기+CopyButton·judge_explanation), `SBOM`(15속성 테이블 + "JSON 다운로드" 버튼 — `/sbom` 응답을 Blob으로 저장), `체크리스트`, `공급망`(supply_chain matrix). 상단 고정 영역: GradePill(등급 색), disclaimer 문구 상시, UpgradeBlock("이 N건만 해결하면 {등급}으로 올라갑니다" + blocking 목록 앵커), `개발자용 ↔ 시민용(easy)` 토글, `전체 수정 프롬프트 복사`(copy_all_fix_prompts), `재진단` 버튼(git: 즉시 호출 / zip: 파일 선택 후 rescan). `previous_comparison` 존재 시 DiffPanel: "위험 → 주의" 등급 변화 + 해결/잔여/신규 카운트와 목록, `fingerprint_changed=false`면 "코드 변경 없음" 표시. CopyButton은 `navigator.clipboard.writeText` + 복사됨 토스트.
 
-- [ ] **Step 1: 구현 → 수동 검증 체크리스트** — ① 등급·상향 블록 표시 ② 항목별/전체 복사 동작(붙여넣기 확인) ③ easy 토글 시 시민용 문구만 ④ SBOM JSON 다운로드 파일 열림 ⑤ review_needed 뱃지·"검토 필요 n건" 병기 ⑥ 재진단(zip 재업로드) 후 DiffPanel 3분류·등급 변화 ⑦ disclaimer가 모든 뷰에 상시 노출.
-- [ ] **Step 2: `tsc --noEmit`·`npm run build` 클린**
-- [ ] **Step 3: Commit** — `feat: FE 리포트 화면 (상향 블록·복사·easy·SBOM·체크리스트·diff)`
+- [x] **Step 1: 구현 → 수동 검증 체크리스트** — ① 등급·상향 블록 표시 ② 항목별/전체 복사 동작(붙여넣기 확인) ③ easy 토글 시 시민용 문구만 ④ SBOM JSON 다운로드 파일 열림 ⑤ review_needed 뱃지·"검토 필요 n건" 병기 ⑥ 재진단(zip 재업로드) 후 DiffPanel 3분류·등급 변화 ⑦ disclaimer가 모든 뷰에 상시 노출.
+- [x] **Step 2: `tsc --noEmit`·`npm run build` 클린**
+- [x] **Step 3: Commit** — `feat: FE 리포트 화면 (상향 블록·복사·easy·SBOM·체크리스트·diff)`
 
 **완료 기준(DoD):** 유스케이스 1·3의 화면 요소 전부 실데이터로 동작.
 
@@ -1842,9 +1842,9 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 **Interfaces:**
 - Produces: PublishFlow(Report 내 모달) — git 스캔: [공개하기]→1단계 토큰+`.ansimcode` 커밋 안내(토큰 복사 버튼)→[커밋했어요, 확인]→2단계 성공 시 공개 URL·배지 마크다운(복사 버튼) 표시, 409 시 재안내. zip 스캔: 버튼 비활성 + `ZIP_PUBLISH_NOTICE` 툴팁(서버 403 detail 그대로). PublicGrade(`/g/:slug`) — 시민용: 큰 GradePill, easy_report 문구 목록, provenance 4종(지문·룰버전·모델·취약DB시점) 접기, `LEGAL_NOTICE` 상시, "이 등급은 공개 git 저장소 소유자가 직접 공개했습니다" 표기.
 
-- [ ] **Step 1: 구현 → 수동 검증** — ① 실공개 git 저장소(테스트용 본인 repo)에 `.ansimcode` 커밋해 2단계 성공 ② 배지 SVG가 README 마크다운 미리보기에서 렌더 ③ 잘못된 토큰 409 경로 ④ zip 스캔에서 비활성+안내 ⑤ `/g/{slug}` 시민 화면.
-- [ ] **Step 2: 기획 카피 게이트 확인** — §11 항목 7·8 문구 수신 여부 확인, 수신 시 `public.py` 상수 2개 교체 커밋(`docs: 기획 확정 카피 반영`), 미수신 시 placeholder 유지를 리스크 로그에 1줄.
-- [ ] **Step 3: Commit** — `feat: FE 공개 플로우(.ansimcode)·시민용 공개 페이지·배지 안내`
+- [x] **Step 1: 구현 → 수동 검증** — ① 실공개 git 저장소(테스트용 본인 repo)에 `.ansimcode` 커밋해 2단계 성공 ② 배지 SVG가 README 마크다운 미리보기에서 렌더 ③ 잘못된 토큰 409 경로 ④ zip 스캔에서 비활성+안내 ⑤ `/g/{slug}` 시민 화면.
+- [x] **Step 2: 기획 카피 게이트 확인** — §11 항목 7·8 문구 수신 여부 확인, 수신 시 `public.py` 상수 2개 교체 커밋(`docs: 기획 확정 카피 반영`), 미수신 시 placeholder 유지를 리스크 로그에 1줄.
+- [x] **Step 3: Commit** — `feat: FE 공개 플로우(.ansimcode)·시민용 공개 페이지·배지 안내`
 
 **완료 기준(DoD):** M6 게이트 — 브라우저에서 전 흐름(업로드→진행→리포트→복사→공개→배지→재진단 diff) 완주.
 
@@ -1946,6 +1946,13 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 **이슈 #13·#15 (2026-08-29, claude/fix-issues-13-15-3cbb4c 세션):**
 - **#13 수정 완료** — `run_gitleaks`가 `File`을 `root` 상대경로로 정규화(semgrep 러너와 동일 이디엄). 실바이너리 회귀: 두 워크스페이스 스캔의 diff 키 일치 + `diff_findings` 전량 `remaining` green. 재진단 통합 테스트에 `resolved_count == 0`·`new_count == 0` 단언 추가.
 - **#15 §11 항목 3 확정** — Docker 이미지 안 실측: 플레이스홀더 코퍼스 15종 기준 초기 allowlist 적중률 **8/15(53%)** → `ansim.toml` 보강 후 **15/15(100%)**, 대조군 4종(형식-유효 AKIA 키 등) 무손실. skipif 2케이스도 컨테이너 안 해제 실행 green. 상세는 `docs/measurements.md`.
+
+**M6 / Task 22~25 (2026-08-29, feat/m6-frontend 세션):**
+- **M6 게이트 검증 결과: 통과.** 브라우저(로컬 Docker, web 8085/api 8001 — 다른 워크트리 스택의 8080/8000 점유로 로컬 오버라이드)에서 전 흐름 연속 완주: git URL 업로드 → 5단계 스텝퍼 → 리포트(주의) → 전체 수정 프롬프트 복사 → 공개 2단계(**실공개 repo `fmaPark/ansim-publish-test`에 `.ansimcode` 커밋해 소유 증명**) → 배지 SVG 200(image/svg+xml·ETag·304) → git 재진단 diff(주의→주의, 잔여 5). zip 공개는 403 + 안내 문구 확인. 백엔드 테스트 143건 green, `tsc --noEmit`·`npm run build` 클린. 수동 체크리스트 항목별 결과는 `docs/measurements.md` M6 블록.
+- **§11 항목 7·8 카피: 기획 미수신 확정(세션 시작 질의) → placeholder 문구로 구현 유지.** 교체 지점은 `api/app/routes/public.py` 상수 2개(`LEGAL_NOTICE`·`ZIP_PUBLISH_NOTICE`) + FE 미러 1곳(`web/src/components/PublishFlow.tsx`). 항목 4(주민번호 무효)도 미수신 — Task 13의 review_needed 기본값 유지.
+- **M5 이월(gitleaks·PII 절대경로 file_path): #18 머지 후 해소 확인(2026-08-30).** 이 브랜치는 해당 파일 미변경(충돌은 docs 2개뿐, 코드 무충돌). 머지 후 재검증 — SEC-04·05 상대경로 기록 + 같은 zip 재진단 해결 0·신규 0, 전체 테스트 146건 green. 상세는 `docs/measurements.md` M6 보류·이월 항목.
+- 배지 SVG는 계획 초안 폭 140에서 **170으로 보정**("주의 2026-08-29"가 우측 70px에 잘림 — 실렌더 확인 후 수정, 테스트 green 유지).
+- §11 항목 1(LLM 실호출): **여전히 보류** — `.env` 키가 placeholder(`sk-ant-...`)라 401 → 캐시/폴백 경로로 동작(M6 게이트에는 무관). M7 데모 전 실키 필요.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

@@ -113,6 +113,7 @@ def get_scan(scan_id: uuid.UUID):
 
         return ScanStatus(
             status=scan.status,
+            source_type=scan.source_type,
             current_stage=scan.current_stage,
             grade=scan.grade,
             error_message=scan.error_message,
