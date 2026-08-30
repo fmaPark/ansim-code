@@ -4,6 +4,7 @@
 
 ## 2026-08-30
 
+* **Update**: `plans/mvp-implementation.md` — Task 26·27을 벤치마크 명세 v0.3(PR #12 머지본) 기준으로 재작성. Task 26 Interfaces에 **룰별 오라클 키 표**(SCA-01~09=패키지 / SCA-10~12=declared_in / P8·P9·P1=repo-wide)와 매칭 의미론(대표 키잉·다발 허용·부가 발견 3단 표)을 도입해 `(rule_id, file)` 일괄 매칭 서술을 폐기, 스텝을 4→7개로 분해(불변식 자동 검사 + CI 신설, `measure_detection.py` 사양화, Flask severity·플레이스홀더·등급 태그 3종 확정, stretch 세트 선택 스텝). Task 27에 **P8·P9·P10 FPR 측정 책임**과 인젝션 페이로드 변형 2~3종을 추가. v0.3 재리뷰분 반영 — B6(SCA-09=django 대표·SCA-08 package는 스캐폴딩 기입)·M1(P4 불변식을 PII·외부전송 동시 등장 조건으로 완화)·M2(명세 §5.1이 매칭 사양의 정본). §11 항목 2 상태를 '미확정'→'확정(게이트 통과)'으로 갱신하고 Task 26 Step 1을 완료 처리. 저장소 구조에 `verification/check_invariants.py` 등재.
 * **Update**: `tdd.md` v0.5(§4.1 아키텍처 다이어그램·§4.2 기술 스택 표) / `plans/mvp-implementation.md`(Tech Stack) — 프론트엔드 표기를 React 18 → **React 19.2**로 정정. 실제 구현이 `web/package-lock.json` 기준 react·react-dom 19.2.8이라 설계 문서 표기와 어긋나 있었다. 설계 판단 변경이 아닌 표기 정정이므로 `plans/mvp-implementation.md`·`platform-decision.md`의 "TDD v0.4" 참조(그 판단 집합을 근거로 삼았다는 기록)는 그대로 둔다.
 * **Creation**: 루트 `AGENTS.md` — 에이전트용 저장소 지침(스택·파일 단위 명령·규약). `CLAUDE.md`는 `@AGENTS.md` import 한 줄만 두어 내용 분기를 차단한다(심링크는 Windows 클론에서 평문 파일로 깨지므로 쓰지 않는다). 이 번들 밖 파일이라 OKF frontmatter 대상이 아니다.
 
