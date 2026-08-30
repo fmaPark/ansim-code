@@ -15,7 +15,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 | Task | Command |
 |------|---------|
 | API 테스트 1개 파일 | `docker compose run --rm -v "$PWD:/work" -w /work/api api pytest tests/test_pii.py -v` |
-| 룰 변경분까지 반영한 테스트 | 위 명령에 `-e RULES_DIR=/work/rules` 추가 |
+| 룰 변경분까지 반영한 테스트 | `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest tests/test_pii.py -v` |
 | 프론트 린트 1개 파일 | `cd web && npx oxlint src/pages/Home.tsx` |
 | 프론트 개발 서버 | `cd web && npm run dev` |
 
@@ -44,11 +44,12 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 - uvicorn 워커는 1로 고정한다. 파이프라인이 `BackgroundTasks` in-process를 전제한다.
 - 원본 소스코드는 스캔별 격리 워크스페이스에만 존재하고 `try/finally`로 무조건 파기된다. 이 경로를 우회하는 변경 금지.
 - `ANTHROPIC_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
-- `docs/` 문서는 OKF v0.2 번들이다. 문서를 추가·수정하면 YAML frontmatter를 유지하고 `tools/okf_check.py`로 확인한다.
+- `docs/` 문서는 OKF v0.2 번들이다. 문서를 추가·수정하면 YAML frontmatter를 유지하고 `tools/okf_check.py`로 확인한다. 단, 현재 `main`에는 frontmatter가 없는 문서가 남아 있어 이 검사가 **상시 실패**(exit 1)한다(이슈 #21 — 2026-08-30 기준 `plans/execution-prompts.md`·`benchmark-spec.md` 2건). 통과 여부가 아니라 **자기 변경으로 새 오류가 생겼는지**를 본다.
+- `web` 의존성 버전의 정본은 `web/package-lock.json`이다. 문서에 버전을 적을 때 lock에서 확인한다 — 스캐폴드(`npm create vite@latest`)가 버전을 고정하지 않아 React 표기가 실물과 어긋난 전례가 있다.
 
 ## Commit Attribution
 
-AI 커밋에는 트레일러를 붙인다:
+AI 커밋에는 트레일러를 붙인다. 모델명은 **실제 커밋을 만든 모델**을 적는다 — 아래는 형식 예시이지 고정 문자열이 아니다(저장소 이력에 Fable 5·Opus 5·Opus 4.8이 섞여 있다).
 
 ```
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
