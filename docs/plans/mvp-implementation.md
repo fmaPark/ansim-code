@@ -2045,10 +2045,10 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 - 캐시 키 `sha256(model+system+user)` 자체는 무변경이지만 **model 문자열이 바뀌므로 기존 Anthropic 캐시 파일은 전량 무효**다(재기록은 Task 32 게이트 ③).
 
-- [ ] **Step 1: `_gemini_transport` 작성** — 위 매핑 표대로. SDK import는 현행처럼 **함수 안 지연 import**를 유지한다(키·SDK 없이도 fake transport 테스트가 도는 구조).
-- [ ] **Step 2: 안전 필터·thinking 설정 상수화** — 카테고리 목록과 `BLOCK_NONE`을 모듈 상수로 두고 근거 주석(TDD §6)을 단다. **안전 필터로 후보가 비어 온 응답은 예외로 올려** 기존 캐시 폴백 경로를 타게 한다 — 조용한 빈 문자열 반환 금지(차단 사실이 로그에 남아야 게이트 ①을 측정할 수 있다).
-- [ ] **Step 3: docstring·로그 문구의 "Anthropic" 표기 교체**
-- [ ] **Step 4: Commit** — `feat: LLM transport를 Gemini로 재작성 (thinking 비활성·안전 필터·model_version 기록)`
+- [x] **Step 1: `_gemini_transport` 작성** — 위 매핑 표대로. SDK import는 현행처럼 **함수 안 지연 import**를 유지한다(키·SDK 없이도 fake transport 테스트가 도는 구조).
+- [x] **Step 2: 안전 필터·thinking 설정 상수화** — 카테고리 목록과 `BLOCK_NONE`을 모듈 상수로 두고 근거 주석(TDD §6)을 단다. **안전 필터로 후보가 비어 온 응답은 예외로 올려** 기존 캐시 폴백 경로를 타게 한다 — 조용한 빈 문자열 반환 금지(차단 사실이 로그에 남아야 게이트 ①을 측정할 수 있다). *(구현: `SAFETY_OFF_CATEGORIES` 5종 + `LlmBlockedError(RuntimeError)` — `complete()`의 기존 `except Exception` 캐시 폴백 경로를 그대로 탄다. 차단 시 `finish_reason`·`block_reason`을 warning 로그에 남긴다)*
+- [x] **Step 3: docstring·로그 문구의 "Anthropic" 표기 교체**
+- [x] **Step 4: Commit** — `feat: LLM transport를 Gemini로 재작성 (thinking 비활성·안전 필터·model_version 기록)`
 
 **완료 기준(DoD):** `api/app/llm/client.py`에 Anthropic 표기 0건, transport 외 경로(마스킹·캐시·카운터·폴백)는 diff에 나타나지 않음, 타임아웃이 밀리초로 환산되어 있음. 실호출 검증은 Task 32.
 
