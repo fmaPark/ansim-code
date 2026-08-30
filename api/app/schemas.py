@@ -9,6 +9,7 @@ class ScanAccepted(BaseModel):
 
 class ScanStatus(BaseModel):
     status: str
+    source_type: str                          # git|zip — FE PublishFlow가 공개 가능 여부를 분기한다
     current_stage: str | None
     grade: str | None
     error_message: str | None

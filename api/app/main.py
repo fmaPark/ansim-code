@@ -9,7 +9,7 @@ from app.db import SessionLocal, engine
 from app.engine.catalog import load_rules, rule_catalog_version
 from app.engine.pipeline import purge_orphan_uploads
 from app.models import Base, Rule
-from app.routes import reports, scans
+from app.routes import public, reports, scans
 
 # LogRecord가 항상 채우는 속성 — 이 이름들만 빼면 나머지는 호출부가 extra=로 실은 값이다.
 _RESERVED = frozenset(
@@ -66,6 +66,7 @@ setup_json_logging()
 app = FastAPI(title="AnsimCode API", lifespan=lifespan)
 app.include_router(scans.router)
 app.include_router(reports.router)
+app.include_router(public.router)
 
 
 @app.get("/health")

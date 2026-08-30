@@ -14,6 +14,7 @@ from app.engine.catalog import rule_catalog_version
 from app.engine.cvss import NULL_REASON_NO_VECTOR, derive_cvss3
 from app.engine.deps_npm import npm_parse_markers, parse_npm_deps
 from app.engine.deps_python import parse_python_deps, python_parse_markers
+from app.engine.grade import GradeResult, calc_grade, cve_rows_from_osv
 from app.engine.kisa import kisa_snapshot_label, load_kisa
 from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
 from app.engine.imports_py import extract_python_imports
@@ -169,6 +170,51 @@ def stage_sca_rules(db, scan, root: Path, deps, components: list[SbomComponent])
     return findings
 
 
+def stage_grade(db, scan, cve_rows: list[dict]) -> GradeResult:
+    """§11.3 위험 분석 말미 — 등급 결정론(P0-3, Task 17).
+
+    입력은 DB에 확정된 Finding 행(status·rule_id·severity)과 CVE 심각도뿐이다.
+    LLM 산출물은 calc_grade의 인자에 존재하지 않으므로 등급에 닿을 수 없다(G3).
+    """
+    findings = db.query(Finding).filter(Finding.scan_id == scan.id).order_by(Finding.id).all()
+    result = calc_grade(findings, cve_rows)
+
+    blocking = set(result.blocking_finding_ids)
+    for f in findings:
+        f.grade_blocking = f.id in blocking
+    _set(db, scan, grade=result.grade)
+
+    log.info("등급 산정", extra={"scan_id": str(scan.id), "grade": result.grade,
+                                 "blocking_findings": len(result.blocking_finding_ids),
+                                 "blocking_cves": len(result.blocking_cve_ids),
+                                 "upgrade_target": result.upgrade_target,
+                                 "upgrade_count": result.upgrade_count})
+    return result
+
+
+async def stage_report(db, scan, registry, grade_result=None) -> None:
+    """§11.4 대책 수립 — 변환(Task 18) + 이중 리포트 조립(Task 19).
+
+    원본 코드가 아니라 DB에 확정된 Finding 행만 쓰므로 워크스페이스 파기 이후에 돈다(G1).
+    """
+    from app.llm.convert import generate_texts   # 순환 import 회피(convert가 analysis를 쓴다)
+    from app.report.builder import build_reports
+
+    findings = db.query(Finding).filter(Finding.scan_id == scan.id).order_by(Finding.id).all()
+    await generate_texts(scan, findings, registry=registry)
+    db.commit()
+
+    components = (db.query(SbomComponent).filter(SbomComponent.scan_id == scan.id)
+                  .order_by(SbomComponent.id).all())
+    scratch = dict(scan.report_json or {})        # parse_markers·osv_incomplete·matrix_0322
+    dev, easy = build_reports(scan, findings, [component_row(c) for c in components],
+                              scratch.get("matrix_0322"), scratch.get("osv_incomplete", False),
+                              grade_result=grade_result)
+    # 기존 스크래치 키를 보존한 채 병합한다 — /sbom이 parse_markers를 읽는다.
+    _set(db, scan, report_json={**scratch, **dev}, easy_report_json=easy)
+    log.info("대책 수립", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
+
+
 async def run_scan(scan_id):
     scan_id = uuid.UUID(str(scan_id))
     db = SessionLocal()
@@ -191,7 +237,7 @@ async def run_scan(scan_id):
                     ctx = await asyncio.to_thread(stage_sbom, db, scan, res.root)
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     # M3: SBOM 취약점 대조 + SCA 룰 — Task 9~11
-                    await stage_osv(db, scan, ctx["components"])
+                    osv_result = await stage_osv(db, scan, ctx["components"])
                     await asyncio.to_thread(stage_kisa, db, scan, ctx["components"])
                     await asyncio.to_thread(stage_sca_rules, db, scan, res.root,
                                             ctx["deps"], ctx["components"])
@@ -200,7 +246,10 @@ async def run_scan(scan_id):
                     # M4: LLM judge — P1·P4 합성 + 스니펫(파기 전) + 12 병렬, status 불변(G3)
                     await analysis.run_llm_stage(scan, drafts, res.root, registry)
                     analysis.persist_findings(db, scan.id, drafts)
-                    _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
+                    # 등급 결정론 — static confirmed + CVE만 (Task 17, P0-3)
+                    grade_result = stage_grade(db, scan, cve_rows_from_osv(osv_result))
+                _set(db, scan, current_stage="대책수립")   # §11.4 — Task 18~19
+                await stage_report(db, scan, registry, grade_result)
                 _set(db, scan, status="done", current_stage="완료")
         except Exception as e:
             # TimeoutError처럼 str(e)가 빈 예외가 있어 타입명을 함께 남긴다.
