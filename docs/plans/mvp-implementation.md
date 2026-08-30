@@ -20,7 +20,7 @@ sources:
 
 **Architecture:** React SPA(nginx 서빙) + FastAPI 단일 서비스. Analysis Engine은 백엔드 내장 Python 모듈 파이프라인(0259 §11 5단계 매핑)이며 FastAPI BackgroundTasks + DB 상태 폴링으로 비동기 실행(uvicorn 단일 워커 고정). 원본 코드는 스캔별 격리 임시 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다.
 
-**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 18·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Anthropic Claude API(judge=`claude-sonnet-5`, 변환=`claude-haiku-4-5`) / Docker Compose.
+**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 19.2·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Anthropic Claude API(judge=`claude-sonnet-5`, 변환=`claude-haiku-4-5`) / Docker Compose.
 
 **Spec:** [docs/tdd.md](../tdd.md) (TDD v0.4) · [docs/platform-decision.md](../platform-decision.md) (ADR-001 v1.3) — 이 계획의 모든 판단 근거. 각 태스크에 `TDD 참조`를 병기해 구현 세션이 TDD를 다시 읽지 않아도 되게 했다.
 
