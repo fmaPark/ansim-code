@@ -1,7 +1,7 @@
 """Task 16 — LLM judge: 12 병렬·review_needed 고정(G3)·캐시 폴백·모델 ID 기록(G9)·마스킹 2차 패스.
 
 LlmClient는 transport 주입 지점을 갖는다 — 실 API 없이 fake transport로 경계를 검증한다.
-실호출 실측(Step 4)은 ANTHROPIC_API_KEY 준비 후 별도 수행(계획 문서에 보류 표기).
+실호출 실측(Step 4)은 GEMINI_API_KEY 준비 후 별도 수행(계획 문서에 보류 표기).
 """
 import json
 from types import SimpleNamespace
@@ -12,7 +12,7 @@ from app.engine.findings import FindingDraft
 from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 
-FAKE_MODEL = "claude-sonnet-5-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
+FAKE_MODEL = "gemini-2.5-flash-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
 SECRET = "Sup3rSecret99"
 
 

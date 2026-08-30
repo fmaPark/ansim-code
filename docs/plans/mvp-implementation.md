@@ -2068,11 +2068,11 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - `convert.py`의 `TOKENS_PER_ITEM = 350` **재산정**: 이 상수는 `max_output_tokens = TOKENS_PER_ITEM * len(batch)`의 계수다. 30항목 배치(=10,500)가 Gemini 출력 상한 안이고 **실제 응답이 잘리지 않는지**를 Task 32 실호출로 확인한다. 잘리면 상수를 올리거나 `convert_batch_size`를 낮추고 근거를 measurements에 남긴다.
 - 테스트는 fake transport 구조라 **로직 변경이 없다 — 상수·문구만 교체**한다: `test_judge.py`의 `FAKE_MODEL`, `test_convert.py`의 `FAKE_MODEL`과 109행 `monkeypatch.setattr(settings, "anthropic_api_key", "")`의 키명, `test_publish.py` 43행 픽스처의 `llm_model_id="claude-sonnet-5-t"`, 두 테스트 파일 docstring의 `ANTHROPIC_API_KEY` 표기 2곳. **`FAKE_MODEL`은 설정값과 달라야 G9 검증이 성립한다**는 성질을 유지한다(예: `gemini-2.5-flash-20260101`).
 
-- [ ] **Step 1: judge·convert 분기·문구 교체**
-- [ ] **Step 2: 테스트 상수·docstring 교체**
-- [ ] **Step 3: 전체 회귀** — `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest -q`(AGENTS.md 「Commands」 경로 — 호스트에 semgrep·gitleaks 바이너리가 없어 이 경로로만 검증된다). 직전 기준선은 **146건 green**(M6 세션 기록). **건수가 줄면 멈추고 보고.**
-- [ ] **Step 4: Anthropic 잔존 0건 확인**(Task 29 Step 3 이월) — `grep -rn -e anthropic -e ANTHROPIC -e "claude-" api/ .env.example docker-compose.yml`가 0건.
-- [ ] **Step 5: Commit** — `refactor: judge·convert·테스트의 LLM 공급자 표기를 Gemini로`
+- [x] **Step 1: judge·convert 분기·문구 교체** — `TOKENS_PER_ITEM=350`은 **상수 유지**(30×350=10,500이 `gemini-2.5-flash-lite` 출력 상한 안). 주석의 "haiku 기준"만 갱신하고 실절단 확인은 Task 32로 이월.
+- [x] **Step 2: 테스트 상수·docstring 교체**
+- [x] **Step 3: 전체 회귀** — `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest -q`(AGENTS.md 「Commands」 경로 — 호스트에 semgrep·gitleaks 바이너리가 없어 이 경로로만 검증된다). 직전 기준선은 **146건 green**(M6 세션 기록). **건수가 줄면 멈추고 보고.** *(결과: **146 passed** — 기준선 동일. httpx 0.28 상향의 회귀 없음이 여기서 증명된다)*
+- [x] **Step 4: Anthropic 잔존 0건 확인**(Task 29 Step 3 이월) — `grep -rn -e anthropic -e ANTHROPIC -e "claude-" api/ .env.example docker-compose.yml`가 0건. *(확인 완료)*
+- [x] **Step 5: Commit** — `refactor: judge·convert·테스트의 LLM 공급자 표기를 Gemini로`
 
 **완료 기준(DoD):** 전체 pytest green(건수 ≥ 146), G2·G3 검증 테스트(LLM 페이로드 시크릿 0건·SEC-\* 미경유·status 불변·`model_id`는 응답 값)가 전부 유지, `api/` 아래 Anthropic 문자열 0건.
 

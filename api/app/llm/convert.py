@@ -25,7 +25,8 @@ CONVERT_USER_TMPL = """<finding>
 </finding>
 위 {count}건 각각에 대해 easy와 fix_prompt를 만들어 JSON 배열로만 답하라."""
 
-# 항목당 응답 여유분 — 30항목 배치가 잘리지 않도록 넉넉히 잡는다(haiku 기준).
+# 항목당 응답 여유분 — 30항목 배치가 잘리지 않도록 넉넉히 잡는다.
+# 30×350=10,500으로 gemini-2.5-flash-lite 출력 상한 안이다(실절단 확인은 Task 32 실호출).
 TOKENS_PER_ITEM = 350
 
 
@@ -78,7 +79,7 @@ def _apply(batch, arr) -> bool:
 
 
 def _record_model_id(scan, model_id: str) -> None:
-    """G9: 응답의 model 필드를 기록. judge(sonnet)가 이미 있으면 뒤에 덧붙인다."""
+    """G9: 응답의 model_version 필드를 기록. judge(flash)가 이미 있으면 뒤에 덧붙인다."""
     current = scan.llm_model_id
     if not current:
         scan.llm_model_id = model_id
@@ -98,10 +99,10 @@ async def generate_texts(scan, findings, client: LlmClient | None = None,
     if not findings:
         return
 
-    if client is None and settings.anthropic_api_key:
+    if client is None and settings.gemini_api_key:
         client = LlmClient()
     if client is None:
-        log.warning("ANTHROPIC_API_KEY 부재 — 변환 폴백 문구 사용",
+        log.warning("GEMINI_API_KEY 부재 — 변환 폴백 문구 사용",
                     extra={"finding_count": len(findings)})
         for f in findings:
             f.easy_description, f.fix_prompt = _fallback(f)

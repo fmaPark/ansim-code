@@ -52,9 +52,9 @@ async def judge_findings(scan, drafts, snippet_of: dict, client: LlmClient | Non
     if not targets:
         return
     if client is None:
-        if not settings.anthropic_api_key:
+        if not settings.gemini_api_key:
             # 키 없이도 데모 외 개발 가능 — review_needed 그대로 두고 스킵
-            log.warning("ANTHROPIC_API_KEY 부재 — judge 단계 스킵", extra={"skipped": len(targets)})
+            log.warning("GEMINI_API_KEY 부재 — judge 단계 스킵", extra={"skipped": len(targets)})
             return
         client = LlmClient()
 
@@ -78,7 +78,7 @@ async def judge_findings(scan, drafts, snippet_of: dict, client: LlmClient | Non
                     log.exception("judge 호출 실패 — review_needed 유지",
                                   extra={"rule_id": d.rule_id})
                     return
-                if scan.llm_model_id is None:                # G9: 첫 성공 응답의 model 기록
+                if scan.llm_model_id is None:                # G9: 첫 성공 응답의 model_version 기록
                     scan.llm_model_id = resp.model_id
                 parsed = _parse_json(resp.text)
                 if parsed is not None:

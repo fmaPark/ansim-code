@@ -1,7 +1,7 @@
-"""Task 18 — 쉬운 한국어 + 수정 프롬프트 배치 생성(haiku·30항목).
+"""Task 18 — 쉬운 한국어 + 수정 프롬프트 배치 생성(flash-lite·30항목).
 
 배치 분할·id 매핑·불일치 폴백·마스킹(P0-2 재확인)을 fake transport로 검증한다.
-실호출 실측은 ANTHROPIC_API_KEY 준비 후 별도 수행(계획 문서 실측 기록에 보류 표기).
+실호출 실측은 GEMINI_API_KEY 준비 후 별도 수행(계획 문서 실측 기록에 보류 표기).
 """
 import json
 from types import SimpleNamespace
@@ -13,7 +13,7 @@ from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 from app.llm.convert import generate_texts
 
-FAKE_MODEL = "claude-haiku-4-5-20260101"   # 설정값과 달라야 G9 검증이 된다
+FAKE_MODEL = "gemini-2.5-flash-lite-20260101"   # 설정값과 달라야 G9 검증이 된다
 SECRET = "Sup3rSecret99"
 
 
@@ -106,7 +106,7 @@ async def test_payload_is_masked_before_send(tmp_path):
 @pytest.mark.asyncio
 async def test_no_client_falls_back_for_every_finding(tmp_path, monkeypatch):
     """키가 없어도 모든 finding에 두 텍스트가 존재해야 한다(DoD — judge와 다른 정책)."""
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "gemini_api_key", "")
     scan = SimpleNamespace(llm_model_id=None)
     findings = [finding(1), finding(2, rule_id="P9", file_path=None, line=None)]
 
