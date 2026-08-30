@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     judge_model: str = "gemini-3.5-flash"          # TDD §4.2 (모델 가정 정정)
     convert_model: str = "gemini-3.1-flash-lite"   # TDD §4.2 (모델 가정 정정)
     judge_concurrency: int = 12                 # TDD §11 항목 1 초안
+    # 스캔당 judge 호출 상한 (TDD §6·§11 항목 1이 예고한 장치 — 2026-08-30 기획 D2ⓑ 채택).
+    # Gemini 무료 티어가 모델당 5 RPM이라 12 병렬은 6번째 요청부터 429다. 상한을 넘는
+    # 후보는 설명 없이 review_needed로 남는다 — 등급은 static 경로라 영향 없다(G3).
+    # 값 3은 실측 결과다: 상한 5는 버스트가 쿼터와 정확히 같아 여유가 없어 429 2건이
+    # 남았다. 3이면 데모의 스캔→재진단 연속(같은 분에 2 버스트)과 JSON 파싱 재요청까지
+    # 흡수한다. 0이면 무제한 — 유료 티어 전환 시 이 값만 올리면 된다(D2ⓒ).
+    judge_max_calls: int = 3
     convert_batch_size: int = 30                # TDD §11 항목 1 초안
     max_zip_bytes: int = 50 * 1024 * 1024       # TDD §3
     max_extracted_bytes: int = 500 * 1024 * 1024  # 가정(G6)

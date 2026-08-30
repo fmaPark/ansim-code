@@ -31,6 +31,23 @@ JUDGE_USER_TMPL = """진단 룰: {rule_id} — {rule_title}
 위 코드가 이 룰의 실제 위반일 가능성을 평가하라."""
 
 
+# 상한을 넘을 때 어떤 후보를 남길지 — 심각도 높은 순, 동률은 결정적으로 정렬한다
+# (같은 코드면 같은 대상이 뽑혀야 재진단 diff가 흔들리지 않는다 — G11).
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _judge_order(d):
+    return (_SEVERITY_RANK.get(d.severity, 9), d.rule_id, d.file_path or "", d.line or 0)
+
+
+def _apply_cap(targets: list) -> tuple[list, int]:
+    """스캔당 호출 상한 적용(D2ⓑ). (선별된 대상, 제외 건수)를 돌려준다."""
+    cap = settings.judge_max_calls
+    if not cap or len(targets) <= cap:
+        return targets, 0
+    return sorted(targets, key=_judge_order)[:cap], len(targets) - cap
+
+
 def _parse_json(text: str) -> dict | None:
     m = re.search(r"\{.*\}", text, re.DOTALL)   # 응답에 JSON 외 텍스트가 섞여도 복구
     if not m:
@@ -57,6 +74,12 @@ async def judge_findings(scan, drafts, snippet_of: dict, client: LlmClient | Non
             log.warning("GEMINI_API_KEY 부재 — judge 단계 스킵", extra={"skipped": len(targets)})
             return
         client = LlmClient()
+
+    targets, over_cap = _apply_cap(targets)                  # 스캔당 호출 상한 (D2ⓑ)
+    if over_cap:
+        log.warning("judge 호출 상한 적용 — 초과분은 설명 없이 review_needed 유지",
+                    extra={"judged": len(targets), "skipped_over_cap": over_cap,
+                           "cap": settings.judge_max_calls})
 
     sem = asyncio.Semaphore(settings.judge_concurrency)      # 12 병렬 (§11 항목 1 초안)
 

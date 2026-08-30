@@ -113,6 +113,48 @@ async def test_cost_counters(judge_env):
 
 
 @pytest.mark.asyncio
+async def test_judge_call_cap_limits_requests(judge_env, monkeypatch):
+    """스캔당 호출 상한(D2ⓑ) — 무료 티어 5 RPM에서 12 병렬이 429가 되는 문제의 조치.
+
+    상한을 넘는 후보는 설명 없이 review_needed로 남는다(등급은 static 경로라 무관 — G3).
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "judge_max_calls", 2)
+    drafts = [draft(rule_id="P2", file_path=f"f{i}.py", line=i) for i in range(6)]
+    for d in drafts:
+        judge_env.snippets[id(d)] = "x = 1"
+
+    await _run(judge_env, drafts)
+
+    assert len(judge_env.transport.calls) == 2            # 상한만큼만 호출
+    judged = [d for d in drafts if d.judge_explanation]
+    assert len(judged) == 2
+    assert all(d.status == "review_needed" for d in drafts)   # 제외분도 status 불변 (G3)
+
+
+@pytest.mark.asyncio
+async def test_judge_cap_picks_severest_deterministically(judge_env, monkeypatch):
+    """같은 입력이면 같은 대상이 뽑힌다 — 재진단 diff가 흔들리지 않아야 한다(G11)."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "judge_max_calls", 2)
+    picked = []
+    for _ in range(2):
+        drafts = [
+            FindingDraft("P2", "low", "z.py", 9, "e", "review_needed"),
+            FindingDraft("P3", "critical", "a.py", 1, "e", "review_needed"),
+            FindingDraft("P5", "high", "m.py", 5, "e", "review_needed"),
+        ]
+        for d in drafts:
+            judge_env.snippets[id(d)] = "x = 1"
+        await _run(judge_env, drafts)
+        picked.append([d.rule_id for d in drafts if d.judge_explanation])
+
+    assert picked[0] == picked[1] == ["P3", "P5"]         # critical → high 순, low 제외
+
+
+@pytest.mark.asyncio
 async def test_bad_json_retried_once_then_given_up(tmp_path):
     transport = FakeTransport(text="이건 JSON이 아님")
     client = LlmClient(cache_dir=str(tmp_path / "c"), transport=transport)
