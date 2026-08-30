@@ -16,6 +16,8 @@ okf_version: "0.2"
 ## 실행
 
 * [MVP Implementation Plan](plans/mvp-implementation.md) - 7개 마일스톤 28개 태스크의 실행 계획. 각 태스크에 TDD 참조와 DoD를 병기했다.
+* [데모 스크립트](demo-script.md) - 촬영·시연 7장면의 순서와 장면별 사전 상태·근거 조항·내레이션 포인트. 시간이 모자랄 때의 포기 순서 포함.
+* [실측 기록](measurements.md) - 벤치마크 TPR·FPR, PyGoat·자기진단 결과, 확인된 룰 갭과 오탐 원인.
 
 ## 표준 참고자료
 

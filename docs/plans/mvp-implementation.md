@@ -1966,11 +1966,11 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 **Interfaces:**
 - Produces: `docs/demo-script.md` — 데모 장면 순서(각 장면 = TDD 근거): ① 벤치마크 git URL 입력→진행 단계(§11 용어) ② 리포트: 등급 '위험'+조항 인용+상향 블록 ③ 수정 프롬프트 복사→(사전 준비한 수정 커밋) 재진단→"위험→주의" diff 장면(유스케이스 3 — 데모 절정) ④ 공개 opt-in `.ansimcode`→공개 페이지+배지(로컬) ⑤ 인젝션 페이로드에도 등급 불변 ⑥ dogfooding 피날레 ⑦ SBOM JSON 다운로드·체크리스트. 각 장면별 사전 상태(스캔 완료 여부) 명시.
 
-- [ ] **Step 1: 리허설 1회 완주(record 모드)** — 실키로 전 장면 실행 → LLM 캐시 적재 확인(`data/llm_cache/` 파일 수 로그). 리허설 중 실패 항목은 즉시 수정(포기 순서 ①~⑦ 적용 판단 포함).
-- [ ] **Step 2: 장애 폴백 리허설** — `ANTHROPIC_API_KEY`를 무효값으로 바꿔 같은 시나리오 재생 → 캐시 폴백으로 완주 확인(TDD §6) → 키 원복.
-- [ ] **Step 3: README 실행 가이드** — 요구사항(Docker), `cp .env.example .env` + 키 입력, `docker compose up -d --build`, `localhost:8080` 진입, 데모 시나리오 링크, "인증이 아닌 자가점검 보조" 고지. 심사위원이 이 문서만으로 기동 가능해야 함(재현성 — TDD §4.2 Docker 선정 이유).
-- [ ] **Step 4: 최종 스모크 + 패키징** — 클린 머신 조건 재현(`docker compose down -v && docker system prune` 후 재빌드 기동), 전체 pytest green, `git archive`로 소스 zip. 영상 촬영은 기획 담당(demo-script.md 전달).
-- [ ] **Step 5: Commit** — `docs: 데모 스크립트·실행 가이드·제출 패키징`
+- [x] **Step 1: 리허설 1회 완주(record 모드)** — 실키로 전 장면 실행 → LLM 캐시 적재 확인(`data/llm_cache/` 파일 수 로그). 리허설 중 실패 항목은 즉시 수정(포기 순서 ①~⑦ 적용 판단 포함).
+- [x] **Step 2: 장애 폴백 리허설** — `ANTHROPIC_API_KEY`를 무효값으로 바꿔 같은 시나리오 재생 → 캐시 폴백으로 완주 확인(TDD §6) → 키 원복.
+- [x] **Step 3: README 실행 가이드** — 요구사항(Docker), `cp .env.example .env` + 키 입력, `docker compose up -d --build`, `localhost:8080` 진입, 데모 시나리오 링크, "인증이 아닌 자가점검 보조" 고지. 심사위원이 이 문서만으로 기동 가능해야 함(재현성 — TDD §4.2 Docker 선정 이유).
+- [x] **Step 4: 최종 스모크 + 패키징** — 클린 머신 조건 재현(`docker compose down -v && docker system prune` 후 재빌드 기동), 전체 pytest green, `git archive`로 소스 zip. 영상 촬영은 기획 담당(demo-script.md 전달).
+- [x] **Step 5: Commit** — `docs: 데모 스크립트·실행 가이드·제출 패키징`
 
 **완료 기준(DoD):** M7 게이트 — 클린 재빌드로 전 시나리오 완주, 키 무효 상태에서도 데모 재생 가능, README만으로 기동 재현.
 

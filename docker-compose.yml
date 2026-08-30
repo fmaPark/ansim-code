@@ -9,9 +9,12 @@ services:
     env_file: .env
     environment: { DATABASE_URL: "postgresql+psycopg://ansim:ansim@db:5432/ansim" }
     depends_on: { db: { condition: service_healthy } }
+    # LLM 응답 캐시는 이미지 레이어가 아니라 볼륨에 남긴다 — 리허설로 적재한 캐시가
+    # 재빌드에서 사라지면 장애 폴백(TDD §6) 자체를 시연할 수 없다.
+    volumes: [ llmcache:/srv/data/llm_cache ]
     ports: ["${API_PORT:-8000}:8000"]   # 개발 편의(데모 진입점은 8080) — 점유 시 API_PORT로만 덮어쓴다
   web:
     build: ./web
     depends_on: [ api ]
     ports: ["${WEB_PORT:-8080}:80"]   # 데모 진입점은 8080 — 로컬에서 점유 시 WEB_PORT로만 덮어쓴다
-volumes: { pgdata: {} }
+volumes: { pgdata: {}, llmcache: {} }

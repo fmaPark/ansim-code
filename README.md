@@ -45,6 +45,27 @@ docker compose up -d --build
 
 데모 진입점은 <http://localhost:8080>이고 API는 <http://localhost:8000>에서 직접 열린다(`/health`·`/docs`). 포트가 점유된 경우에만 `WEB_PORT`·`API_PORT`로 덮어쓴다. 첫 기동 때 진단 룰 31종이 DB에 시드된다. 종료는 `docker compose down`, 스키마를 갈아엎을 때는 `-v`를 붙인다.
 
+### 무엇을 넣어 보면 되나
+
+첫 화면에 공개 git URL을 붙여넣거나 zip을 끌어다 놓는다. 바로 볼 수 있는 저장소는 아래 둘이다.
+
+| 저장소 | 기대 결과 |
+| --- | --- |
+| `https://github.com/fmaPark/ansim-benchmark` | 등급 **위험** — 진단 룰 31종을 의도적으로 심어 둔 벤치마크 |
+| `https://github.com/fmaPark/ansim-code` | 안심코드 자기진단 — SBOM 91개 컴포넌트 |
+
+장면별 시연 순서는 [데모 스크립트](docs/demo-script.md)에 있다.
+
+### Anthropic API가 멈춘 상태 재현
+
+등급은 확정된 결함과 CVE만의 함수라 LLM이 죽어도 그대로 나온다. 무효 키 오버레이로 확인할 수 있다.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.keyless.yml up -d api
+```
+
+원복은 `docker compose up -d api`. LLM 응답 캐시는 `llmcache` 볼륨에 남아 재빌드에도 살아남는다.
+
 ## 개발
 
 api 테스트는 compose 네트워크의 PostgreSQL을 쓰므로 컨테이너 안에서 돌린다(테스트 DB `ansim_test`는 자동 생성된다).
@@ -56,6 +77,20 @@ docker compose run --rm -v "$PWD:/work" -w /work/api api pytest
 ```bash
 cd web && npm ci && npm run build
 ```
+
+## 검증
+
+진단 룰의 검출률·오탐률은 별도 공개 저장소 [ansim-benchmark](https://github.com/fmaPark/ansim-benchmark)로 측정한다. 자기 등급이 오염되지 않도록 벤치마크는 이 저장소 밖에 두고, 측정 스크립트만 여기 `verification/`에 둔다.
+
+```bash
+python3 verification/check_invariants.py <benchmark_checkout>
+```
+
+```bash
+python3 verification/measure_detection.py --api http://localhost:8000 --repo https://github.com/fmaPark/ansim-benchmark --oracle <benchmark_checkout>/verification/expected_findings.yaml --benchmark-root <benchmark_checkout>
+```
+
+측정 결과와 룰 갭은 [docs/measurements.md](docs/measurements.md), 인젝션 방어 시연은 [verification/injection_payloads.md](verification/injection_payloads.md)에 기록되어 있다.
 
 ## 도구
 
