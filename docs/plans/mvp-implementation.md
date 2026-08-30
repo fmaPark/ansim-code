@@ -1933,15 +1933,19 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 **M4 / Task 16 (2026-08-29, feat/m4-rules-llm 세션):**
 - §11 항목 1(LLM 상한): fake transport 기준 — judge Semaphore(12) 병렬 검증: 24건 × 1.0s 모사 지연 → wall 2.02s(이론치 일치). **실호출 소요·토큰·비용은 보류** — ANTHROPIC_API_KEY 미준비(.env 없음). 키 준비 후 Task 16 Step 4 수행.
-- §11 항목 3(gitleaks 오탐): **보류** — 샌드박스에 gitleaks 바이너리 반입 불가. Docker 이미지(v8.18.4 동봉) 안에서 skipif 2케이스 + fixture 스캔으로 측정 예정. 초기 allowlist(G13)로 시작.
+- §11 항목 3(gitleaks 오탐): ~~**보류**~~ → **해소(2026-08-29, 이슈 #15)** — 아래 "이슈 #13·#15" 항목 참고. 당시 사유: 샌드박스에 gitleaks 바이너리 반입 불가. 초기 allowlist(G13)로 시작했었다.
 - 참고: semgrep 자체 룰 9종 fixture(10파일) 1.24s, repo_checks 1ms. 상세는 `docs/measurements.md`.
 - **§11 항목 2(벤치마크 목록): 기획에 확정 재요청 — M7 착수 전 마감 게이트.**
 - **M4 게이트 검증 결과 (2026-08-29): 조건부 통과.** ① 시크릿(SEC-01~05)·개인정보(P1~P10)·보조(AUX-01~04) 룰 전체 실행 경로 연결 — green ② 주민번호 체크섬 분기 테스트 green ③ LLM 페이로드 시크릿 0건(P0-2) + SEC-* 미경유 테스트 green ④ judge 12 병렬 — Semaphore 검증 green, 단 **실호출은 보류**(키 미준비) ⑤ 실측 기록 — fake 기준 기록, 실호출·gitleaks 오탐 2건 보류. 잔여 2건은 키 준비 + Docker 이미지 안 재수행으로 해소.
 
 **M5 / Task 17~21 (2026-08-29, feat/m5-report-grade 세션):**
 - **M5 게이트 검증 결과: 조건부 통과.** ① **같은 입력 → 같은 등급 재현 green** — 동일 zip 2회 스캔에서 지문·룰버전·취약DB 시점·등급(위험) 전부 일치, LLM 스텁을 실행마다 다르게 준 파이프라인 테스트도 등급 불변(B3 DoD) ② 상향 조건 — "이 18건만 해결하면 안심으로 올라갑니다"(발견 12 + CVE 6) 표시 ③ 개발자/시민 리포트 — 발견 14건 전부 조항 인용·수정 프롬프트·쉬운 설명 보유 ④ 체크리스트 API 13항목 200 ⑤ 재진단 diff — 시크릿 제거 시 **위험 → 주의**, 지문 변경 감지, 3분류 반환. 테스트 136건 green.
-- **잔여 1건(M5 범위 밖 · 미수정): gitleaks finding의 `file_path`가 워크스페이스 절대경로.** 임시 디렉토리명이 스캔마다 달라 diff 키가 스캔 간 불일치한다 — 동일 zip 재진단(지문 무변경)에서 SEC-04가 `해결 1건 + 신규 1건`으로 잡히는 오보를 실측했다. 수정 지점이 M4 파일(`gitleaks_runner.py`/`pii.py`)이라 이 세션은 손대지 않았다. **M6 착수 전 별도 승인 후 수정 권고** — 재진단 diff는 데모 절정 장면이다. 상세는 `docs/measurements.md`.
+- **잔여 1건(M5 범위 밖 · 미수정 → 이슈 #13으로 이관, 2026-08-29 수정 완료 — 아래 항목): gitleaks finding의 `file_path`가 워크스페이스 절대경로.** 임시 디렉토리명이 스캔마다 달라 diff 키가 스캔 간 불일치한다 — 동일 zip 재진단(지문 무변경)에서 SEC-04가 `해결 1건 + 신규 1건`으로 잡히는 오보를 실측했다. 수정 지점이 M4 파일(`gitleaks_runner.py`/`pii.py`)이라 이 세션은 손대지 않았다. 상세는 `docs/measurements.md`.
 - §11 항목 1(LLM 실호출 실측): **여전히 보류** — `.env` 키가 플레이스홀더라 401. Task 18 변환은 설계된 폴백 경로로 동작(모든 finding에 두 텍스트 존재 확인).
+
+**이슈 #13·#15 (2026-08-29, claude/fix-issues-13-15-3cbb4c 세션):**
+- **#13 수정 완료** — `run_gitleaks`가 `File`을 `root` 상대경로로 정규화(semgrep 러너와 동일 이디엄). 실바이너리 회귀: 두 워크스페이스 스캔의 diff 키 일치 + `diff_findings` 전량 `remaining` green. 재진단 통합 테스트에 `resolved_count == 0`·`new_count == 0` 단언 추가.
+- **#15 §11 항목 3 확정** — Docker 이미지 안 실측: 플레이스홀더 코퍼스 15종 기준 초기 allowlist 적중률 **8/15(53%)** → `ansim.toml` 보강 후 **15/15(100%)**, 대조군 4종(형식-유효 AKIA 키 등) 무손실. skipif 2케이스도 컨테이너 안 해제 실행 green. 상세는 `docs/measurements.md`.
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

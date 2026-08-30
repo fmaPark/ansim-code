@@ -30,7 +30,7 @@ _CLOUD_PREFIXES = ("aws-", "gcp-", "azure-", "google-")  # 기본 룰 중 클라
 @dataclass(frozen=True)
 class RawSecret:
     rule_id: str          # 안심코드 rule_id (SEC-01~05)
-    file: str
+    file: str             # 저장소 루트 기준 상대 경로 (semgrep RawFinding.path와 동일 표기)
     line: int
     secret_value: str     # 원문 — 메모리 전용(G2), DB·로그 기록 금지
     match: str
@@ -44,17 +44,24 @@ def _map_rule_id(gitleaks_rule_id: str) -> str:
     return "SEC-01"       # 기본 룰셋 나머지 (API 키·토큰 하드코딩)
 
 
-def _parse_report(entries: list[dict]) -> list[RawSecret]:
-    return [
-        RawSecret(
+def _parse_report(entries: list[dict], root: Path) -> list[RawSecret]:
+    hits = []
+    for e in entries:
+        # gitleaks는 -s 절대경로 기준 절대 File을 준다 — 재진단 diff 키가
+        # 스캔 간 일치하도록 root 상대경로로 정규화 (semgrep 러너와 동일 표기).
+        raw_path = Path(e.get("File", ""))
+        try:
+            rel = raw_path.relative_to(root).as_posix()
+        except ValueError:
+            rel = raw_path.as_posix()
+        hits.append(RawSecret(
             rule_id=_map_rule_id(e.get("RuleID", "")),
-            file=e.get("File", ""),
+            file=rel,
             line=int(e.get("StartLine", 0)),
             secret_value=e.get("Secret", ""),
             match=e.get("Match", ""),
-        )
-        for e in entries
-    ]
+        ))
+    return hits
 
 
 def config_path() -> Path:
@@ -63,6 +70,7 @@ def config_path() -> Path:
 
 def run_gitleaks(root: Path) -> list[RawSecret]:
     """exit 0=무발견, 1=발견 — 둘 다 정상. 그 외 exit는 RuntimeError."""
+    root = Path(root)
     with tempfile.TemporaryDirectory(prefix="ansim-gitleaks-") as td:
         report = str(Path(td) / "report.json")
         cmd = ["gitleaks", "detect", "--no-git",
@@ -76,6 +84,6 @@ def run_gitleaks(root: Path) -> list[RawSecret]:
             entries = json.loads(Path(report).read_text() or "[]")
         except (OSError, json.JSONDecodeError):
             entries = []
-        hits = _parse_report(entries or [])
+        hits = _parse_report(entries or [], root)
         log.info("gitleaks done", extra={"findings": len(hits), "exit": r.returncode})
         return hits
