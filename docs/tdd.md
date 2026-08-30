@@ -127,7 +127,7 @@ graph TB
 
     subgraph AnsimCode["안심코드 — Docker Compose"]
         direction TB
-        FE[🌐 Frontend<br/>React 18 + TypeScript + Vite]
+        FE[🌐 Frontend<br/>React 19.2 + TypeScript + Vite]
         API[⚙️ Backend API<br/>FastAPI · Python 3.12]
 
         subgraph Engine["Analysis Engine — 0259 §11 보안취약점 관리 프로세스 구현"]
@@ -201,7 +201,7 @@ graph TB
 | 계층 | 선택 | 이유 |
 | --- | --- | --- |
 | Backend | Python 3.12 + FastAPI | 팀 선호 스택. 정적 분석에 필요한 Python `ast` 모듈·파서 생태계가 풍부. Pydantic으로 SBOM JSON 스키마 검증. async로 OSV/LLM 외부 호출 병렬화 |
-| Frontend | React 18 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
+| Frontend | React 19.2 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
 | DB | PostgreSQL 16 | 팀 선호. JSONB로 SBOM·finding의 가변 구조 저장, 관계형으로 scan-finding 연결 |
 | 정적 분석 | Semgrep CE + gitleaks | Semgrep: 단일 엔진으로 Python·JS/TS 겸용, YAML 커스텀 룰의 metadata에 TTA 조항을 직접 기입해 Finding 매핑이 1:1. 레지스트리 룰은 라이선스 제약(non-competing)으로 미사용 — 100% 자체 룰 작성. gitleaks: regex+entropy 시크릿 검출, 단일 바이너리, custom rule(TOML)로 **한국 특화 패턴**(주민등록번호 체크섬 등) 추가, `[allowlist]`로 플레이스홀더(`your-api-key-here`, `changeme`, `sk-test-` 등) 제외. 둘 다 subprocess + JSON 출력으로 통합(외부 전송 없음, TruffleHog식 실검증은 시크릿 외부 전송이라 원칙상 배제) |
 | LLM | Anthropic Claude API | 실호출 확정. **가정**: 판정(judge)은 `claude-sonnet-5`, 쉬운 한국어 변환·수정 프롬프트 생성은 `claude-haiku-4-5`로 비용 절감. `temperature=0`(설명문 안정성용 — 등급 결정론은 §4.5의 구조로 담보). `llm_model_id`는 하드코딩이 아니라 **API 응답의 `model` 필드를 그대로 기록**(표기 오류 원천 차단) |
