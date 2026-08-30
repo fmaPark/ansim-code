@@ -2099,7 +2099,8 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 - 덤(Task 31 이월): 변환 30항목 배치에서 **응답 절단이 없는지** 확인 — 있으면 `TOKENS_PER_ITEM` 또는 `convert_batch_size` 조정 + 근거 기록.
 
-- [ ] **Step 1: 키 확인** — `.env`에 실 `GEMINI_API_KEY`가 있는지. 없으면 사용자에게 요청하고 정지(**키 값은 어디에도 기록하지 않는다**).
+- [ ] **Step 1: 키 확인** — `.env`에 실 `GEMINI_API_KEY`가 있는지. 없으면 사용자에게 요청하고 정지(**키 값은 어디에도 기록하지 않는다**). *(**보류** — 2026-08-30 실행 세션: 실 `GEMINI_API_KEY` 미전달(워크트리에 `.env` 없음, 본 체크아웃 `.env`에는 폐기 대상 `ANTHROPIC_API_KEY`뿐). 게이트 4건은 실호출 없이는 하나도 측정할 수 없으므로 Task 32 전체를 착수하지 않고 보류한다. 키 전달 후 이 태스크만 재수행할 것. **Task 29~31·33은 이 보류와 무관하게 완료** — 키 부재 시 judge 스킵·convert 폴백 경로는 설계대로 동작하며 전체 회귀 146건 green으로 확인됐다.)*
+    - 부수 제약: 게이트 ③(리허설 캐시)은 M7 Task 28 리허설 시나리오를 전제하는데 이 베이스에는 M7(Task 26~28)이 미완이다. 키 수령 시 **fixture 스캔 record → 키 무효화 재생 완주**로 축소 수행하고 축소 사실을 measurements에 명기할 것.
 - [ ] **Step 2: 게이트 ①②④ + 배치 절단 확인** — fixture 스캔 1회 + 벤치마크 페이로드(시크릿·주민번호·인젝션) 투입.
 - [ ] **Step 3: 게이트 ③** — 캐시 재기록 후 키 무효화 재생으로 완주 확인.
 - [ ] **Step 4: 기록** — `docs/measurements.md`에 **신규 엔트리**(`## M8 — Task 32 (2026-08-30, 실행 세션: …)`) 추가. **기존 엔트리(M4~M6·이슈 #13/#15)는 당시 기록이므로 소급 수정 금지** — Anthropic 기준 수치는 그대로 두고 Gemini 기준 수치를 새 줄로 남긴다(§11 항목 1의 Gemini 기준 첫 실측임을 명시). 이 문서 「실측 기록」에도 요약 1블록 append.
@@ -2124,10 +2125,10 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - **금지:** `AGENTS.md`의 「Commit Attribution」 절(`Co-Authored-By: Claude …`)은 **바꾸지 않는다** — 저장소 코딩 에이전트 표기이지 제품이 호출하는 LLM이 아니다.
 - **대상 아님:** 이 계획 문서의 「저장소 파일 구조」 표기와 Task 1~28 본문(작성 시점 기록), `docs/tdd.md`(v0.6에서 이미 반영 완료 — 다시 손대지 않는다), `docs/measurements.md`·`docs/plans/execution-prompts.md` S1~S6의 과거 세션 기록.
 
-- [ ] **Step 1: README 2곳 교체** — 문서만 보고 기동이 재현되는지(키 이름·`cp .env.example .env` 흐름) 문장 확인.
-- [ ] **Step 2: AGENTS 2곳 교체** — 「Commit Attribution」 절 무변경 확인.
-- [ ] **Step 3: `python3 tools/okf_check.py`** — 기존 실패 2건(이슈 #21 — `plans/execution-prompts.md`·`benchmark-spec.md` frontmatter 없음)은 **상시 실패**다. 통과 여부가 아니라 **자기 변경으로 새 오류가 늘었는지**만 본다.
-- [ ] **Step 4: Commit** — `docs: README·AGENTS의 LLM 공급자 표기를 Gemini로 동기`
+- [x] **Step 1: README 2곳 교체** — 문서만 보고 기동이 재현되는지(키 이름·`cp .env.example .env` 흐름) 문장 확인.
+- [x] **Step 2: AGENTS 2곳 교체** — 「Commit Attribution」 절 무변경 확인.
+- [x] **Step 3: `python3 tools/okf_check.py`** — 기존 실패 2건(이슈 #21 — `plans/execution-prompts.md`·`benchmark-spec.md` frontmatter 없음)은 **상시 실패**다. 통과 여부가 아니라 **자기 변경으로 새 오류가 늘었는지**만 본다. *(결과: 오류 2건 유지 — 신규 0)*
+- [x] **Step 4: Commit** — `docs: README·AGENTS의 LLM 공급자 표기를 Gemini로 동기`
 
 **완료 기준(DoD):** README·AGENTS에 Anthropic 표기 0건(「Commit Attribution」 절 제외), okf_check 오류가 기존 2건에서 늘지 않음. 저장소 전역 grep에서 남는 Anthropic 표기는 ①`docs/` 아래 이력 문서(TDD 개정 이력·measurements·plans의 완료 태스크·S1~S6 프롬프트) ②`AGENTS.md` Commit Attribution 절뿐이어야 한다.
 

@@ -25,7 +25,7 @@
 
 ## 기술 구성
 
-React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL 16 / Semgrep CE + gitleaks(자체 룰 전용) / OSV.dev API + KISA 보호나라 스냅샷 / Anthropic Claude API. 로컬 Docker Compose 3서비스로 기동한다.
+React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL 16 / Semgrep CE + gitleaks(자체 룰 전용) / OSV.dev API + KISA 보호나라 스냅샷 / Google Gemini API. 로컬 Docker Compose 3서비스로 기동한다.
 
 원본 소스코드는 스캔별 격리 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다 — 이 정책 자체가 TTAK.KO-12.0414 §7.3.5(지체 없는 파기)의 자기 적용이다.
 
@@ -37,7 +37,7 @@ React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL
 cp .env.example .env
 ```
 
-`.env`의 `ANTHROPIC_API_KEY`에 실제 Anthropic 키를 채운다 — 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다.
+`.env`의 `GEMINI_API_KEY`에 실제 Gemini 키를 채운다 — 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다.
 
 ```bash
 docker compose up -d --build
