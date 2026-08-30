@@ -31,6 +31,19 @@ def semgrep_hits(tmp_path_factory):
     (root / "pos_p2.py").write_text('def collect(request):\n    return request.form["phone"]\n')
     (root / "neg_p2.py").write_text('def collect(request):\n    return request.form["csrf_token"]\n')
     (root / "pos_p3.py").write_text('def collect(request):\n    return request.form["health_record"]\n')
+    # 이슈 #32 — Django·DRF 요청 객체. 이게 빠져 있어 PyGoat에서 P1·P2·P3가 동시에 침묵했다.
+    (root / "pos_p2_django.py").write_text(textwrap.dedent("""\
+        def collect(request):
+            email = request.POST.get("email")
+            phone = request.GET["phone"]
+            birth = request.data["birth_date"]
+            return email, phone, birth
+    """))
+    (root / "neg_p2_django.py").write_text('def collect(request):\n    return request.POST.get("page")\n')
+    (root / "pos_p3_django.py").write_text(
+        'def collect(request):\n    return request.POST["health_record"]\n')
+    (root / "pos_p2_express.js").write_text(
+        "function collect(req) {\n  return [req.query.email, req.params.phone];\n}\n")
     (root / "pos_aux1.py").write_text(
         'def q(cur, x):\n    cur.execute(f"select * from t where id={x}")\n')
     (root / "neg_aux1.py").write_text(
@@ -38,6 +51,13 @@ def semgrep_hits(tmp_path_factory):
     (root / "pos_aux2.py").write_text("DEBUG = True\n")
     (root / "pos_aux3.py").write_text(
         'app.add_middleware(CORSMiddleware, allow_origins=["*"])\n')
+    # 이슈 #31 — Express에서 압도적으로 흔한 cors 미들웨어 형태.
+    (root / "pos_aux3_cors.js").write_text(
+        'const cors = require("cors");\napp.use(cors({ origin: "*" }));\n')
+    (root / "pos_aux3_cors_noargs.js").write_text(
+        'const cors = require("cors");\napp.use(cors());\n')
+    (root / "neg_aux3_cors.js").write_text(
+        'const cors = require("cors");\napp.use(cors({ origin: ["https://ok.example"] }));\n')
     (root / "pos_aux4.py").write_text("import pickle\n\ndef load(d):\n    return pickle.loads(d)\n")
     (root / "neg_aux4.py").write_text(
         "import yaml\n\ndef load(f):\n    return yaml.load(f, Loader=yaml.SafeLoader)\n")
@@ -60,8 +80,16 @@ def test_p2_positive_negative(semgrep_hits):
     assert "P2" not in _rules_hit_in(semgrep_hits, "neg_p2.py")
 
 
+def test_p2_django_and_express(semgrep_hits):
+    """이슈 #32 — Flask 밖의 요청 객체도 잡는다."""
+    assert "P2" in _rules_hit_in(semgrep_hits, "pos_p2_django.py")
+    assert "P2" not in _rules_hit_in(semgrep_hits, "neg_p2_django.py")
+    assert "P2" in _rules_hit_in(semgrep_hits, "pos_p2_express.js")
+
+
 def test_p3_positive(semgrep_hits):
     assert "P3" in _rules_hit_in(semgrep_hits, "pos_p3.py")
+    assert "P3" in _rules_hit_in(semgrep_hits, "pos_p3_django.py")      # 이슈 #32
 
 
 def test_aux_rules(semgrep_hits):
@@ -71,6 +99,13 @@ def test_aux_rules(semgrep_hits):
     assert "AUX-03" in _rules_hit_in(semgrep_hits, "pos_aux3.py")
     assert "AUX-04" in _rules_hit_in(semgrep_hits, "pos_aux4.py")
     assert "AUX-04" not in _rules_hit_in(semgrep_hits, "neg_aux4.py")
+
+
+def test_aux3_cors_middleware(semgrep_hits):
+    """이슈 #31 — 응답 헤더 직접 조작만 잡던 JS 룰이 cors 미들웨어도 잡는다."""
+    assert "AUX-03" in _rules_hit_in(semgrep_hits, "pos_aux3_cors.js")
+    assert "AUX-03" in _rules_hit_in(semgrep_hits, "pos_aux3_cors_noargs.js")
+    assert "AUX-03" not in _rules_hit_in(semgrep_hits, "neg_aux3_cors.js")
 
 
 def test_semgrep_draft_status_follows_catalog(semgrep_hits):
@@ -101,6 +136,23 @@ def test_p9_privacy_policy_absent_and_present(tmp_path):
     assert "P9" in hits and hits["P9"].status == "confirmed" and hits["P9"].file_path is None
 
     _mk(tmp_path, "privacy_policy.md", "개인정보처리방침\n")
+    assert "P9" not in {d.rule_id for d in run_repo_checks(tmp_path)}
+
+
+def test_p9_not_silenced_by_code_filename(tmp_path):
+    """이슈 #34 — 파일명에 privacy가 든 코드 파일은 처리방침이 아니다.
+
+    부재 판정 룰이라 거짓 매칭 하나가 발견 전체를 없앤다. fixture는 tmp_path에만 만든다
+    (이 테스트 파일 자신의 이름이 원래 오판정의 원인 중 하나였다).
+    """
+    from app.engine.repo_checks import run_repo_checks
+
+    _mk(tmp_path, "app.py", "x = 1\n")
+    _mk(tmp_path, "rules/privacy.yaml", "rules: []\n")
+    _mk(tmp_path, "src/usePrivacySettings.ts", "export const x = 1;\n")
+    assert "P9" in {d.rule_id for d in run_repo_checks(tmp_path)}
+
+    _mk(tmp_path, "docs/privacy.md", "개인정보처리방침\n")     # 문서가 생기면 정상적으로 꺼진다
     assert "P9" not in {d.rule_id for d in run_repo_checks(tmp_path)}
 
 

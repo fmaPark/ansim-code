@@ -20,9 +20,18 @@ rules:
     message: "동의 처리 없이 개인정보 필드를 수집하는 패턴"
     patterns:
       - pattern-either:
-          - pattern: request.form[$K]
+          - pattern: request.form[$K]           # Flask
           - pattern: request.json[$K]
           - pattern: request.values[$K]
+          - pattern: request.form.get($K, ...)
+          - pattern: request.json.get($K, ...)
+          - pattern: request.values.get($K, ...)
+          - pattern: request.POST[$K]           # Django (이슈 #32)
+          - pattern: request.GET[$K]
+          - pattern: request.data[$K]           # DRF
+          - pattern: request.POST.get($K, ...)
+          - pattern: request.GET.get($K, ...)
+          - pattern: request.data.get($K, ...)
       - metavariable-regex:
           metavariable: $K
           regex: "(?i).*(name|phone|birth|email|address|jumin|rrn).*"
@@ -33,7 +42,10 @@ rules:
     severity: WARNING
     message: "동의 처리 없이 개인정보 필드를 수집하는 패턴"
     patterns:
-      - pattern: req.body.$K
+      - pattern-either:
+          - pattern: req.body.$K
+          - pattern: req.query.$K              # 이슈 #32
+          - pattern: req.params.$K
       - metavariable-regex:
           metavariable: $K
           regex: "(?i).*(name|phone|birth|email|address|jumin|rrn).*"
@@ -45,9 +57,18 @@ rules:
     message: "민감정보(건강·사상·범죄 등) 필드를 별도 동의 처리 없이 다루는 패턴"
     patterns:
       - pattern-either:
-          - pattern: request.form[$K]
+          - pattern: request.form[$K]           # Flask
           - pattern: request.json[$K]
           - pattern: request.values[$K]
+          - pattern: request.form.get($K, ...)
+          - pattern: request.json.get($K, ...)
+          - pattern: request.values.get($K, ...)
+          - pattern: request.POST[$K]           # Django (이슈 #32)
+          - pattern: request.GET[$K]
+          - pattern: request.data[$K]           # DRF
+          - pattern: request.POST.get($K, ...)
+          - pattern: request.GET.get($K, ...)
+          - pattern: request.data.get($K, ...)
       - metavariable-regex:
           metavariable: $K
           regex: "(?i).*(건강|병력|사상|종교|범죄|criminal|health|religion|disease|medical).*"
