@@ -4,6 +4,8 @@
 
 ## 2026-08-30
 
+* **Update**: `measurements.md`(「후속 이슈 처리 2회차」 신설) · `demo-script.md`(장면 ⑥) · 루트 `README.md`(「검증」) — #34 잔여분 수정 결과(P9가 자기진단에서 정탐 발화, 수정 전후 P9를 끄는 파일 3→0건)와 #33·#30의 방침 확정을 기록. #33은 룰 31종 중 **실효 29종**임을 README에 명시(SCA-05·SCA-07은 레지스트리 원격 조회가 없어 입력이 비어 있다) — `rules/catalog.yaml`은 건드리지 않아 `rule_catalog_version`은 유지된다. #30은 룰 소스 자기 발화를 기록으로 닫고 semgrep 이관을 V2로 넘긴다. 데모 장면 ⑥에 P5(자기 발화·등급 무영향)와 P9(정탐·등급 기여)를 구분해 설명하는 대본을 넣었다.
+* **Creation**: `plans/2026-08-30-issues-30-33-34-remediation.md` — M7이 기록만 남긴 후속 이슈 3건의 심각도 평가와 처리 방침. 등급 기여(`confirmed`만 등급을 움직인다)와 오류 방향(미검출이 오탐보다 나쁘다) 두 기준으로 #34 High·#33 Medium·#30 Low로 매기고, #34만 코드 수정하고 #33·#30은 문서화로 닫는다. #34 라우트 검사의 잔여 한계와 #30을 같은 뿌리(정규식은 패턴을 정의한 소스와 사용한 소스를 구분하지 못한다)로 묶어 semgrep 이관을 V2 후보로 기록했다.
 * **Update**: `tdd.md` v0.6 — **LLM 공급자 전면 전환**(Anthropic Claude → Google Gemini). 기획 비용 절감 요청에 따른 같은 날 확정으로, Anthropic 경로는 코드에 남기지 않고(복구는 git 이력) `ANTHROPIC_API_KEY`를 폐기한다. §3 In Scope·§4.1 아키텍처·§4.2 기술 스택(모델 가정·`model_version` 기록·thinking 비활성·안전 필터)·§4.6 외부 의존성·§4.7 시퀀스·§4.8 배포·§6 리스크(장애 행 갱신 + 안전 필터 차단 행 신설)·§8 API 키 관리·§11 항목 9 갱신. **등급 결정론(§4.5)·마스킹(P0)·G1~G16은 무변경** — 전환은 transport 계층에 국한된다.
 * **Update**: `plans/mvp-implementation.md` — **M8(LLM 공급자 Gemini 전환) 신설**, Task 29~33 추가(의존성·설정 교체 / `client.py` transport 재작성 / judge·convert·테스트 갱신 / 전환 게이트 실측 4건 / README·AGENTS 동기). Tech Stack 줄·마일스톤 표·§11 항목 9 행 갱신. Task 1~28의 본문·Step·DoD는 이력 기록이라 소급 수정하지 않았다.
 * **Update**: `plans/execution-prompts.md` — S7(M8 · Task 29~33) 실행 프롬프트 신설, 세션 표에 S7 행 추가.

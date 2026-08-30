@@ -156,6 +156,46 @@ def test_p9_not_silenced_by_code_filename(tmp_path):
     assert "P9" not in {d.rule_id for d in run_repo_checks(tmp_path)}
 
 
+def test_p9_not_silenced_by_filename_like_string(tmp_path):
+    """이슈 #34 잔여분 — 코드 본문의 파일명 문자열은 라우트가 아니다.
+
+    `"privacy.yaml"` 같은 상수는 처리방침을 제공한다는 증거가 못 된다
+    (실제로 semgrep_runner.py의 룰 파일 목록이 자기진단 P9를 껐다).
+    """
+    from app.engine.repo_checks import run_repo_checks
+
+    _mk(tmp_path, "runner.py", 'RULE_FILES = ("privacy.yaml", "aux-security.yaml")\n')
+    _mk(tmp_path, "loader.py", 'path = "privacy_policy.md"\n')
+    assert "P9" in {d.rule_id for d in run_repo_checks(tmp_path)}
+
+
+def test_p9_not_silenced_by_route_string_in_test_file(tmp_path):
+    """이슈 #34 잔여분 — 테스트 픽스처의 라우트 문자열은 서비스 라우트가 아니다.
+
+    판정 기준은 config.is_test_path 하나로 통일돼 있다(이슈 #29에서 도입).
+    """
+    from app.engine.repo_checks import run_repo_checks
+
+    _mk(tmp_path, "app.py", "x = 1\n")
+    _mk(tmp_path, "tests/test_routes.py", 'CASE = (\'app.route("/privacy")\\n\', "P9")\n')
+    assert "P9" in {d.rule_id for d in run_repo_checks(tmp_path)}
+
+
+def test_p9_silenced_by_real_route(tmp_path):
+    """양성 대조 — 비테스트 코드의 진짜 라우트는 지금도 P9를 끈다."""
+    from app.engine.repo_checks import run_repo_checks
+
+    _mk(tmp_path, "app.py", '@app.route("/privacy")\ndef policy():\n    return render()\n')
+    assert "P9" not in {d.rule_id for d in run_repo_checks(tmp_path)}
+
+    # 표기 변형도 라우트다 — /privacy-policy · 상대 경로 · 뒤따르는 세그먼트
+    for source in ('path: "/privacy-policy",\n', 'navigate("privacy")\n', 'href="/privacy/consent"\n'):
+        variant = tmp_path / "variant"
+        variant.mkdir(exist_ok=True)
+        _mk(variant, "web.tsx", source)
+        assert "P9" not in {d.rule_id for d in run_repo_checks(variant)}, source
+
+
 def test_p7_route_without_auth(tmp_path):
     from app.engine.repo_checks import run_repo_checks
 
