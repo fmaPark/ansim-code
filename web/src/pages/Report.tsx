@@ -99,19 +99,24 @@ export default function Report() {
   if (error) {
     return (
       <div>
-        <div className="banner-error">{error}</div>
+        <div className="banner-error" role="alert">{error}</div>
         <p>
           <Link to="/">처음으로</Link>
         </p>
       </div>
     )
   }
-  if (!report) return <p className="sub">리포트를 불러오는 중…</p>
+  if (!report) return <p className="report-loading" role="status">리포트를 불러오는 중…</p>
 
   return (
-    <div>
+    <div className="report-page">
+      <header className="page-heading report-title">
+        <p className="page-eyebrow">SECURITY REPORT</p>
+        <h1>소스코드 안전 진단 결과</h1>
+        <p>발견 사항의 근거와 개선 방법, 소프트웨어 구성요소를 한눈에 확인하세요.</p>
+      </header>
       {/* 상단 고정 영역 — 등급·면책·상향·토글·복사·재진단 */}
-      <div className="card report-head">
+      <section className="card report-head" aria-label="진단 결과 요약">
         <div className="report-head-row">
           <GradePill grade={report.grade} big />
           <div className="report-head-actions">
@@ -169,20 +174,25 @@ export default function Report() {
           <p className="review-strip">취약점 DB 대조가 일부 완료되지 않았습니다(부분 결과).</p>
         )}
         {report.upgrade && <UpgradeBlock data={report.upgrade} />}
-      </div>
+      </section>
 
       {scan?.previous_comparison && <DiffPanel comparison={scan.previous_comparison} />}
 
-      <div className="card">
-        <h2>개인정보보호 6대 원칙 축</h2>
+      <section className="card principles-card" aria-labelledby="principles-title">
+        <div className="section-heading">
+          <span>01</span>
+          <h2 id="principles-title">개인정보보호 6대 원칙 축</h2>
+        </div>
         <SixPrinciples axes={report.six_principles} />
-      </div>
+      </section>
 
-      <div className="tabs">
+      <div className="tabs" role="tablist" aria-label="진단 결과 상세">
         {TABS.map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             className={`tab${tab === t ? ' active' : ''}`}
             onClick={() => setTab(t)}
           >
@@ -194,7 +204,7 @@ export default function Report() {
       </div>
 
       {tab === '발견 사항' && (
-        <div>
+        <div className="tab-panel" role="tabpanel">
           {easy && easyReport && (
             <div className="card">
               <h2>쉬운 설명 요약</h2>
@@ -218,7 +228,7 @@ export default function Report() {
       )}
 
       {tab === 'SBOM' && (
-        <div className="card">
+        <div className="card tab-panel" role="tabpanel">
           <div className="report-head-row">
             <h2>
               SBOM — 컴포넌트 {report.sbom_summary.component_count}개 · 취약{' '}
@@ -268,7 +278,7 @@ export default function Report() {
       )}
 
       {tab === '체크리스트' && (
-        <div className="card">
+        <div className="card tab-panel" role="tabpanel">
           <h2>조직 요구사항 통합 체크리스트</h2>
           {!checklist ? (
             <p className="sub">불러오는 중…</p>
@@ -303,7 +313,7 @@ export default function Report() {
       )}
 
       {tab === '공급망' && (
-        <div className="card">
+        <div className="card tab-panel" role="tabpanel">
           <h2>공급망 환경 분류</h2>
           <p>
             분류: <b>{report.supply_chain.class ?? '미분류'}</b>

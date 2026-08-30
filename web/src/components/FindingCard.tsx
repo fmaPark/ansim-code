@@ -9,6 +9,7 @@ function location(f: Finding): string {
 
 export default function FindingCard({ finding: f, easy }: { finding: Finding; easy: boolean }) {
   const [showFix, setShowFix] = useState(false)
+  const fixId = `finding-${f.id}-fix`
 
   return (
     <div id={`finding-${f.id}`} className={`finding${f.grade_blocking ? ' blocking' : ''}`}>
@@ -42,11 +43,17 @@ export default function FindingCard({ finding: f, easy }: { finding: Finding; ea
           {f.judge_explanation && <p className="judge-note">AI 판정 참고: {f.judge_explanation}</p>}
           {f.fix_prompt && (
             <div className="fix-block">
-              <button type="button" className="ghost" onClick={() => setShowFix((v) => !v)}>
+              <button
+                type="button"
+                className="ghost"
+                aria-expanded={showFix}
+                aria-controls={fixId}
+                onClick={() => setShowFix((v) => !v)}
+              >
                 {showFix ? '수정 프롬프트 접기 ▲' : '수정 프롬프트 보기 ▼'}
               </button>
               {showFix && (
-                <div className="fix-body">
+                <div className="fix-body" id={fixId}>
                   <pre>
                     <code>{f.fix_prompt}</code>
                   </pre>

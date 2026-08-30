@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, publish } from '../api/client'
 import type { PublishStep1, PublishStep2 } from '../api/client'
 import CopyButton from './CopyButton'
+import ActionButton from './ui/ActionButton'
 
 // 서버 public.py의 ZIP_PUBLISH_NOTICE(§11 항목 8 placeholder)와 동일 문구 —
 // 비활성 버튼은 서버를 호출하지 않으므로 여기 미러링한다(직접 API 호출은 403 + 이 문구).
@@ -15,6 +16,42 @@ export default function PublishFlow({ scanId, sourceType }: { scanId: string; so
   const [step2, setStep2] = useState<PublishStep2 | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (open) closeButtonRef.current?.focus()
+  }, [open])
+
+  function close() {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  function handleDialogKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      close()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = Array.from(
+      modalRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   if (sourceType === 'zip') {
     return (
@@ -55,15 +92,23 @@ export default function PublishFlow({ scanId, sourceType }: { scanId: string; so
 
   return (
     <>
-      <button type="button" className="primary" onClick={() => void start()}>
+      <ActionButton ref={triggerRef} type="button" onClick={() => void start()}>
         공개하기
-      </button>
+      </ActionButton>
       {open && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onMouseDown={close}>
+          <div
+            ref={modalRef}
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="publish-dialog-title"
+            onKeyDown={handleDialogKeyDown}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <div className="modal-head">
-              <h2>등급 공개 — 저장소 소유 증명</h2>
-              <button type="button" className="ghost" onClick={() => setOpen(false)}>
+              <h2 id="publish-dialog-title">등급 공개 — 저장소 소유 증명</h2>
+              <button ref={closeButtonRef} type="button" className="ghost" onClick={close}>
                 닫기 ✕
               </button>
             </div>
@@ -102,12 +147,12 @@ export default function PublishFlow({ scanId, sourceType }: { scanId: string; so
                       <CopyButton text={step1.token} label="토큰 복사" />
                     </div>
                     <p className="sub">{step1.instructions}</p>
-                    <button type="button" className="primary" disabled={busy} onClick={() => void confirm()}>
+                    <ActionButton type="button" loading={busy} disabled={busy} onClick={() => void confirm()}>
                       {busy ? '저장소 확인 중…' : '커밋했어요, 확인'}
-                    </button>
+                    </ActionButton>
                   </>
                 )}
-                {error && <div className="banner-error">{error}</div>}
+                {error && <div className="banner-error" role="alert">{error}</div>}
               </div>
             )}
           </div>

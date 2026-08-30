@@ -28,7 +28,7 @@ export default function PublicGrade() {
   if (error) {
     return (
       <div>
-        <div className="banner-error">{error}</div>
+        <div className="banner-error" role="alert">{error}</div>
         <p>
           <Link to="/">안심코드로 직접 진단해 보기</Link>
         </p>
@@ -39,14 +39,19 @@ export default function PublicGrade() {
 
   return (
     <div className="public-grade">
-      <div className="card public-hero">
-        <GradePill grade={data.grade} big />
+      <header className="public-hero">
+        <p className="page-eyebrow">PUBLIC SECURITY GRADE</p>
+        <h1>공개 안전등급</h1>
+        <div className="public-grade-display">
+          <span className="public-grade-display__label">안전등급</span>
+          <GradePill grade={data.grade} big />
+        </div>
         <p className="public-owner-note">이 등급은 공개 git 저장소 소유자가 직접 공개했습니다.</p>
-        <p className="sub">진단 시각: {new Date(data.scanned_at).toLocaleString('ko-KR')}</p>
-      </div>
+        <p className="public-date">진단 시각: {new Date(data.scanned_at).toLocaleString('ko-KR')}</p>
+      </header>
 
-      <div className="card">
-        <h2>진단 결과 쉬운 설명</h2>
+      <section className="card public-summary" aria-labelledby="easy-summary-title">
+        <h2 id="easy-summary-title">진단 결과 쉬운 설명</h2>
         {data.easy_report && data.easy_report.easy_descriptions.length > 0 ? (
           <ul>
             {data.easy_report.easy_descriptions.map((d, i) => (
@@ -62,7 +67,7 @@ export default function PublicGrade() {
             않았습니다.
           </p>
         )}
-      </div>
+      </section>
 
       <details className="card provenance">
         <summary>진단 재현성 정보 (콘텐츠 지문·룰 버전·모델·취약점 DB 시점)</summary>
