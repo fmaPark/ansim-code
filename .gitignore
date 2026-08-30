@@ -14,4 +14,7 @@ __pycache__/
 node_modules/
 web/dist/
 
+# 제출 패키징 산출물 (tools/package_submission.py)
+dist/
+
 .vscode/

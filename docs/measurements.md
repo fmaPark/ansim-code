@@ -528,7 +528,29 @@ P5 자기 발화 순으로 본다.
 | 전체 pytest | ✅ **169건 green** (기존 146 + 검증 스크립트 23) |
 | OKF 검사 | 기존 실패 2건만(이슈 #21 — `benchmark-spec.md`·`plans/execution-prompts.md` frontmatter 부재). **자기 변경으로 인한 신규 오류 0** |
 | 클린 재빌드 | ✅ `--no-cache` 빌드 후 15초 기동 |
-| 소스 zip | ✅ `git archive`로 생성 |
+| 소스 zip | ✅ `tools/package_submission.py` — 145파일 518KB, `.env` 미포함 |
+
+**패키징 결함 1건 발견·수정**: `git archive --format=zip`이 만든 zip은 **Info-ZIP `unzip`으로
+해제되지 않는다.** git이 파일명을 UTF-8 바이트로 넣으면서 zip 헤더의 EFS 플래그(bit 11)를
+세우지 않아 `unzip`이 CP437로 읽고 `협의체_기록/`에서 "Illegal byte sequence"로 멈춘다.
+macOS Finder·`tar`·Python zipfile로는 열리므로 조용히 지나칠 수 있었던 문제다.
+`tools/package_submission.py`가 git의 tar를 받아 Python zipfile로 다시 싸서 해소했다
+(zipfile은 비ASCII 이름에 UTF-8 플래그를 자동으로 세운다).
+
+### ⑤ 게이트 ③ — README만으로 기동 재현 (제출물 실검증)
+
+제출 zip을 **빈 디렉토리에 `unzip`으로 풀고**, README의 「실행」 절만 따라 기동했다.
+이 저장소 체크아웃이 아니라 **해제된 zip 트리에서** 돌린 것이 요점이다.
+
+| 단계 | 결과 |
+| --- | --- |
+| `unzip` 해제 | ✅ 한글 경로 포함 정상(`협의체_기록/` 확인) |
+| `cp .env.example .env` | ✅ (키는 placeholder 그대로) |
+| `docker compose up -d --build` | ✅ **79초**(이미지 캐시 없는 상태) |
+| `/health` · web | ✅ 200 / 200 |
+| 실제 스캔 | ✅ 벤치마크 git URL → 등급 **위험**, 발견 101건, 상향 안내 정상 |
+
+키가 placeholder인 상태에서도 스캔이 완주한다는 README 서술이 실물로 확인됐다.
 
 ### 보류·이월 항목 (M7)
 

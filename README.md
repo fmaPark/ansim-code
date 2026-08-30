@@ -100,6 +100,12 @@ python3 tools/okf_check.py docs
 
 `docs/` 번들의 OKF v0.2 적합성(frontmatter 파싱·`type` 존재·예약 파일 구조)과 문서 간 링크·조항 앵커를 점검한다.
 
+```bash
+python3 tools/package_submission.py
+```
+
+제출용 소스 zip을 `dist/`에 만든다. 추적 파일만 담으므로 `.env`·`node_modules`는 들어가지 않는다. `git archive --format=zip`을 직접 쓰지 않는 이유는 한글 경로(`협의체_기록/`)에 UTF-8 플래그가 붙지 않아 `unzip`이 해제에 실패하기 때문이다.
+
 ## 고지
 
 안심코드의 안전등급은 **인증이 아닌 자가점검 보조**다.
