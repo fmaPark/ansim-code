@@ -1,7 +1,7 @@
 ---
 type: Playbook
 title: 안심코드(AnsimCode) MVP Implementation Plan
-description: 7개 마일스톤 28개 태스크로 구성된 MVP 구현 실행 계획. 각 태스크에 TDD 참조와 DoD를 병기했다.
+description: 8개 마일스톤 33개 태스크로 구성된 MVP 구현 실행 계획. 각 태스크에 TDD 참조와 DoD를 병기했다.
 status: draft
 tags: [ansimcode, plan, mvp, executing-plans]
 generated: { by: "human:개발-풀스택", at: "2026-08-29T00:00:00Z" }
@@ -20,7 +20,7 @@ sources:
 
 **Architecture:** React SPA(nginx 서빙) + FastAPI 단일 서비스. Analysis Engine은 백엔드 내장 Python 모듈 파이프라인(0259 §11 5단계 매핑)이며 FastAPI BackgroundTasks + DB 상태 폴링으로 비동기 실행(uvicorn 단일 워커 고정). 원본 코드는 스캔별 격리 임시 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다.
 
-**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 19.2·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Anthropic Claude API(judge=`claude-sonnet-5`, 변환=`claude-haiku-4-5`) / Docker Compose.
+**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 19.2·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Google Gemini API(judge=`gemini-2.5-flash`, 변환=`gemini-2.5-flash-lite` — 2026-08-30 Anthropic Claude에서 전면 전환, M8·TDD v0.6 §11 항목 9) / Docker Compose.
 
 **Spec:** [docs/tdd.md](../tdd.md) (TDD v0.4) · [docs/platform-decision.md](../platform-decision.md) (ADR-001 v1.3) — 이 계획의 모든 판단 근거. 각 태스크에 `TDD 참조`를 병기해 구현 세션이 TDD를 다시 읽지 않아도 되게 했다.
 
@@ -57,13 +57,13 @@ sources:
 
 ## 마일스톤 순서 · 선행 조건 (기간 상한: 7일 이내)
 
-총 기간은 **7일 이내가 상한**이다(TDD 개발 기간 2026-08-24~08-31, 목표 완료 08-30 — 08-31은 제출 전용). **일자별 분기는 두지 않는다** — 진행은 아래 게이트 통과로만 판정하며, 선행 조건이 겹치지 않는 트랙은 최대한 병렬로 진행한다. Critical Path: M1→M2→M3→M5→M6→M7 (TDD §7). M4는 M1 직후 병렬 트랙이고, FE 골격(Task 23)도 M1 직후 API 계약 기반으로 선착수할 수 있다.
+총 기간은 **7일 이내가 상한**이다(TDD 개발 기간 2026-08-24~08-31, 목표 완료 08-30 — 08-31은 제출 전용). **일자별 분기는 두지 않는다** — 진행은 아래 게이트 통과로만 판정하며, 선행 조건이 겹치지 않는 트랙은 최대한 병렬로 진행한다. Critical Path: M1→M2→M3→M5→M6→M7 (TDD §7). M4는 M1 직후 병렬 트랙이고, FE 골격(Task 23)도 M1 직후 API 계약 기반으로 선착수할 수 있다. **M8은 계획 수립 이후(2026-08-30) 기획 확정으로 추가된 전환 트랙**이며 M7 뒤에 붙는다 — 데모 전에 끝나야 하므로 실질적으로 크리티컬 패스에 얹힌다.
 
 ```mermaid
 graph LR
     M1[M1 기반 구축] --> M2[M2 SBOM] --> M3[M3 취약점 대조] --> M5[M5 리포트·등급]
     M1 --> M4[M4 룰 엔진+LLM] --> M5
-    M5 --> M6[M6 Frontend] --> M7[M7 검증·데모]
+    M5 --> M6[M6 Frontend] --> M7[M7 검증·데모] --> M8[M8 LLM 공급자 전환]
     M1 -. Task 23 FE 골격 선착수 .-> M6
 ```
 
@@ -76,6 +76,7 @@ graph LR
 | 4 | **M5 리포트·등급** | 17–21 | M3 + M4 (`calc_grade` 순수 함수는 선행 없이 병렬 작성 가능) | **같은 입력 → 같은 등급**(P0-3 테스트 green), 등급 상향 조건 N건 표시, 개발자/시민 리포트 + 수정 프롬프트, 체크리스트 API, 재진단 diff 3분류 API |
 | 5 | **M6 Frontend 통합** | 22–25 | M5 (Task 23은 M1 직후 병렬 착수 가능) | 브라우저에서 업로드→진행 단계→리포트→복사→공개(.ansimcode)→배지→재진단 diff 전 흐름 완주. zip 공개 시 403 안내. **게이트: 기획 카피 3건(§11 항목 4·7·8) 수신 시 문구 교체** |
 | 6 | **M7 검증·데모** | 26–28 | M6 + **외부: 기획 확정 벤치마크 목록**(§11 항목 2) | 벤치마크 TPR/FPR 측정표, PyGoat 완주, 인젝션 페이로드에도 등급 조작 없음, dogfooding 완주, 데모 리허설 + LLM 캐시 폴백 준비. 이후 제출 패키징(08-31 제출 전용 — 개발 없음) |
+| 7 | **M8 LLM 공급자 전환** | 29–33 | M7 + **외부: 기획 확정(2026-08-30)·실 `GEMINI_API_KEY` 전달** | 전체 pytest green(건수 ≥ 직전 기준선), `api/`·`.env.example`에 Anthropic 표기 0건, **전환 게이트 4건**(벤치마크 페이로드 안전 필터 차단 0건 / 응답 `model_version` 기록 확인 / Gemini 리허설 캐시 재기록 / judge 12 병렬 쿼터 통과) 결과가 `docs/measurements.md` **신규 엔트리**에 기록. 게이트 미충족 시 폴백은 "LLM 단계 데모 제외" 하나뿐이며 TDD §7 MVP 경계선 개정(기획 승인)이 선행 — 실행 세션이 스스로 판단하지 않는다 |
 
 **태스크 단위 병렬화:** 각 태스크 머리의 **선행 조건** 줄이 최소 의존만 명시한다 — 거기 없는 태스크와는 병렬 진행 가능. 마일스톤 게이트 통과 = 소속 태스크 DoD 전부 + 표의 게이트 검증.
 
@@ -90,6 +91,7 @@ graph LR
 | 5. KISA 데이터셋 | data.go.kr/15155789로 진행, Task 10 첫 단계에서 실데이터 확인 후 확정 기록 |
 | 6. 미커버 §7.3 4건 | 의도적 보류(계획 제외). 여유 시 휴면 파기만 P10 흡수 검토 |
 | 7·8. 법적 고지·zip 안내 문구 | **placeholder 문구로 구현**(Task 22·25에 문구 명시), 기획 확정 시 교체 — M6 완료 전 게이트 |
+| 9. LLM 공급자 Gemini 전환 (TDD v0.6에서 신설) | **전면 교체 확정(2026-08-30, 기획 — 비용 절감)** → **M8(Task 29~33)**로 실행. 잔여 3건 중 ②전환 게이트 실측은 Task 32가 수행하고, ①모델 가정 승인(judge=`gemini-2.5-flash`·변환=`gemini-2.5-flash-lite`)·③게이트 미충족 시 처리(= LLM 단계 데모 제외 + §7 개정)는 **기획 회신 대기**. 회신 전이라도 구현은 선행하고 필요분을 사후 반영한다(시한 압박 — 08-31 제출) |
 
 ## 저장소 파일 구조
 
@@ -1976,9 +1978,164 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 ---
 
+# M8 — LLM 공급자 Gemini 전환 (선행: M7 + 기획 확정 2026-08-30)
+
+기획 확정(2026-08-30, 비용 절감)에 따라 LLM 공급자를 Anthropic Claude → **Google Gemini로 전면 교체**한다. Anthropic 경로는 코드에 남기지 않으며(복구 수단은 git 이력뿐) `ANTHROPIC_API_KEY`는 폐기한다.
+
+**사양 authority:** [TDD v0.6](../tdd.md) §4.2(스택 표 — 모델 가정·`model_version` 기록·thinking 비활성·안전 필터)·§4.6(외부 의존성)·§6(리스크 — 안전 필터 차단·장애 폴백)·§8(API 키 관리)·§11 항목 9 + [LLM 공급자 Gemini 전면 전환 — TDD 반영 검토 요청](../../협의체_기록/LLM_공급자_Gemini_전면전환_TDD반영_검토요청.md). **아래 서술과 TDD가 어긋나면 TDD가 우선**하고, 둘 다로 판단이 서지 않으면 실행 세션은 멈추고 질문한다.
+
+**전환 범위는 transport 계층에 국한된다 — 아래는 변경 금지:**
+
+- **파이프라인 판정 로직** — G2(시크릿 마스킹·SEC-\* LLM 미경유)·G3(등급 결정론, LLM 경유 발견은 항상 `review_needed`)·G9(`llm_model_id`는 응답 값 기록). 공급자와 무관하다(TDD v0.6 개정 이력: "판정 구조는 무변경 — 전환은 transport 계층에 국한"). **이 3건을 건드려야 할 것 같으면 그게 잘못 가고 있다는 신호다.**
+- **`docker-compose.yml`** — `env_file: .env`로 주입하고 키 이름을 참조하지 않는다(확인 완료). `api/app/models.py`·`web/`도 무변경 — `llm_model_id`는 문자열 필드이고 프론트는 그 값을 표시만 한다.
+- **`AGENTS.md`의 「Commit Attribution」 절**(`Co-Authored-By: Claude …`) — 이 저장소를 만드는 **코딩 에이전트** 표기이지 제품이 호출하는 LLM이 아니다. 절대 바꾸지 않는다.
+- **Task 1~28의 본문·Step·DoD** — 완료된 이력이므로 소급 수정하지 않는다. 같은 이유로 이 문서 「저장소 파일 구조」의 `.env.example # ANTHROPIC_API_KEY 등`·`client.py # Anthropic 래퍼` 표기도 그대로 둔다(작성 시점 2026-08-29 기록 — 전환 후 실물 상태의 정본은 이 M8 절이다).
+
+**게이트 = 데모 성립 조건.** 예비 공급자 경로가 없으므로 Task 32의 4건 중 하나라도 실패하면 폴백은 **"LLM 단계 데모 제외" 하나뿐**이고, 그건 TDD §7 MVP 경계선("LLM 실호출 1개 이상 시나리오 — 목업 불가") 개정(기획 승인)이 선행되어야 하는 결정이다(§11 항목 9 ③, 사전 승인 요청 중). 실행 세션은 스스로 우회하지 말고 **보고 후 정지**한다.
+
+**Task 29~31은 한 덩어리다.** 설정·transport·호출부가 동시에 바뀌므로 중간 커밋에서 테스트가 red일 수 있고, green 판정은 **Task 31 Step 3**에서 한 번에 한다 — 기존 태스크의 "테스트 먼저" 순서와 다른 점은 이번 변경이 신규 기능이 아니라 transport 교체라 테스트 자체는 상수·문구만 바뀐다는 것이다.
+
+### Task 29: 의존성·설정 교체 — `google-genai` + `GEMINI_API_KEY`
+
+**TDD 참조:** §4.2 기술 스택 표(모델 **가정**: judge=`gemini-2.5-flash`, 변환=`gemini-2.5-flash-lite` — 기획 승인 대기), §4.6 외부 의존성, §8 API 키 관리(`ANTHROPIC_API_KEY` 폐기), §11 항목 9
+
+**선행 조건:** 없음(M8의 첫 태스크). Task 30·31이 이 태스크에 의존
+
+**Files:**
+- Modify: `api/requirements.txt`, `api/app/config.py`, `.env.example`
+
+**Interfaces:**
+- Produces: `settings.gemini_api_key`(기본 `""` 유지 — **키 없이도 스캔이 완주하는 경로는 M7 게이트의 전제**), `settings.judge_model = "gemini-2.5-flash"`, `settings.convert_model = "gemini-2.5-flash-lite"`. `anthropic_api_key`와 claude 모델 상수는 **제거**(잔존 금지 — 전면 교체). 나머지 settings 수치(`judge_concurrency=12`·`convert_batch_size=30`·타임아웃 등)는 무변경.
+- `api/requirements.txt`: `anthropic==0.39.*` → `google-genai`(핀 방식은 기존 관례대로 마이너 와일드카드). **의존성 변경이므로 이미지 재빌드가 동반된다** — `docker compose build api` 없이는 컨테이너 안에 SDK가 없다(`rules/`·`data/`가 이미지에 구워지는 것과 같은 함정 — AGENTS.md 「Key Conventions」).
+
+- [ ] **Step 1: `.env.example` 교체** — `ANTHROPIC_API_KEY=sk-ant-...` 줄을 `GEMINI_API_KEY=`로 **치환**(추가가 아니라 폐기). 실 `.env`의 키 값은 코드·문서·로그·커밋 어디에도 남기지 않는다.
+- [ ] **Step 2: `requirements.txt`·`config.py` 교체 + 이미지 재빌드** — `docker compose build api` 성공, 컨테이너 안에서 SDK 임포트 확인.
+- [ ] **Step 3: 잔존 확인은 Task 31 Step 4로 이월** — 이 시점엔 `client.py`·`judge.py`·`convert.py`·테스트가 아직 Anthropic 표기를 갖고 있다.
+- [ ] **Step 4: Commit** — `chore: LLM SDK를 google-genai로 교체 + GEMINI_API_KEY 설정`
+
+**완료 기준(DoD):** 이미지 재빌드 green, `settings`에 Gemini 모델 ID 2종과 `gemini_api_key`만 존재(`anthropic_api_key` 부재), `.env.example`에 Anthropic 키 없음. **테스트 회귀 판정은 이 태스크에서 하지 않는다**(Task 31).
+
+---
+
+### Task 30: `client.py` transport 재작성 — `_gemini_transport`
+
+**TDD 참조:** §4.2(temperature=0 유지·thinking 비활성 `thinking_budget=0`·안전 필터 최소 차단·응답 `model_version` 기록으로 G9 유지), §6(안전 필터 차단 리스크·리허설 캐시 폴백), §8(LLM 전송 직전 마스킹 — 무변경), §10(호출 수·토큰 카운터)
+
+**선행 조건:** Task 29
+
+**Files:**
+- Modify: `api/app/llm/client.py`
+
+**Interfaces:**
+- `LlmClient.complete(...) -> LlmResponse(text, model_id, in_tokens, out_tokens)`의 **시그니처·마스킹 강제(P0-2 2차 패스)·캐시 record/폴백·카운터·구조화 로그는 전부 무변경**. 교체 대상은 `_anthropic_transport` → `_gemini_transport` **하나뿐**이며, 테스트가 쓰는 transport 주입 지점도 그대로 유지한다.
+- **파라미터 매핑이 1:1이 아니다.** 아래 표대로 옮긴다:
+
+| 현행(Anthropic) | Gemini | 주의 |
+| --- | --- | --- |
+| `system=`(최상위 인자) | `config.system_instruction` | 최상위 인자가 아니라 생성 config 안으로 들어간다 |
+| `max_tokens=` | `config.max_output_tokens` | 이름이 다르다 |
+| `messages=[{"role":"user", ...}]` | `contents=user` | 단일 유저 턴이므로 문자열 그대로 |
+| `timeout=60`(**초**) | HTTP 옵션의 timeout(**밀리초**) | 60초 = `60_000`. **초를 그대로 넣으면 60ms 타임아웃이 된다** — 전환에서 가장 조용히 깨지는 지점 |
+| `temperature=0` | `config.temperature=0` | G9 유지 |
+| (없음) | `config.thinking_config.thinking_budget=0` | thinking 비활성 — 지연·비용 통제(TDD §4.2) |
+| (없음) | `config.safety_settings` 전 카테고리 `BLOCK_NONE` | **시크릿·PII·인젝션 스니펫이 이 제품의 정상 입력**이다. 차단되면 judge 설명이 누락된다(TDD §6 안전 필터 행) |
+| `resp.content[].text` | `resp.text` | |
+| `resp.usage.input_tokens` · `output_tokens` | `resp.usage_metadata.prompt_token_count` · `candidates_token_count` | 이름·중첩 위치가 모두 다르다 |
+| `resp.model` | `resp.model_version` | **G9 — 하드코딩 금지.** 필드가 없거나 비면 **요청 모델 ID를 기록하고 그 사실을 warning 로그로 남긴다**(TDD v0.6 §4.2에 명문화된 폴백). 실응답 확인은 Task 32 게이트 ② |
+
+- 캐시 키 `sha256(model+system+user)` 자체는 무변경이지만 **model 문자열이 바뀌므로 기존 Anthropic 캐시 파일은 전량 무효**다(재기록은 Task 32 게이트 ③).
+
+- [ ] **Step 1: `_gemini_transport` 작성** — 위 매핑 표대로. SDK import는 현행처럼 **함수 안 지연 import**를 유지한다(키·SDK 없이도 fake transport 테스트가 도는 구조).
+- [ ] **Step 2: 안전 필터·thinking 설정 상수화** — 카테고리 목록과 `BLOCK_NONE`을 모듈 상수로 두고 근거 주석(TDD §6)을 단다. **안전 필터로 후보가 비어 온 응답은 예외로 올려** 기존 캐시 폴백 경로를 타게 한다 — 조용한 빈 문자열 반환 금지(차단 사실이 로그에 남아야 게이트 ①을 측정할 수 있다).
+- [ ] **Step 3: docstring·로그 문구의 "Anthropic" 표기 교체**
+- [ ] **Step 4: Commit** — `feat: LLM transport를 Gemini로 재작성 (thinking 비활성·안전 필터·model_version 기록)`
+
+**완료 기준(DoD):** `api/app/llm/client.py`에 Anthropic 표기 0건, transport 외 경로(마스킹·캐시·카운터·폴백)는 diff에 나타나지 않음, 타임아웃이 밀리초로 환산되어 있음. 실호출 검증은 Task 32.
+
+---
+
+### Task 31: judge·convert 갱신 + 테스트 회귀
+
+**TDD 참조:** §4.2, §4.5 등급 결정론(무변경 확인), §8(G2), §11 항목 1(변환 배치 상한 재확인)
+
+**선행 조건:** Task 29·30
+
+**Files:**
+- Modify: `api/app/llm/judge.py`, `api/app/llm/convert.py`, `api/tests/test_judge.py`, `api/tests/test_convert.py`, `api/tests/test_publish.py`
+
+**Interfaces:**
+- `judge.py` 55행 부근·`convert.py` 101행 부근의 `settings.anthropic_api_key` 분기 → `settings.gemini_api_key`, 로그 문구 `"ANTHROPIC_API_KEY 부재 — …"` → `"GEMINI_API_KEY 부재 — …"`. **키 부재 시 동작은 무변경** — judge는 단계 스킵(`review_needed` 그대로), convert는 규칙 기반 폴백 문구.
+- `convert.py`의 `TOKENS_PER_ITEM = 350` **재산정**: 이 상수는 `max_output_tokens = TOKENS_PER_ITEM * len(batch)`의 계수다. 30항목 배치(=10,500)가 Gemini 출력 상한 안이고 **실제 응답이 잘리지 않는지**를 Task 32 실호출로 확인한다. 잘리면 상수를 올리거나 `convert_batch_size`를 낮추고 근거를 measurements에 남긴다.
+- 테스트는 fake transport 구조라 **로직 변경이 없다 — 상수·문구만 교체**한다: `test_judge.py`의 `FAKE_MODEL`, `test_convert.py`의 `FAKE_MODEL`과 109행 `monkeypatch.setattr(settings, "anthropic_api_key", "")`의 키명, `test_publish.py` 43행 픽스처의 `llm_model_id="claude-sonnet-5-t"`, 두 테스트 파일 docstring의 `ANTHROPIC_API_KEY` 표기 2곳. **`FAKE_MODEL`은 설정값과 달라야 G9 검증이 성립한다**는 성질을 유지한다(예: `gemini-2.5-flash-20260101`).
+
+- [ ] **Step 1: judge·convert 분기·문구 교체**
+- [ ] **Step 2: 테스트 상수·docstring 교체**
+- [ ] **Step 3: 전체 회귀** — `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest -q`(AGENTS.md 「Commands」 경로 — 호스트에 semgrep·gitleaks 바이너리가 없어 이 경로로만 검증된다). 직전 기준선은 **146건 green**(M6 세션 기록). **건수가 줄면 멈추고 보고.**
+- [ ] **Step 4: Anthropic 잔존 0건 확인**(Task 29 Step 3 이월) — `grep -rn -e anthropic -e ANTHROPIC -e "claude-" api/ .env.example docker-compose.yml`가 0건.
+- [ ] **Step 5: Commit** — `refactor: judge·convert·테스트의 LLM 공급자 표기를 Gemini로`
+
+**완료 기준(DoD):** 전체 pytest green(건수 ≥ 146), G2·G3 검증 테스트(LLM 페이로드 시크릿 0건·SEC-\* 미경유·status 불변·`model_id`는 응답 값)가 전부 유지, `api/` 아래 Anthropic 문자열 0건.
+
+---
+
+### Task 32: 전환 게이트 실측 4건 (데모 성립 조건)
+
+**TDD 참조:** §11 항목 9 ②(게이트 4건), §6(안전 필터 차단·장애 시 캐시 폴백), §4.2(G9 `model_version`), §9(수동 검증), §11 항목 1(LLM 상한 — Gemini 기준 첫 실측)
+
+**선행 조건:** Task 31 + **실 `GEMINI_API_KEY` 전달**. 미전달이면 이 태스크는 착수 불가 — 사용자에게 요청하고 정지한다
+
+**Files:**
+- Modify: `docs/measurements.md`(**신규 엔트리** append), 이 문서 「실측 기록」 섹션(요약 append)
+
+**Interfaces:**
+- 게이트 4건. **하나라도 실패하면 자체 판단으로 진행하지 말고 보고 후 정지**한다(폴백은 "LLM 단계 데모 제외"뿐이며 TDD §7 개정이 선행 — §11 항목 9 ③).
+
+| # | 게이트 | 판정 기준 | 실패 시 |
+| --- | --- | --- | --- |
+| ① 안전 필터 | `docs/benchmark-spec.md` §4.1(시크릿 SEC)·§4.2(주민번호 등 개인정보)·§4.5(인젝션 페이로드)의 실페이로드를 judge에 태워 **차단 0건** | 안전 필터에 의한 무응답·후보 없음이 0건 | 차단된 항목과 카테고리를 기록하고 정지 |
+| ② G9 `model_version` | 응답의 `model_version`이 존재하고 `scan.llm_model_id`가 **설정 상수가 아닌 응답 값**으로 채워짐 | 필드가 없으면 "요청 모델 ID + warning 로그" 폴백이 실제로 동작하는지 확인 | 폴백이 동작하면 그 사실을 기록하고 통과로 본다(TDD v0.6 §4.2 명문). 둘 다 아니면 정지 |
+| ③ 리허설 캐시 재기록 | Gemini 응답으로 `data/llm_cache/` 재적재 — **기존 Anthropic 캐시는 캐시 키가 모델 ID를 포함해 전량 무효**이고, 예비 공급자가 없으므로 **이것이 유일한 데모 폴백**이다(TDD §6) | Task 28 Step 1·2와 같은 시나리오로 record → 키 무효화 후 재생 완주 | 정지·보고 |
+| ④ 쿼터 | judge **12 병렬**이 RPM 쿼터에 걸리지 않음 — fixture 스캔 1회로 소요·토큰·쿼터 오류 확인 | 쿼터 초과 오류 0건 | `judge_concurrency` 하향값과 근거를 기록(변경은 `config.py` 1줄, G9의 다른 항목은 불변) |
+
+- 덤(Task 31 이월): 변환 30항목 배치에서 **응답 절단이 없는지** 확인 — 있으면 `TOKENS_PER_ITEM` 또는 `convert_batch_size` 조정 + 근거 기록.
+
+- [ ] **Step 1: 키 확인** — `.env`에 실 `GEMINI_API_KEY`가 있는지. 없으면 사용자에게 요청하고 정지(**키 값은 어디에도 기록하지 않는다**).
+- [ ] **Step 2: 게이트 ①②④ + 배치 절단 확인** — fixture 스캔 1회 + 벤치마크 페이로드(시크릿·주민번호·인젝션) 투입.
+- [ ] **Step 3: 게이트 ③** — 캐시 재기록 후 키 무효화 재생으로 완주 확인.
+- [ ] **Step 4: 기록** — `docs/measurements.md`에 **신규 엔트리**(`## M8 — Task 32 (2026-08-30, 실행 세션: …)`) 추가. **기존 엔트리(M4~M6·이슈 #13/#15)는 당시 기록이므로 소급 수정 금지** — Anthropic 기준 수치는 그대로 두고 Gemini 기준 수치를 새 줄로 남긴다(§11 항목 1의 Gemini 기준 첫 실측임을 명시). 이 문서 「실측 기록」에도 요약 1블록 append.
+- [ ] **Step 5: Commit** — `docs: Gemini 전환 게이트 실측 4건 기록`
+
+**완료 기준(DoD):** 게이트 4건의 판정이 `docs/measurements.md` 신규 엔트리에 남고, 4건 전부 통과했거나 **미통과 항목이 무엇이고 왜인지가 명시적으로 보고**됨. 미통과 시 이 태스크는 완료가 아니다.
+
+---
+
+### Task 33: 문서–코드 동기 (README·AGENTS)
+
+**TDD 참조:** 검토 요청서 §5-3 — 문서 코드 동기는 **코드 확정 후 후속**이며 TDD처럼 소급 개정이 아니라 실물 동기다
+
+**선행 조건:** Task 31(표기 확정). 게이트 결과와 무관하게 수행 가능하나, Task 32 미통과 시 README의 LLM 단계 서술은 보고 후 판단
+
+**Files:**
+- Modify: `README.md`(28·40행), `AGENTS.md`(9·46행)
+
+**Interfaces:**
+- README 28행 스택 나열의 `Anthropic Claude API` → `Google Gemini API`. 40행 `.env`의 `ANTHROPIC_API_KEY`… → `GEMINI_API_KEY`… — **"키가 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다"는 서술은 유지**한다(실제 동작이고 Task 31에서 무변경으로 확인된다).
+- AGENTS 9행 `LLM은 Anthropic Claude API…` → Gemini(모델 ID 정본이 `api/app/config.py`라는 서술은 유지). 46행 `ANTHROPIC_API_KEY는 .env로만 주입한다` → `GEMINI_API_KEY`.
+- **금지:** `AGENTS.md`의 「Commit Attribution」 절(`Co-Authored-By: Claude …`)은 **바꾸지 않는다** — 저장소 코딩 에이전트 표기이지 제품이 호출하는 LLM이 아니다.
+- **대상 아님:** 이 계획 문서의 「저장소 파일 구조」 표기와 Task 1~28 본문(작성 시점 기록), `docs/tdd.md`(v0.6에서 이미 반영 완료 — 다시 손대지 않는다), `docs/measurements.md`·`docs/plans/execution-prompts.md` S1~S6의 과거 세션 기록.
+
+- [ ] **Step 1: README 2곳 교체** — 문서만 보고 기동이 재현되는지(키 이름·`cp .env.example .env` 흐름) 문장 확인.
+- [ ] **Step 2: AGENTS 2곳 교체** — 「Commit Attribution」 절 무변경 확인.
+- [ ] **Step 3: `python3 tools/okf_check.py`** — 기존 실패 2건(이슈 #21 — `plans/execution-prompts.md`·`benchmark-spec.md` frontmatter 없음)은 **상시 실패**다. 통과 여부가 아니라 **자기 변경으로 새 오류가 늘었는지**만 본다.
+- [ ] **Step 4: Commit** — `docs: README·AGENTS의 LLM 공급자 표기를 Gemini로 동기`
+
+**완료 기준(DoD):** README·AGENTS에 Anthropic 표기 0건(「Commit Attribution」 절 제외), okf_check 오류가 기존 2건에서 늘지 않음. 저장소 전역 grep에서 남는 Anthropic 표기는 ①`docs/` 아래 이력 문서(TDD 개정 이력·measurements·plans의 완료 태스크·S1~S6 프롬프트) ②`AGENTS.md` Commit Attribution 절뿐이어야 한다.
+
+---
+
 ## 실측 기록 (실행 세션이 append)
 
-> 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다.
+> 이 섹션은 계획의 일부가 아니라 실행 산출물의 앵커다. Task 10(KISA 컬럼·인코딩 확정 — §11 항목 5), Task 16(LLM 소요·비용·오탐 — §11 항목 1·3), Task 26·27(TPR/FPR·PyGoat 소요), Task 32(Gemini 전환 게이트 4건 — §11 항목 9)의 결과 요약을 여기와 `docs/measurements.md`에 남기고, TDD §11 표의 해당 행을 확정 상태로 갱신한다. **기존 엔트리는 당시 기록이므로 소급 수정하지 않는다 — 새 엔트리로 append한다.**
 
 - **2026-08-29 · Task 10 KISA 데이터셋(§11 항목 5) — 미확정, 재등재.** 구현 환경(외부 egress 프록시 allowlist)에서 `https://www.data.go.kr/data/15155789/fileData.do` 다운로드가 차단되어(프록시 CONNECT 403, `api.data.go.kr`·`www.krcert.or.kr`·`knvd.krcert.or.kr` 모두 동일) 실데이터의 컬럼명·인코딩을 확인하지 못했다. 계획의 폴백대로 **동일 스키마 표본 CSV**(`data/kisa/krcert_notices.csv` — 컬럼 `제목,게시일,링크,본문`, UTF-8, 실존 CVE 12건 · 보호나라 공지 형식)와 `data/kisa/SNAPSHOT_DATE`(2026-08-29)로 대체했다. 로더 `app/engine/kisa.py`는 컬럼명에 의존하지 않고(행 전체에서 `CVE-\d{4}-\d{4,7}` 추출, 링크·날짜·제목은 셀 형태로 판별) `utf-8-sig → cp949` 인코딩 폴백을 갖춰 실데이터 교체 시 코드 변경 없이 파일만 바꾸면 된다. **§11 항목 5는 열린 항목으로 재등재** — 네트워크 가능한 환경에서 실데이터를 받아 컬럼명·인코딩·CVE 포함 컬럼을 이 줄 아래에 확정 기록해야 한다.
 
