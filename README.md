@@ -43,7 +43,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-데모 진입점은 <http://localhost:8080>이고 API는 <http://localhost:8000>에서 직접 열린다(`/health`·`/docs`). 8080이 점유된 경우에만 `WEB_PORT`로 덮어쓴다. 첫 기동 때 진단 룰 31종이 DB에 시드된다. 종료는 `docker compose down`, 스키마를 갈아엎을 때는 `-v`를 붙인다.
+데모 진입점은 <http://localhost:8080>이고 API는 <http://localhost:8000>에서 직접 열린다(`/health`·`/docs`). 포트가 점유된 경우에만 `WEB_PORT`·`API_PORT`로 덮어쓴다. 첫 기동 때 진단 룰 31종이 DB에 시드된다. 종료는 `docker compose down`, 스키마를 갈아엎을 때는 `-v`를 붙인다.
 
 ## 개발
 
