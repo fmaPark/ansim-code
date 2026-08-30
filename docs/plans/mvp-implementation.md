@@ -2008,10 +2008,10 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - Produces: `settings.gemini_api_key`(기본 `""` 유지 — **키 없이도 스캔이 완주하는 경로는 M7 게이트의 전제**), `settings.judge_model = "gemini-2.5-flash"`, `settings.convert_model = "gemini-2.5-flash-lite"`. `anthropic_api_key`와 claude 모델 상수는 **제거**(잔존 금지 — 전면 교체). 나머지 settings 수치(`judge_concurrency=12`·`convert_batch_size=30`·타임아웃 등)는 무변경.
 - `api/requirements.txt`: `anthropic==0.39.*` → `google-genai`(핀 방식은 기존 관례대로 마이너 와일드카드). **의존성 변경이므로 이미지 재빌드가 동반된다** — `docker compose build api` 없이는 컨테이너 안에 SDK가 없다(`rules/`·`data/`가 이미지에 구워지는 것과 같은 함정 — AGENTS.md 「Key Conventions」).
 
-- [ ] **Step 1: `.env.example` 교체** — `ANTHROPIC_API_KEY=sk-ant-...` 줄을 `GEMINI_API_KEY=`로 **치환**(추가가 아니라 폐기). 실 `.env`의 키 값은 코드·문서·로그·커밋 어디에도 남기지 않는다.
-- [ ] **Step 2: `requirements.txt`·`config.py` 교체 + 이미지 재빌드** — `docker compose build api` 성공, 컨테이너 안에서 SDK 임포트 확인.
-- [ ] **Step 3: 잔존 확인은 Task 31 Step 4로 이월** — 이 시점엔 `client.py`·`judge.py`·`convert.py`·테스트가 아직 Anthropic 표기를 갖고 있다.
-- [ ] **Step 4: Commit** — `chore: LLM SDK를 google-genai로 교체 + GEMINI_API_KEY 설정`
+- [x] **Step 1: `.env.example` 교체** — `ANTHROPIC_API_KEY=sk-ant-...` 줄을 `GEMINI_API_KEY=`로 **치환**(추가가 아니라 폐기). 실 `.env`의 키 값은 코드·문서·로그·커밋 어디에도 남기지 않는다.
+- [x] **Step 2: `requirements.txt`·`config.py` 교체 + 이미지 재빌드** — `docker compose build api` 성공, 컨테이너 안에서 SDK 임포트 확인. *(**계획 대비 추가 변경 1건** — 2026-08-30 실행 세션: `httpx==0.27.*` 핀 때문에 pip가 `google-genai`를 **1.2.0으로 역해석**했고 그 버전의 `ThinkingConfig`에는 `thinking_budget` 필드가 없다(`include_thoughts`뿐). `thinking_budget`을 가진 모든 버전(1.10+)이 `httpx>=0.28.1`을 요구하므로 **`httpx==0.27.* → 0.28.*`를 함께 올렸다** — TDD §4.2의 thinking 비활성을 지키려면 선택지가 없다. httpx는 `osv.py`(`AsyncClient(base_url=, timeout=, transport=)`)와 테스트(`ASGITransport`·`MockTransport`)에서만 쓰고 0.28에서 제거된 API(`app=` 단축·`proxies=`)는 미사용이라 코드 변경 없이 통과 — 검증은 Task 31 Step 3 전체 회귀. 확정 해석: `google-genai 1.75.0`·`httpx 0.28.1`·`pydantic 2.13.5`)*
+- [x] **Step 3: 잔존 확인은 Task 31 Step 4로 이월** — 이 시점엔 `client.py`·`judge.py`·`convert.py`·테스트가 아직 Anthropic 표기를 갖고 있다.
+- [x] **Step 4: Commit** — `chore: LLM SDK를 google-genai로 교체 + GEMINI_API_KEY 설정`
 
 **완료 기준(DoD):** 이미지 재빌드 green, `settings`에 Gemini 모델 ID 2종과 `gemini_api_key`만 존재(`anthropic_api_key` 부재), `.env.example`에 Anthropic 키 없음. **테스트 회귀 판정은 이 태스크에서 하지 않는다**(Task 31).
 

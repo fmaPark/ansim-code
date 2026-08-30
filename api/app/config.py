@@ -3,9 +3,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://ansim:ansim@db:5432/ansim"
-    anthropic_api_key: str = ""
-    judge_model: str = "claude-sonnet-5"        # TDD §4.2
-    convert_model: str = "claude-haiku-4-5"     # TDD §4.2
+    gemini_api_key: str = ""
+    judge_model: str = "gemini-2.5-flash"       # TDD §4.2 (v0.6 — Gemini 전면 전환)
+    convert_model: str = "gemini-2.5-flash-lite"  # TDD §4.2 (v0.6)
     judge_concurrency: int = 12                 # TDD §11 항목 1 초안
     convert_batch_size: int = 30                # TDD §11 항목 1 초안
     max_zip_bytes: int = 50 * 1024 * 1024       # TDD §3
