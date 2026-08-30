@@ -6,12 +6,16 @@ JS/TS의 import 추출은 여기서 하지 않는다 — Semgrep 패턴이 담�
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 from app.config import SKIP_DIRS
 from app.engine.deps_types import Dependency, ParseMarker
 
 _NON_REGISTRY_PREFIXES = ("git+", "git:", "github:", "file:", "link:", "http://", "https://",
                           "portal:", "workspace:")
+# lock의 resolved는 정상 설치라도 https://registry.npmjs.org/… 이므로 접두로 판정할 수 없다.
+# 사설 레지스트리를 쓰는 저장소는 여기 호스트를 늘려야 한다(이슈 #28 — 설정화는 후속 판단).
+_REGISTRY_HOSTS = ("registry.npmjs.org", "registry.yarnpkg.com")
 _EXACT_VERSION = re.compile(r"^\d+\.\d+\.\d+[\w.\-+]*$")
 _LOCK_FILES = ("package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml")
 
@@ -46,7 +50,17 @@ def npm_parse_markers(root: Path) -> list[ParseMarker]:
 
 
 def _is_registry(spec: str) -> bool:
+    """매니페스트의 **버전 스펙** 판정. 여기서 https://…는 실제로 레지스트리 밖 출처다."""
     return not str(spec).startswith(_NON_REGISTRY_PREFIXES)
+
+
+def _is_registry_resolved(url: str) -> bool:
+    """lock의 **resolved URL** 판정 — 접두가 아니라 호스트를 본다(이슈 #28)."""
+    url = str(url)
+    if not url.startswith(("http://", "https://")):
+        return False                  # git+…·file:…·link:… 등은 그대로 비레지스트리
+    host = urlparse(url).hostname or ""
+    return host in _REGISTRY_HOSTS or host.endswith(".npmjs.org")
 
 
 def _lock_entries(lock: dict) -> dict[str, dict]:
@@ -117,7 +131,7 @@ def parse_npm_deps(root: Path) -> list[Dependency]:
                     existing.is_pinned = True
                 existing.integrity = meta.get("integrity") or existing.integrity
                 existing.in_lock = True
-                if resolved and not _is_registry(resolved):
+                if resolved and not _is_registry_resolved(resolved):
                     existing.registry_source = False
             else:
                 deps[name] = Dependency(
@@ -125,7 +139,7 @@ def parse_npm_deps(root: Path) -> list[Dependency]:
                     version=str(meta["version"]) if meta.get("version") else None,
                     declared_in=lock_rel, is_pinned=bool(meta.get("version")),
                     integrity=meta.get("integrity"), relationship="transitive",
-                    registry_source=_is_registry(resolved) if resolved else True,
+                    registry_source=_is_registry_resolved(resolved) if resolved else True,
                     vendored_path=None, in_lock=True)
 
     return list(deps.values())

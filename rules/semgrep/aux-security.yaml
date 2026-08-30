@@ -51,6 +51,11 @@ rules:
     pattern-either:
       - pattern: $RES.header("Access-Control-Allow-Origin", "*")
       - pattern: $RES.setHeader("Access-Control-Allow-Origin", "*")
+      # cors 미들웨어 — Express에서 가장 흔한 형태다(이슈 #31).
+      # 패턴에 `키: 값`이 들어가므로 YAML 매핑으로 읽히지 않게 따옴표로 싼다.
+      - pattern: 'cors({..., origin: "*", ...})'
+      - pattern: 'cors({..., origin: true, ...})'   # 모든 출처 허용의 동의어
+      - pattern: $APP.use(cors())                   # 무인자 — 기본값이 '*'
     metadata: { standard_ref: "TTAK.KO-11.0259 §9.4",
                 secondary_ref: "행안부·KISA 소프트웨어 개발보안 가이드", ansim_rule: AUX-03 }
 
