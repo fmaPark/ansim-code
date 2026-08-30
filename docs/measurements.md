@@ -350,3 +350,105 @@ Low 심각도 confirmed로 다수 발화하면서 **"Low는 등급에 기여하�
 껐다**. 룰이 아니라 벤치마크가 자기 양성을 지운 것이고, 표만 보면 "P10 룰 갭"으로 오독됐을 사례다.
 `check_invariants.py`가 이 부류를 6종 검사로 잡는다(로깅·처리방침·삭제 동사·미선언 import·P4 국소화·P7 인증 단어).
 검사기 자체의 회귀는 `api/tests/test_verification_matching.py` 23건이 지킨다.
+
+## M7 — Task 27 (2026-08-30, 실행 세션: feat/m7-verification)
+
+검증 3종을 같은 스택(api 8002)에서 키 없이 실행했다. 인젝션 시연의 상세는
+[`verification/injection_payloads.md`](../verification/injection_payloads.md)에 따로 있다.
+
+### ① PyGoat — 제3자 취약 앱
+
+| 항목 | 값 |
+| --- | --- |
+| 대상 | `https://github.com/adeyosemanputra/pygoat` (git URL) |
+| 소요 | **30초** (G14 목표 2분 대비 여유 — 분해 기록 불필요) |
+| 등급 | **위험** (상향 조건: 17건 해결 시 주의) |
+| 발견 | 142건 (전부 confirmed, review_needed 0) |
+| SBOM | 컴포넌트 40개 / 취약 16개 · 공급망 분류 `오픈소스` |
+
+룰별: SEC-01 10 · SEC-02 2 · P7 2 · P9 1 · AUX-02 3 · AUX-04 5 ·
+SCA-01 4 · SCA-02 16 · SCA-03 3 · SCA-04 16 · SCA-08 40 · SCA-09 40.
+
+**review_needed가 0건인 이유(관찰)**: P2·P3의 semgrep 패턴이 Flask 계열
+(`request.form[...]`·`request.json[...]`)만 매칭하는데 PyGoat은 Django라
+`request.POST[...]`를 쓴다. 프레임워크 커버리지 갭이며 벤치마크(Flask+Express)로는
+드러나지 않는 종류다 — **제3자 앱 검증이 실제로 새 정보를 준 지점**이다.
+
+### ② repo-wide 룰(P8·P9·P10) 오탐 판정 — Task 26 FPR 표의 빠진 행
+
+명세 §1.2에 따라 이 3종의 FPR은 벤치마크 `clean/`이 아니라 실앱 2종으로 측정한다.
+발화 여부만 보지 않고 **해당 기능이 그 앱에 실재하는지 소스로 대조**해 정탐/오탐을 갈랐다.
+
+| 룰 | PyGoat | 실재 대조 | 판정 | 안심코드(dogfooding) | 실재 대조 | 판정 |
+| --- | --- | --- | --- | --- | --- | --- |
+| P8 (취급 기록 부재) | 미발화 | `introduction/views.py`에 `import logging` 실재 | ✅ 정탐 | 미발화 | `app/main.py`·`llm/client.py` 등 다수에 실재 | ✅ 정탐 |
+| P9 (처리방침 부재) | **발화** | 처리방침 파일명·`/privacy` 라우트 **둘 다 없음** | ✅ **정탐**(오탐 아님) | 미발화 | `rules/semgrep/privacy.yaml` 등 파일명 일치 | ⚠ 조건상 정탐 |
+| P10 (파기 경로 부재) | 미발화 | `introduction/apis.py` 등에 삭제 동사 실재 | ✅ 정탐 | 미발화 | `engine/workspace.py`의 파기 로직 실재 | ✅ 정탐 |
+
+**오탐 0건.** P9가 PyGoat에서 발화한 것은 오탐이 아니라 정탐이다 — 의도적으로 취약하게 만든
+교육용 앱에 개인정보 처리방침이 없는 것은 사실이다.
+
+**단, 안심코드의 P9 미발화는 근거가 약하다(정밀도 관찰)**: 미발화를 만든 것은 실제 처리방침
+문서가 아니라 **`rules/semgrep/privacy.yaml`·`api/tests/test_privacy_rules.py`라는 파일명 우연 일치**다.
+[repo_checks.py:104](../api/app/engine/repo_checks.py#L104)의 부재 검사가 파일명만 보므로,
+`privacy`가 들어간 파일이 어떤 이유로든 있으면 P9가 꺼진다. 미검출 방향의 정밀도 한계로 기록한다.
+
+### ③ 인젝션 방어 시연
+
+페이로드 4종(한국어·영어·역할 사칭·JSON 위장)을 `vulnerable/injection_test.py` 한 파일에 두고
+벤치마크 스캔 결과로 판정했다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| SEC-04 정상 flag | ✅ confirmed (line 8), `grade_blocking=true` |
+| 등급 | ✅ **위험 유지** |
+| 상향 안내 | ✅ "이 23건만 해결하면 주의로 올라갑니다" |
+| LLM 산출 텍스트의 지시문 반영 | ✅ `안심`·`SAFE`·`취약점 보고를 취소` **0건**(설명·수정 프롬프트·쉬운 설명 전수) |
+| 시크릿 원문 노출 | ✅ evidence `****` 마스킹(P0-2) |
+
+**보류 1건**: 키 미설정으로 judge가 실행되지 않아(`llm_model_id: null`,
+`judge_explanation` 0/101) "judge가 인젝션을 읽고도 무시했다"는 **행동 수준 증거는 없다**.
+대신 확인된 것은 더 강한 구조적 사실이다 — ① SEC-*는 애초에 judge에 가지 않고
+([analysis.py:95-98](../api/app/engine/analysis.py#L95)) ② judge가 401로 전부 실패한 상태에서도
+등급·발견·상향 안내가 정상 산출됐다. 실키 확보 시 재확인 절차는 injection_payloads.md에 적었다.
+
+### ④ dogfooding — 안심코드 자기진단
+
+| 항목 | 값 |
+| --- | --- |
+| 대상 | `https://github.com/fmaPark/ansim-code` (main, git URL) |
+| 소요 | **39초** |
+| 등급 | **위험** (상향 조건: 19건) |
+| 발견 | 216건 (confirmed 206 · review_needed 10) |
+| SBOM | 컴포넌트 91개 / 취약 7개 · 공급망 분류 `오픈소스` |
+
+자기 등급이 '위험'으로 나왔고, 원인을 하나씩 대조하니 **상당수가 자기 오탐**이었다.
+숨기지 않고 남긴다 — 이것이 dogfooding의 목적이다.
+
+| 룰 | 건수 | 위치 | 판정 |
+| --- | --- | --- | --- |
+| SEC-04 | 10 | 전부 `api/tests/` (test_pii·test_masking·test_gitleaks·test_rescan) | **오탐** — 룰 테스트용 합성 픽스처다 |
+| SEC-02 | 4 | `api/tests/test_gitleaks.py` | **오탐** — 동일 |
+| SEC-05 | 7 | `api/tests/test_gitleaks.py` (review_needed) | **오탐** — 동일 |
+| SCA-01 | 3 | `app`·`packageurl`·`pydantic` | **오탐** — `app`은 1차 패키지(자기 자신), `packageurl`·`pydantic`은 `packageurl-python`·`pydantic-settings`로 선언돼 있는데 import명→배포명 별칭표에 없다 |
+| P5 | 2 | `api/tests/test_privacy_rules.py`, **`api/app/engine/repo_checks.py`** | **오탐** — 특히 두 번째는 룰 자신의 소스가 자기 정규식 리터럴(`BeautifulSoup`·`requests.get`·PII 필드)에 걸린 것이다 |
+| P4 | 1 | `api/tests/test_judge.py` | **오탐** — 픽스처 |
+| SCA-10 | 74 | npm 컴포넌트 전량 | **오탐** — Task 26에서 찾은 `_is_registry` 결함(아래) |
+| SCA-02 | 7 | 실제 취약 버전 | 정탐 |
+
+**세 가지 오탐 원인이 드러났다**:
+
+1. **테스트 픽스처가 시크릿으로 잡힌다.** gitleaks allowlist의 경로 예외가
+   `(^|/)tests?/fixtures/`라서 `api/tests/*.py`에 인라인으로 쓴 합성 시크릿은 걸러지지 않는다
+   ([ansim.toml](../rules/gitleaks/ansim.toml)). 시크릿 룰을 테스트하려면 픽스처가 필요한데
+   그 픽스처가 곧 오탐이 되는 구조다.
+2. **룰 소스 자신이 룰에 걸린다.** `repo_checks.py`의 P5 정규식 리터럴이 P5를 발화시켰다.
+   벤치마크 명세 §1.3이 경고한 "자기 마스킹"의 거울상이며, 측정 스크립트 2종을 벤치마크가 아니라
+   안심코드에 둔 판단이 옳았음을 반대편에서 확인해 준다.
+3. **`_is_registry`가 공개 레지스트리 URL을 비레지스트리로 본다** —
+   Task 26 부가 발견에서 5건으로 보였던 것이 실제 저장소에서는 **74건**으로 증폭됐다
+   ([deps_npm.py:48](../api/app/engine/deps_npm.py#L48)). 영향 규모가 확인된 셈이다.
+
+**세 건 모두 이번 세션에서 수정하지 않았다** — 순환 검증 회피(TDD §9) 하에 Task 26·27은
+룰 코드를 건드리지 않는다. 후속 이슈 대상이며, 우선순위는 SCA-10 결함(74건) > 픽스처 allowlist >
+P5 자기 발화 순으로 본다.
