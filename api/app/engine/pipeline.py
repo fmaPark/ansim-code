@@ -18,6 +18,7 @@ from app.engine.grade import GradeResult, calc_grade, cve_rows_from_osv
 from app.engine.kisa import kisa_snapshot_label, load_kisa
 from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
 from app.engine.imports_py import extract_python_imports
+from app.engine.registry import RegistryQuery, query_registry, registry_snapshot_label
 from app.engine.sbom import build_sbom, classify_supply_chain, component_row, vendored_dependencies
 from app.engine.sca_rules import component_label, evaluate_sca_rules, matrix_0322
 from app.engine.semgrep_runner import extract_js_imports
@@ -84,6 +85,35 @@ def stage_sbom(db, scan, root: Path) -> dict:
                                  "supply_chain_class": scan.supply_chain_class,
                                  "parse_marker_count": len(markers)})
     return {"deps": deps, "components": components, "markers": markers}
+
+
+async def stage_registry(db, scan, components: list[SbomComponent]) -> None:
+    """§11.2 보강 — PyPI/npm 메타데이터로 SBOM ⑧ license_name·⑫ release_date를 채운다(이슈 #33).
+
+    로컬 판정(동봉 LICENSE·vendored package.json)이 이미 채운 값은 덮지 않는다.
+    조회 대상은 supplier가 있는 컴포넌트만이다 — vendored 승격분은 레지스트리 실체가 없다.
+    장애 정책은 OSV와 동일: 부분 결과 유지 + `registry_incomplete` 표시.
+    """
+    if not settings.registry_lookup_enabled:
+        return
+    queries = [RegistryQuery(key=c.unique_id, ecosystem=c.ecosystem,
+                             name=c.component_name, version=c.version)
+               for c in components if c.supplier]
+    result = await query_registry(queries)
+    for c in components:
+        meta = result.metadata.get(c.unique_id)
+        if meta is None:
+            continue
+        if not c.license_name and meta.license_name:
+            c.license_name = meta.license_name
+        if not c.release_date and meta.release_date:
+            c.release_date = meta.release_date
+    report = dict(scan.report_json or {})
+    report["registry_incomplete"] = result.incomplete
+    _set(db, scan, report_json=report)
+    log.info("레지스트리 조회", extra={"scan_id": str(scan.id), "queried": len(queries),
+                                       "resolved": len(result.metadata),
+                                       "incomplete": result.incomplete})
 
 
 def _apply_vulns(component: SbomComponent, infos) -> None:
@@ -179,7 +209,8 @@ def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
                 status="confirmed"))
         db.add_all(findings)
 
-    _set(db, scan, vuln_db_snapshot_date=f"{osv_snapshot_date()}; {kisa_snapshot_label()}")
+    _set(db, scan, vuln_db_snapshot_date=(
+        f"{osv_snapshot_date()}; {kisa_snapshot_label()}; {registry_snapshot_label()}"))
     log.info("KISA 교차", extra={"scan_id": str(scan.id), "kisa_cve_count": len(snapshot),
                                  "kisa_advisory_count": len(snapshot.advisories),
                                  "sca03_findings": len(findings),
@@ -246,7 +277,8 @@ async def stage_report(db, scan, registry, grade_result=None) -> None:
     scratch = dict(scan.report_json or {})        # parse_markers·osv_incomplete·matrix_0322
     dev, easy = build_reports(scan, findings, [component_row(c) for c in components],
                               scratch.get("matrix_0322"), scratch.get("osv_incomplete", False),
-                              grade_result=grade_result)
+                              grade_result=grade_result,
+                              registry_incomplete=scratch.get("registry_incomplete", False))
     # 기존 스크래치 키를 보존한 채 병합한다 — /sbom이 parse_markers를 읽는다.
     _set(db, scan, report_json={**scratch, **dev}, easy_report_json=easy)
     log.info("대책 수립", extra={"scan_id": str(scan.id), "finding_count": len(findings)})
@@ -272,6 +304,7 @@ async def run_scan(scan_id):
                          rule_catalog_version=rule_catalog_version())     # G11: 파기 전 확정
                     _set(db, scan, current_stage="현황진단")   # §11.2 — Task 6~8
                     ctx = await asyncio.to_thread(stage_sbom, db, scan, res.root)
+                    await stage_registry(db, scan, ctx["components"])
                     _set(db, scan, current_stage="위험분석")   # §11.3 — Task 9~17
                     # M3: SBOM 취약점 대조 + SCA 룰 — Task 9~11
                     osv_result = await stage_osv(db, scan, ctx["components"])

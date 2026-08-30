@@ -110,7 +110,7 @@ def _copy_all(findings) -> str:
 
 
 def build_reports(scan, findings, sbom_rows, matrix, incomplete: bool,
-                  grade_result=None) -> tuple[dict, dict]:
+                  grade_result=None, registry_incomplete: bool = False) -> tuple[dict, dict]:
     """개발자용·시민용 리포트를 조립한다. 저장은 호출부(파이프라인)가 병합해서 한다."""
     findings = list(findings)
     rows = [_finding_row(f) for f in findings]
@@ -128,6 +128,7 @@ def build_reports(scan, findings, sbom_rows, matrix, incomplete: bool,
             "llm_model_id": scan.llm_model_id,       # judge 스킵 시 null
             "vuln_db_snapshot_date": scan.vuln_db_snapshot_date,
             "vuln_match_incomplete": bool(incomplete),   # OSV 부분 결과 → "일부 미대조"
+            "registry_lookup_incomplete": bool(registry_incomplete),   # SCA-05·07 입력 미조회
         },
         "six_principles": _six_principles(findings),
         "findings": rows,
