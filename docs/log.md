@@ -4,7 +4,7 @@
 
 ## 2026-08-30
 
-* **Update**: `plans/mvp-implementation.md` — Task 26·27을 벤치마크 명세 v0.2(PR #12) 기준으로 재작성. Task 26 Interfaces에 **룰별 오라클 키 표**(SCA-01~09=패키지 / SCA-10~12=declared_in / P8·P9·P1=repo-wide)와 매칭 의미론(대표 키잉·다발 허용·부가 발견 3단 표)을 도입해 `(rule_id, file)` 일괄 매칭 서술을 폐기, 스텝을 4→7개로 분해(불변식 자동 검사 + CI 신설, `measure_detection.py` 사양화, Flask severity·플레이스홀더·등급 태그 3종 확정, stretch 세트 선택 스텝). Task 27에 **P8·P9·P10 FPR 측정 책임**과 인젝션 페이로드 변형 2~3종을 추가. §11 항목 2 상태를 '미확정'→'승인 대기(v0.2)'로 갱신. 저장소 구조에 `verification/check_invariants.py` 등재.
+* **Update**: `plans/mvp-implementation.md` — Task 26·27을 벤치마크 명세 v0.3(PR #12 머지본) 기준으로 재작성. Task 26 Interfaces에 **룰별 오라클 키 표**(SCA-01~09=패키지 / SCA-10~12=declared_in / P8·P9·P1=repo-wide)와 매칭 의미론(대표 키잉·다발 허용·부가 발견 3단 표)을 도입해 `(rule_id, file)` 일괄 매칭 서술을 폐기, 스텝을 4→7개로 분해(불변식 자동 검사 + CI 신설, `measure_detection.py` 사양화, Flask severity·플레이스홀더·등급 태그 3종 확정, stretch 세트 선택 스텝). Task 27에 **P8·P9·P10 FPR 측정 책임**과 인젝션 페이로드 변형 2~3종을 추가. v0.3 재리뷰분 반영 — B6(SCA-09=django 대표·SCA-08 package는 스캐폴딩 기입)·M1(P4 불변식을 PII·외부전송 동시 등장 조건으로 완화)·M2(명세 §5.1이 매칭 사양의 정본). §11 항목 2 상태를 '미확정'→'확정(게이트 통과)'으로 갱신하고 Task 26 Step 1을 완료 처리. 저장소 구조에 `verification/check_invariants.py` 등재.
 
 ## 2026-08-29
 

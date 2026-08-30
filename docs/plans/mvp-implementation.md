@@ -84,7 +84,7 @@ graph LR
 | §11 항목 | 이 계획의 처리 |
 | --- | --- |
 | 1. LLM 호출 상한 | **초안 수치 채택**: judge 12 병렬·변환 30항목 배치. Task 16에서 실측 후 `docs/measurements.md`에 확정치 기록 |
-| 2. 벤치마크 취약점 목록 | **승인 대기** — `docs/benchmark-spec.md` v0.2(PR #12)가 오라클 확정본이며, 리뷰 블로커 5·메이저·마이너를 반영한 상태로 재승인을 기다린다. Task 26은 이 문서의 머지를 선행 조건으로 하며 **M7 착수 전 마감 게이트**. 미수신 시 개발이 룰 커버리지 기준 초안을 작성해 기획 승인만 받는 폴백(순환 검증 회피 원칙은 "개발이 목록에 룰을 맞추지 않는다"로 유지) |
+| 2. 벤치마크 취약점 목록 | **확정(2026-08-30)** — [`docs/benchmark-spec.md`](../benchmark-spec.md) v0.3이 PR #12로 머지되어 M7 게이트 통과. 이 문서가 오라클 정본이며 Task 26은 여기에 룰을 맞춰 목록을 수정하지 않는다(순환 검증 회피). 폴백 조항은 발동하지 않았다 |
 | 3. 플레이스홀더 allowlist | 초기 목록(G13)으로 시작, Task 16 실측으로 보강 |
 | 4. 주민번호 무효 처리 | **review_needed 기본값으로 구현**(Task 13). 기획 확정 시 상수 1곳 변경 |
 | 5. KISA 데이터셋 | data.go.kr/15155789로 진행, Task 10 첫 단계에서 실데이터 확인 후 확정 기록 |
@@ -1855,11 +1855,11 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 
 ### Task 26: 자체 벤치마크 저장소 + TPR/FPR 측정
 
-**TDD 참조:** §9 벤치마크 검증(별도 저장소·기획 선확정 목록·순환 검증 회피·전체 룰 기준 공개·"데모 시연 n종" 명시), §11 항목 2(승인 대기 — 2026-08-29 사용자 확인: M7 착수 전 마감 게이트 + 폴백), §6(진단 룰 품질 리스크)
+**TDD 참조:** §9 벤치마크 검증(별도 저장소·기획 선확정 목록·순환 검증 회피·전체 룰 기준 공개·"데모 시연 n종" 명시), §11 항목 2(확정 — benchmark-spec v0.3 머지로 M7 게이트 통과), §6(진단 룰 품질 리스크)
 
-**명세 참조:** `docs/benchmark-spec.md` v0.2 — 오라클 확정본(**PR #12 머지 대기 중이라 아직 번들에 없다 — 링크 대신 경로만 적었다. 머지 후 `../benchmark-spec.md`를 가리키는 마크다운 링크로 교체할 것**). §1.1 방출 규약·오라클 키, §1.2 repo-wide 룰의 clean 음성 불가, §1.3 저장소 전체 불변식, §4 케이스 목록, §5.1 매칭 의미론, §5.2 `expected_findings.yaml`, §6 FPR 세트, §7 등급 시나리오·태그.
+**명세 참조:** [docs/benchmark-spec.md](../benchmark-spec.md) **v0.3**(PR #12 머지 완료 — 오라클 확정본, 이 태스크의 정본). §1.1 방출 규약·오라클 키, §1.2 repo-wide 룰의 clean 음성 불가, §1.3 저장소 전체 불변식, §4 케이스 목록, §5.1 매칭 의미론, §5.2 `expected_findings.yaml`, §6 FPR 세트, §7 등급 시나리오·태그.
 
-**선행 조건:** Task 19 + 외부: 기획 확정 취약점 목록(§11 항목 2 — `docs/benchmark-spec.md` v0.2 승인·머지)
+**선행 조건:** Task 19 + 외부: 기획 확정 취약점 목록(§11 항목 2 — **충족**: `docs/benchmark-spec.md` v0.3이 PR #12로 머지됨)
 
 **Files:**
 - Create(별도 저장소 `ansim-benchmark` — GitHub 공개, git URL 입력 데모 겸용): `vulnerable/`·`clean/`·`README.md`(취약점 의도 명세)·`verification/expected_findings.yaml`(기획 목록 사본)·`.github/workflows/invariants.yml`
@@ -1868,7 +1868,8 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 
 **Interfaces:**
 - Produces: `ansim-benchmark` 구조 — `vulnerable/`(기획 확정 목록의 취약점을 심은 Python·JS 파일들 + 취약 버전 `requirements.txt`·`package-lock.json`), `clean/`(오탐 측정용 — 유사하지만 안전한 코드: 파라미터 바인딩 쿼리, 플레이스홀더 키, 암호화 저장 — 명세 §6 파일당 near-miss 세트), 루트 `README.md`(취약점 의도 명세).
-- `expected_findings.yaml` 스키마: `- {rule_id, file, verdict, package?, note?}`(기획 확정본 — **개발이 룰에 맞춰 수정 금지, 순환 검증 회피**). 계획 초안의 `{rule_id, file, line, note}`에서 **`verdict`·`package`를 추가**하고 `line`은 스키마에서 뺐다(아래 line 절차). repo-wide 룰은 `file: null`.
+- **스키마·매칭 사양은 [benchmark-spec §5.1·§5.2](../benchmark-spec.md)가 우선한다**(개발이 룰에 맞춰 수정 금지, 순환 검증 회피). 아래는 그 사양을 Task 26 실행 관점으로 펼친 것이며, **어긋나면 명세가 정본**이다.
+- `expected_findings.yaml` 항목: `{rule_id, verdict, note?}` + **룰 유형별 키** — 파일 키 룰=`file`(+스캐폴딩 후 `line`), 컴포넌트 키 룰 SCA-01~09=`package`, declared_in 키 룰 SCA-10~12=`file`(매니페스트 경로), repo-wide 룰 P8·P9·P1=`file: null`. 계획 초안의 `{rule_id, file, line, note}`에서 **`verdict`·`package`가 추가**된 형태다.
 - **오라클 키는 룰마다 다르다**(명세 §1.1 — 러너의 finding 방출 규약과 1:1):
 
   | 방출 유형 | 룰 | 오라클 키 | 비고 |
@@ -1881,15 +1882,15 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
   | file=model (repo-wide 조건) | P10 | `(rule_id, model_file)` | 조건은 저장소 전체 |
 
   > **`(rule_id, file)` 일괄 매칭 금지** — SCA-01~09·P8·P9·P1은 `file=None`이라 파일 키로 매칭하면 전부 미검출로 집계된다.
-- **line 절차**: 기획은 `(rule_id, file, verdict)`까지 확정한다. `line`은 **스캐폴딩 직후 개발이 기입**하되 rule_id·file·verdict는 변경 불가. 같은 `(rule_id, file)` 중복 기대가 없으므로 매칭은 line 없이 성립한다.
+- **스캐폴딩 시 개발이 기입하는 필드**(명세 §1.1 line 절차 + §5.1 B6): ① 파일 키 룰의 `line` ② **SCA-08(라이선스 불명)의 `package`** — 불명 dep이 스캐폴딩 시 정해진다. 둘 다 **`rule_id`·`file`·`verdict`는 변경 불가**이고, 플레이스홀더(`<...>`·`TBD`)를 오라클에 남기지 않는다. 같은 `(rule_id, file)` 중복 기대가 없으므로 매칭 자체는 line 없이 성립한다.
 - **매칭 의미론**(명세 §5.1 — `measure_detection.py` 사양):
-  - **대표 키잉 + 다발 허용**: 설계상 한 룰이 여러 컴포넌트에서 발화하면(SCA-09는 lock 부재 시 전 pypi 컴포넌트) 오라클이 명시한 대표 패키지 검출을 hit로 세고, **동일 룰의 추가 발화는 오탐이 아니다**.
+  - **대표 키잉 + 다발 허용**: 설계상 한 룰이 여러 컴포넌트에서 발화하면(SCA-09는 lock 부재 시 전 pypi 컴포넌트) 오라클이 명시한 대표 패키지 검출을 hit로 세고, **동일 룰의 추가 발화는 오탐이 아니다**. SCA-09의 대표는 **`package: django`로 확정**(lock 부재라 확실 hit — 명세 §5.1 B6).
   - **부가 발견(extra findings)**: `vulnerable/`에서 나온 confirmed 중 오라클에도 없고 대표 키잉 집합에도 속하지 않는 발견은 **TPR·FPR 어느 지표에도 세지 않고**, 측정 리포트에 "부가 발견"으로 공개한다. → 표는 **TPR·FPR·부가 발견 3단**이다.
   - `TPR = 검출/기대`(룰별). `FPR = clean/ 파일에서 발생한 confirmed 수 / clean 파일 수` — **repo-wide 룰(P8·P9·P10)은 분모·분자에서 제외**하고 Task 27(PyGoat·dogfooding)에서 측정한다(명세 §1.2: 같은 스캔 트리에 clean 음성을 두면 양성이 마스킹됨).
 - `measure_detection.py` 출력: `docs/measurements.md`에 표 append(전체 31종 기준 — 미시연 룰도 표에 포함, TDD §9 ③).
 
-- [ ] **Step 1: 게이트 확인** — 기획 확정 목록 수신 확인(`docs/benchmark-spec.md` v0.2 머지 = 게이트 통과). 미수신 시 폴백(§11 항목 2 처리 방침): 개발이 룰 커버리지 기준 초안 목록 작성 → 기획 승인 후 진행, 승인 사실을 measurements.md에 기록.
-- [ ] **Step 2: 벤치마크 저장소 스캐폴딩 → GitHub 공개 push** — 명세 §4의 각 행이 정확히 한 파일·한 라인에 대응하게 심기(§3 매니페스트 실내용 포함). **인젝션 페이로드 파일도 여기 포함**(Task 27 Step 2 사양, 오라클 상 `{rule_id: SEC-04, file: vulnerable/injection_test.py, verdict: confirmed}`). 심은 뒤 `expected_findings.yaml`에 **line 값을 기입**(위 line 절차 — rule_id·file·verdict는 불변).
+- [x] **Step 1: 게이트 확인** — **통과(2026-08-30)**. 기획 확정 목록이 `docs/benchmark-spec.md` v0.3으로 머지됐다(PR #12, 재리뷰 B6·M1·M2 반영). 폴백(§11 항목 2 처리 방침) 불필요.
+- [ ] **Step 2: 벤치마크 저장소 스캐폴딩 → GitHub 공개 push** — 명세 §4의 각 행이 정확히 한 파일·한 라인에 대응하게 심기(§3 매니페스트 실내용 포함). **인젝션 페이로드 파일도 여기 포함**(Task 27 Step 2 사양, 오라클 상 `{rule_id: SEC-04, file: vulnerable/injection_test.py, verdict: confirmed}`). 심은 뒤 `expected_findings.yaml`의 **개발 기입 필드를 채운다** — 파일 키 룰의 `line`, SCA-08의 `package`(현재 `TBD`). rule_id·file·verdict는 불변.
 - [ ] **Step 3: 불변식 자동 검사 + CI** — 명세 §1.3 불변식을 문서가 아니라 **실행 가능한 검사로 강제**한다. `verification/check_invariants.py <benchmark_root>`가 아래 6종을 검사하고 위반 시 비영(non-zero) 종료 → 벤치마크 저장소의 `.github/workflows/invariants.yml`이 push마다 안심코드를 체크아웃해 실행. **이 자동 검사가 이번 고도화의 핵심** — 벤치마크를 나중에 수정할 때 repo-wide 양성이 조용히 마스킹되는 회귀를 구조적으로 차단한다.
 
   | # | 검사 | 범위 | 마스킹되는 것 | 근거 |
@@ -1898,12 +1899,12 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
   | ② | 파일명 `privacy*`·`개인정보처리방침*` 부재 / `/privacy` 라우트 부재 | **파일명은 전 파일**(비코드 포함), 라우트는 코드 파일 | P9 | `repo_checks.py:104` |
   | ③ | 삭제 동사(delete·destroy·expire·retention·purge·파기) 부재 | 전 코드 파일 | P10 | `repo_checks.py:64` |
   | ④ | 모든 비표준 import가 매니페스트에 선언됨(의도된 SCA-01 예외 목록과 대조) | `vulnerable/`·`clean/` | — (의도치 않은 SCA-01 발생) | `repo_checks.py:16,30` |
-  | ⑤ | P4 트리거(`requests.post`·`fetch(`·`axios.`)가 `third_party.py` 밖에 없음 | 전 코드 파일 | — (P4 오라클 외 발화) | `analysis.py:104` |
+  | ⑤ | **PII 필드 정규식과 외부 전송 호출(`requests.post`·`fetch(`·`axios.`)이 *같은 파일에 동시* 등장하는 것은 `third_party.py`에서만**(외부 전송 호출 단독은 허용) | 전 코드 파일 | — (P4 오라클 외 발화) | `analysis.py:126-131` |
   | ⑥ | 인증 단어(`login_required` `Depends(` `authenticate` `passport` `jwt_required` `@auth` `check_auth` `requires_auth`) 부재 | **`vulnerable/admin_routes.py`·`vulnerable/admin.js` 한정** | P7 | `repo_checks.py:92-94` |
 
   > **⑥의 범위 주의**: P7은 파일 단위 검사라 `clean/admin_ok.py`는 오히려 `@login_required`를 **넣어야** 미발화 음성이 된다(명세 §6). 전 저장소에 적용하면 이 FPR 음성 케이스가 불가능해지므로 `vulnerable/` admin 파일로 한정한다.
   >
-  > **자기 마스킹 주의(스크립트를 벤치마크 저장소에 두지 않는 이유)**: 스캔 제외 디렉토리는 `SKIP_DIRS`(`node_modules`·`venv`·`.venv`·`.git`·`__pycache__`·`__MACOSX`·`dist`·`build`)뿐이라 벤치마크의 `verification/`도 스캔 대상이 된다. 그런데 이 스크립트는 정의상 `import logging`·`privacy`·삭제 동사를 **정규식 리터럴로 품고 있어야** 하므로, 벤치마크 저장소 안에 커밋하면 **자기 소스가 P8·P9·P10을 전부 마스킹한다.** → 스크립트 2종은 안심코드 `verification/`에 두고 CI가 체크아웃해 실행한다(Files 참조). 벤치마크 저장소 안에 어쩔 수 없이 헬퍼를 둬야 하면 패턴을 문자 조립으로 난독화하거나 `CODE_EXTS`(`.py/.js/.ts/.jsx/.tsx`) 밖 확장자로 둔다.
+  > **자기 마스킹 주의(스크립트를 벤치마크 저장소에 두지 않는 이유)**: 스캔 제외 디렉토리는 `SKIP_DIRS`(`node_modules`·`venv`·`.venv`·`.git`·`__pycache__`·`__MACOSX`·`dist`·`build`)뿐이라 벤치마크의 `verification/`도 스캔 대상이 된다. 그런데 이 스크립트는 정의상 `import logging`·`privacy`·삭제 동사를 **정규식 리터럴로 품고 있어야** 하므로, 벤치마크 저장소 안에 커밋하면 **자기 소스가 P8·P9·P10을 전부 마스킹한다.** → 스크립트 2종은 안심코드 `verification/`에 두고 CI가 체크아웃해 실행한다(Files 참조). 벤치마크 저장소 안에 어쩔 수 없이 헬퍼를 둬야 하면 패턴을 문자 조립으로 난독화하거나 `CODE_EXTS`(`.py/.js/.ts/.jsx/.tsx`) 밖 확장자로 둔다. 다만 **⑤(P4)는 명세 v0.3 M1 교정으로 완화**되어, `measure_detection.py`의 `requests.post`는 같은 파일에 PII 필드 정규식이 없으면 P4를 유발하지 않는다 — 자기 마스킹 위험은 ①③(P8·P10)과 ②(P9)에 남는다.
 - [ ] **Step 4: `measure_detection.py` 구현** — API 스캔 호출 → finding 회수 → **사후 필터**(`vulnerable/`·`clean/` 외 경로 제외, **repo-wide 룰은 예외**) → 위 표대로 룰별 키 매칭 → **TPR·FPR·부가 발견 3단 표** 생성 → `docs/measurements.md` append 형식 출력. 보정 2건: ① SCA는 file이 null이라 **evidence에서 컴포넌트명을 파싱해 `(rule_id, package)`로 매칭**(SCA-10·11·12는 `declared_in`) ② 스캔은 파이프라인상 **저장소 전체**가 대상이고 서브패스 한정 파라미터가 없다 → 파일 키 룰은 매칭 시 사후 필터로 범위를 좁히고, repo-wide 룰은 Step 3 불변식으로 마스킹을 방지한다(스캔 범위 자체를 좁힐 수는 없음). **오라클 YAML만 바꿔도 재실행되는 순수 함수형 매칭**으로 구현.
 - [ ] **Step 5: 측정 실행 + 잔여 확정** — 안심코드 저장소 루트에서 `python verification/measure_detection.py --api http://localhost:8000 --repo https://github.com/{계정}/ansim-benchmark` → 3단 표 생성. 함께 처리할 것:
   - 오탐(FPR>0) 룰은 allowlist·패턴 보정 **1회** 반영 후 재측정(§11 항목 3 보강).

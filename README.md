@@ -29,6 +29,34 @@ React 18 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL 1
 
 원본 소스코드는 스캔별 격리 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다 — 이 정책 자체가 TTAK.KO-12.0414 §7.3.5(지체 없는 파기)의 자기 적용이다.
 
+## 실행
+
+로컬 Docker Compose 3서비스(db·api·web)로 기동한다. `.env`가 없으면 compose가 뜨지 않는다.
+
+```bash
+cp .env.example .env
+```
+
+`.env`의 `ANTHROPIC_API_KEY`에 실제 Anthropic 키를 채운다 — 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다.
+
+```bash
+docker compose up -d --build
+```
+
+데모 진입점은 <http://localhost:8080>이고 API는 <http://localhost:8000>에서 직접 열린다(`/health`·`/docs`). 포트가 점유된 경우에만 `WEB_PORT`·`API_PORT`로 덮어쓴다. 첫 기동 때 진단 룰 31종이 DB에 시드된다. 종료는 `docker compose down`, 스키마를 갈아엎을 때는 `-v`를 붙인다.
+
+## 개발
+
+api 테스트는 compose 네트워크의 PostgreSQL을 쓰므로 컨테이너 안에서 돌린다(테스트 DB `ansim_test`는 자동 생성된다).
+
+```bash
+docker compose run --rm -v "$PWD:/work" -w /work/api api pytest
+```
+
+```bash
+cd web && npm ci && npm run build
+```
+
 ## 도구
 
 ```bash
