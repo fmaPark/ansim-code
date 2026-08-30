@@ -14,7 +14,7 @@
 | S3 | Task 12–16 | M4 | S2 | Task 16 Step 4만 실키 필요 |
 | S4 | Task 17–21 | M5 | S3 | — |
 | S5 | Task 22–25 | M6 | S4 | 기획 카피 게이트, 브라우저 수동 검증 |
-| S6 | Task 26–28 | M7 | S5 + **기획 벤치마크 목록** | 별도 공개 저장소·실키 필요 |
+| S6 | Task 26–28 | M7 | S5 + **기획 벤치마크 목록**(PR #12 완료) | 별도 공개 저장소·실키 필요 |
 
 **병렬 변형(작업자·세션 여유 시):** S1 완료 후 3개 레인 동시 진행 → 레인 A: S2 그대로 / 레인 B: S3a(Task 12–14) / 레인 C: S3c(Task 23 FE 골격). A·B 병합 후 S3b(Task 15–16), 이후 S4 → S5'(Task 22·24·25 — 23 제외) → S6.
 병합 순서 A → B → C 권장. 공유 접점은 `api/app/engine/pipeline.py` 연결부와 `api/app/config.py`뿐(레인 C는 `web/`만 수정) — B·C 병합 시 이 두 파일만 충돌 주의.
@@ -127,13 +127,15 @@ executing-plans 스킬을 사용해 docs/plans/mvp-implementation.md 계획을 �
 이번 세션 범위: Task 26~28 (M7 검증·데모)만. 범위 밖 태스크는 절대 건드리지 말 것.
 브랜치: M6까지 병합된 최신 베이스에서 feat/m7-verification 분기. main 직접 작업 금지.
 
-시작 전 게이트(둘 다 나에게 먼저 확인):
-1) 기획 확정 벤치마크 취약점 목록(§11 항목 2) — 없으면 계획의 폴백(개발 초안 작성→기획 승인) 진행 여부를 물을 것.
-2) ansim-benchmark 별도 공개 저장소를 만들 GitHub 계정/위치.
+사양 authority: 벤치마크 취약점 목록은 docs/benchmark-spec.md(v0.3, PR #12 승인·머지)가 확정 오라클이다. **매칭·불변식·오라클 사양은 benchmark-spec §5.1(4종 키 매칭·부가발견·다발 허용)·§1.3(저장소 전체 불변식)·§5.2(오라클) > 계획 Task 26 서술** 순으로 우선한다(Task 26 Produces가 이미 이를 명시).
+
+시작 전 게이트(나에게 먼저 확인):
+1) ansim-benchmark 별도 공개 저장소를 만들 GitHub 계정/위치. (기획 목록 게이트는 PR #12 승인으로 해소됨)
 
 규칙:
 - 계획의 Global Constraints(G1~G16)·각 태스크 선행 조건·DoD를 그대로 따를 것.
-- 벤치마크 목록에 룰을 맞추는 수정 금지(순환 검증 회피 — TDD §9). 측정 결과는 전체 31종 기준으로 docs/measurements.md에 기록.
+- 벤치마크 목록에 룰을 맞추는 수정 금지(순환 검증 회피 — TDD §9). 표준 의도로 심은 케이스가 미검출이면 룰 갭으로 보고(임의 수정 금지). 측정 결과는 전체 31종 기준으로 docs/measurements.md에 기록.
+- benchmark-spec §1.3 불변식을 verification/check_invariants.py + CI로 자동검사(WP-3). measure_detection.py는 오라클에 미기입 센티넬(TBD·line)이 남으면 fail-closed로 측정 중단(WP-4). SCA-08 package·파일키 룰의 line은 스캐폴딩 후 기입(rule_id·verdict 불변).
 - 완료 스텝은 계획 문서 체크박스를 [x]로 갱신해 해당 커밋에 포함.
 - 막히면 추측하지 말고 중단 후 질문.
 - 범위 완료 시: M7 게이트(클린 재빌드 완주·키 무효 폴백 재생·README 단독 기동)를 검증하고 보고한 뒤 멈출 것. PR 생성은 내가 지시할 때만.
