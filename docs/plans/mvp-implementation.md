@@ -1906,6 +1906,8 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
   >
   > **자기 마스킹 주의(스크립트를 벤치마크 저장소에 두지 않는 이유)**: 스캔 제외 디렉토리는 `SKIP_DIRS`(`node_modules`·`venv`·`.venv`·`.git`·`__pycache__`·`__MACOSX`·`dist`·`build`)뿐이라 벤치마크의 `verification/`도 스캔 대상이 된다. 그런데 이 스크립트는 정의상 `import logging`·`privacy`·삭제 동사를 **정규식 리터럴로 품고 있어야** 하므로, 벤치마크 저장소 안에 커밋하면 **자기 소스가 P8·P9·P10을 전부 마스킹한다.** → 스크립트 2종은 안심코드 `verification/`에 두고 CI가 체크아웃해 실행한다(Files 참조). 벤치마크 저장소 안에 어쩔 수 없이 헬퍼를 둬야 하면 패턴을 문자 조립으로 난독화하거나 `CODE_EXTS`(`.py/.js/.ts/.jsx/.tsx`) 밖 확장자로 둔다. 다만 **⑤(P4)는 명세 v0.3 M1 교정으로 완화**되어, `measure_detection.py`의 `requests.post`는 같은 파일에 PII 필드 정규식이 없으면 P4를 유발하지 않는다 — 자기 마스킹 위험은 ①③(P8·P10)과 ②(P9)에 남는다.
 - [ ] **Step 4: `measure_detection.py` 구현** — API 스캔 호출 → finding 회수 → **사후 필터**(`vulnerable/`·`clean/` 외 경로 제외, **repo-wide 룰은 예외**) → 위 표대로 룰별 키 매칭 → **TPR·FPR·부가 발견 3단 표** 생성 → `docs/measurements.md` append 형식 출력. 보정 2건: ① SCA는 file이 null이라 **evidence에서 컴포넌트명을 파싱해 `(rule_id, package)`로 매칭**(SCA-10·11·12는 `declared_in`) ② 스캔은 파이프라인상 **저장소 전체**가 대상이고 서브패스 한정 파라미터가 없다 → 파일 키 룰은 매칭 시 사후 필터로 범위를 좁히고, repo-wide 룰은 Step 3 불변식으로 마스킹을 방지한다(스캔 범위 자체를 좁힐 수는 없음). **오라클 YAML만 바꿔도 재실행되는 순수 함수형 매칭**으로 구현.
+
+  > **fail-closed 검사(필수)**: 오라클에 **미기입 센티넬이 남아 있으면 측정을 진행하지 않고 에러로 중단**한다 — SCA-08의 `package: TBD`, 파일 키 룰의 빈 `line`, `<...>` 플레이스홀더. 이게 없으면 Step 2에서 기입을 빠뜨렸을 때 해당 룰이 **조용히 TPR 0으로 집계**되어 룰 갭과 구분되지 않는다(PR #12 리뷰 수락 제안).
 - [ ] **Step 5: 측정 실행 + 잔여 확정** — 안심코드 저장소 루트에서 `python verification/measure_detection.py --api http://localhost:8000 --repo https://github.com/{계정}/ansim-benchmark` → 3단 표 생성. 함께 처리할 것:
   - 오탐(FPR>0) 룰은 allowlist·패턴 보정 **1회** 반영 후 재측정(§11 항목 3 보강).
   - **Flask severity 확정** — CVE-2018-1000656은 NVD CVSS 7.5(High)이고 Flask 0.12.2에는 CVE-2019-1010083(High)도 걸려 v0.1의 "Low(비기여)" 기대는 성립하지 않는다. Low 검증은 **SCA-05(six)** 가 담당하므로 Flask 행은 High(주의 기여)로 두고, OSV 스냅샷 실측치를 기록한다.
@@ -1914,7 +1916,7 @@ BADGE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="140" height="20" r
 - [ ] **Step 6: [선택] stretch 케이스 세트** — base64 인코딩 시크릿, 여러 줄에 걸친 SQL 조립, ORM raw 쿼리 등 **현행 룰이 놓칠 만한 변형**을 `[stretch]` 표시와 함께 추가해 룰 갭을 실측한다. **미검출은 벤치마크 결함이 아니라 룰 갭 신호**이며, 이 원칙을 measurements.md 서식에 명시한다(TPR 분모에서 분리 집계). *포기 순서상 가장 먼저 버릴 항목.*
 - [ ] **Step 7: Commit** — `test: 벤치마크 TPR·FPR 측정 스크립트 + 불변식 CI + 결과 기록`
 
-**완료 기준(DoD):** ① 룰별 **TPR·FPR·부가 발견 3단 표**가 measurements.md에 존재(전체 31종 기준) ② 벤치마크가 공개 git URL로 스캔 가능 ③ **`check_invariants` 통과**(CI green) ④ 명세 §4의 모든 행이 파일 하나에 대응하고 `expected_findings.yaml`에 line 기입 완료 ⑤ 등급 태그 3종이 §7 시나리오대로 재현.
+**완료 기준(DoD):** ① 룰별 **TPR·FPR·부가 발견 3단 표**가 measurements.md에 존재(전체 31종 기준) ② 벤치마크가 공개 git URL로 스캔 가능 ③ **`check_invariants` 통과**(CI green) ④ 명세 §4의 모든 행이 파일 하나에 대응하고 `expected_findings.yaml`에 개발 기입 필드(`line`·SCA-08 `package`) 완료 — **fail-closed 검사가 통과해야 측정이 시작된다** ⑤ 등급 태그 3종이 §7 시나리오대로 재현.
 
 > **순환 검증 회피 가드(TDD §9)**: 이 태스크에서 **룰 코드는 수정하지 않는다.** 측정 결과가 나쁘면 오라클을 고치는 것이 아니라 갭으로 기록한다. 유일한 예외는 Step 5의 allowlist 보정 1회이며, 그 사실과 보정 전후 수치를 measurements.md에 함께 남긴다.
 
