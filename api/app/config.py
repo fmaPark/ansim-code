@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     llm_cache_dir: str = "/srv/data/llm_cache"
     kisa_csv_path: str = "/srv/data/kisa/krcert_notices.csv"
     rules_dir: str = "/srv/rules"
+    # PyPI/npm 레지스트리 메타데이터 조회(SBOM ⑧⑫ 보강 — 이슈 #33). 차단망 데모용 킬스위치.
+    registry_lookup_enabled: bool = True
 
 
 settings = Settings()

@@ -227,9 +227,9 @@ python verification/measure_detection.py \
 | SCA-02 | 5 | 5 | 100% | |
 | SCA-03 ⛔ | 5 | 5 | 100% | **이 행은 무효(이슈 #17)** — 표본 KISA 스냅샷 기준 측정이다. 실데이터로 교체된 뒤에는 5핀 중 django 1건만 발화한다. 재측정 필요 |
 | SCA-04 | 5 | 5 | 100% | |
-| SCA-05 ⚠ | 1 | 0 | 0% | six — **룰 갭**: `build_sbom`이 `release_date`를 항상 null로 둔다([sbom.py:167](../api/app/engine/sbom.py#L167) — 레지스트리 원격 조회 없음 가정). 판정 입력 자체가 없어 `_older_than`이 언제나 False다 |
+| SCA-05 ⚠ | 1 | 0 | 0% | six — **룰 갭(측정 당시)**: `build_sbom`이 `release_date`를 항상 null로 뒀다(레지스트리 원격 조회 없음 가정). 판정 입력 자체가 없어 `_older_than`이 언제나 False였다. **2026-08-31 「후속 이슈 처리 3회차」에서 해소** |
 | SCA-06 | 1 | 1 | 100% | |
-| SCA-07 ⚠ | 1 | 0 | 0% | pymupdf — **룰 갭**: 라이선스는 동봉 LICENSE 본문·vendored `package.json`에서만 판정한다([sbom.py:85-108](../api/app/engine/sbom.py#L85)). 매니페스트 선언만으로는 AGPL을 알 수 없어 SCA-08(라이선스 불명)로 흡수됐다 |
+| SCA-07 ⚠ | 1 | 0 | 0% | pymupdf — **룰 갭(측정 당시)**: 라이선스를 동봉 LICENSE 본문·vendored `package.json`에서만 판정했다. 매니페스트 선언만으로는 AGPL을 알 수 없어 SCA-08(라이선스 불명)로 흡수됐다. **2026-08-31 「후속 이슈 처리 3회차」에서 해소** |
 | SCA-08 | 1 | 1 | 100% | |
 | SCA-09 | 1 | 1 | 100% | |
 | SCA-10 | 1 | 1 | 100% | |
@@ -256,9 +256,9 @@ python verification/measure_detection.py \
 | **합계** | **51** | **48** | **94.1%** | |
 
 **룰 갭 3종은 벤치마크 결함이 아니다**(TDD §9 · 계획 Task 26 가드). 세 케이스 모두 표준 조항의
-의도대로 심었고 검출에 맞춰 수정하지 않았다. SCA-05·SCA-07은 "레지스트리 원격 조회 없음"이라는
-설계 가정([sbom.py:3](../api/app/engine/sbom.py#L3))의 직접 귀결이라 룰이 아니라 **가정의 비용**으로
-읽어야 한다 — 해소하려면 PyPI/npm 메타데이터 조회를 도입해야 하고 이는 MVP 범위 밖이다.
+의도대로 심었고 검출에 맞춰 수정하지 않았다. SCA-05·SCA-07은 측정 당시 "레지스트리 원격 조회
+없음"이라는 설계 가정의 직접 귀결이라 룰이 아니라 **가정의 비용**으로 읽어야 했다 —
+2026-08-31 「후속 이슈 처리 3회차」가 PyPI/npm 메타데이터 조회를 도입해 해소했다(#33).
 AUX-03만이 순수한 패턴 커버리지 갭이다.
 
 ### ② FPR — `clean/` 오탐률
@@ -819,6 +819,60 @@ P9는 등급 계산에 들어가므로 자기진단 등급 표시가 바뀔 수 
 
 기록의 목적은 하나다 — 나중에 P5 오탐률을 잴 때 이 2건을 사용자 코드의 오탐으로 오독하지
 않는 것. 등급에는 기여하지 않는다(`review_needed`).
+
+## 후속 이슈 처리 3회차 — #33 근본 픽스: 레지스트리 메타데이터 조회 도입 (2026-08-31)
+
+### 2회차 ② 결정의 번복
+
+2026-08-31 감사 코멘트(#33, JongIn-Lee72)가 외부 벤치마크 체크아웃으로 구조적 미검출을
+재재현하고, "진단 결과가 구조적으로 틀림(특정 룰이 항상 미검출)" 기준으로 **High**를
+매겼다. 2회차 ②의 Medium은 등급 기여·오류 방향 축의 평가였고, 이번 기준에서는 벤치마크에
+명세대로 심은 SCA-05·SCA-07 입력이 해당 룰로 관측돼야 한다는 요구가 우선한다. 이에 따라
+①(문서 명시)을 접고 이슈 본문이 "V2 조건"으로 미뤄 둔 근본 해결을 앞당겼다.
+
+### 구현 — `stage_registry` (PyPI JSON API · npm registry)
+
+- 새 모듈 `api/app/engine/registry.py` — OSV 클라이언트와 동일한 장애 정책(타임아웃 10s·
+  재시도 1회·부분 결과 유지·`incomplete` 플래그). 404는 확정 부정 응답이라 incomplete가
+  아니다. 버전 미고정 의존성은 최신 릴리스를 조회한다("지금 설치하면 받게 될 것").
+- 파이프라인 `stage_sbom` 직후에 SBOM ⑧ `license_name`·⑫ `release_date`의 **빈 값만**
+  채운다 — 동봉 LICENSE의 로컬 판정은 덮지 않고, vendored 승격분(supplier 없음)은 조회하지
+  않는다. 라이선스 원문·classifier는 `normalize_license`로 SPDX id로 정규화한다(전문 blob의
+  String(128) 컬럼 초과 방어 포함).
+- 미조회 시 리포트 provenance에 `registry_lookup_incomplete` 표시(OSV의 "일부 미대조"와
+  동일 채널). provenance의 `vuln_db_snapshot_date`에 `registry@날짜` 라벨을 병기해 등급
+  재현성 입력에 조회 시점을 기록한다. 차단망 킬스위치는 `REGISTRY_LOOKUP_ENABLED=false`.
+- 선택지 ②(SPDX 필드 파싱 확대)를 다시 검토하지 않은 이유는 2회차와 같다 —
+  `requirements.txt` 선언 케이스(벤치마크의 six·PyMuPDF)를 못 잡아 측정 수치가 안 변한다.
+
+`rules/catalog.yaml`은 이번에도 불변이다 — detection 서술은 판정식 기준이라 입력이
+채워진 지금 그대로 참이고, 이 회차의 `rules/` 변경은 0건이다(`rule_catalog_version`
+`f3d1d47b3617b572` 그대로 — #36 후속 회차의 AUX-03 룰 수정 이후 값).
+
+정규화 실측 보정 1건: PyPI의 PyMuPDF 원문 라이선스는 `"Dual Licensed - GNU AFFERO GPL
+3.0 or Artifex Commercial License"`인데, 기존 AGPL 패턴이 전체 문구(`GNU AFFERO GENERAL
+PUBLIC LICENSE`)만 요구해 아래 GPL 패턴이 먼저 삼켜 **GPL-3.0으로 오정규화**됐다(첫
+스모크에서 SCA-07 미발화로 발견). 패턴에 `\bAFFERO\b`를 추가해 해소 — `rules/`가 아니라
+`sbom.py`의 패턴이라 룰 버전에는 영향이 없다.
+
+### 측정 (2026-08-31, 워크트리 compose · API 8001)
+
+- 단위·통합 테스트: 레지스트리 클라이언트 모킹 12건 + 파이프라인 통합 4건(발화·불덮음·
+  열화·킬스위치) 추가, 전체 suite green(실행 커맨드는 이슈 #17 회차와 동일).
+- 실 레지스트리 스모크(`six==1.10.0`+`PyMuPDF` zip): SCA-05 발화(six, 최종 배포일
+  2015-10-07), SCA-07 발화(PyMuPDF, AGPL-3.0), 둘의 SCA-08 소멸(six는 MIT로 채워짐 —
+  미검출이 아니라 상위 판정으로의 이동), provenance `…; registry@2026-08-30`(컨테이너
+  UTC), `registry_lookup_incomplete: false`.
+- 벤치마크 재측정(`measure_detection.py`, 오라클·체크아웃 최신): **SCA-05 1/1 ·
+  SCA-07 1/1 · SCA-08 1/1**(오라클의 SCA-08 케이스 `somelib`은 git 의존성이라 조회
+  대상 밖 — 그대로 발화). 합계 **47/51 (92.2%)**, FPR 0.0%. 미검출 4건은 전부
+  SCA-03(실데이터 KISA 스냅샷에서 django만 교차 — 이슈 #17 기지 사항)으로 이번 변경과
+  무관하다. 등급 **위험** 유지. SCA-07은 medium·confirmed라 등급 증거에 들어간다.
+- 부가 발견: 레지스트리 일자가 채워지며 오라클 밖 SCA-05가 11건 늘었다(beautifulsoup4·
+  django·express 등 — 다발 허용, Low·등급 비기여).
+- 차단망 리허설(`REGISTRY_LOOKUP_ENABLED=false`): 같은 zip에서 SCA-05·07이 침묵하고
+  six·PyMuPDF가 SCA-08로 복귀하며 스캔은 정상 완료된다. 이때 `registry_lookup_incomplete`는
+  false다 — 의도적 미조회는 장애가 아니므로 "일부 미조회" 표시를 켜지 않는다.
 
 ## 이슈 #17 — §11 항목 5 KISA 공공데이터 확정 (2026-08-30, 실행 세션: claude/issue-17-data-validation-445ff4)
 
