@@ -1,0 +1,15 @@
+# 장애 폴백 리허설용 오버레이 (계획 Task 28 Step 2 · TDD §6).
+#
+# Anthropic API가 죽은 상황을 재현한다. `.env`를 건드리지 않고 무효 키를 덮어써서
+# LLM 호출이 전부 실패하게 만든 뒤, 같은 데모 시나리오가 그대로 재생되는지 본다.
+# 캐시가 있으면 캐시 폴백으로, 없으면 설계된 폴백 문구로 완주해야 한다.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.keyless.yml up -d api
+#   (원복) docker compose up -d api
+#
+# 등급·발견·상향 조건은 전부 static 경로라 이 상태에서도 동일하게 나온다(G3·TDD §10).
+
+services:
+  api:
+    environment:
+      ANTHROPIC_API_KEY: "sk-ant-invalid-rehearsal-key"

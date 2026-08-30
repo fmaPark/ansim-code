@@ -191,11 +191,383 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
   "동일 룰 해결+신규 쌍 = 위치 이동"임을 언급할 것. 개선은 M6 범위 밖(백엔드 diff.py).
 - **LLM 실호출(§11 항목 1)** — `.env` 키 placeholder(401) → 전 스캔이 폴백 경로. M7 데모 전 실키 필수.
 
+## M7 — Task 26 (2026-08-30, 실행 세션: feat/m7-verification)
+
+측정 환경: 로컬 Docker Compose(이 워크트리 스택, api 8002 / web 8086 — 다른 워크트리가 8000 점유).
+`ANTHROPIC_API_KEY` **미설정** 상태로 측정했다. 명세 §1.4대로 등급과 P1~P5·P10 초안은 전부
+static 경로라 키 없이 재현되며, 키가 필요한 것은 judge 설명 텍스트뿐이다 — 실제로 `llm_model_id`가
+null인 채로 31종 중 28종이 발화했다.
+
+벤치마크 저장소: **<https://github.com/fmaPark/ansim-benchmark>** (공개, `v1-danger` 태그 = main).
+오라클: `verification/expected_findings.yaml` (명세 §5.2 확정본 + 스캐폴딩 후 개발 기입분).
+
+재현 명령:
+
+```bash
+python verification/check_invariants.py <benchmark_checkout>
+python verification/measure_detection.py \
+  --api http://localhost:8002 \
+  --repo https://github.com/fmaPark/ansim-benchmark \
+  --oracle <benchmark_checkout>/verification/expected_findings.yaml \
+  --benchmark-root <benchmark_checkout>
+```
+
+측정 대상: `https://github.com/fmaPark/ansim-benchmark` · 등급 **위험** · 소요 **15.2s**(G14 2분 목표 대비 여유)
+
+- `content_fingerprint`: `94876f8da387c83e…` (git_commit)
+- `rule_catalog_version`: `8e512d222d972ed9`
+- `vuln_db_snapshot_date`: OSV@2026-08-30; KISA-CSV@2026-08-29
+- `llm_model_id`: (LLM 미호출 — 키 미설정)
+
+### ① TPR — 룰별 검출률 (전체 31종 기준)
+
+| 룰 | 기대 | 검출 | TPR | 미검출 위치 / 사유 |
+| --- | --- | --- | --- | --- |
+| SCA-01 | 2 | 2 | 100% | |
+| SCA-02 | 5 | 5 | 100% | |
+| SCA-03 | 5 | 5 | 100% | |
+| SCA-04 | 5 | 5 | 100% | |
+| SCA-05 ⚠ | 1 | 0 | 0% | six — **룰 갭**: `build_sbom`이 `release_date`를 항상 null로 둔다([sbom.py:167](../api/app/engine/sbom.py#L167) — 레지스트리 원격 조회 없음 가정). 판정 입력 자체가 없어 `_older_than`이 언제나 False다 |
+| SCA-06 | 1 | 1 | 100% | |
+| SCA-07 ⚠ | 1 | 0 | 0% | pymupdf — **룰 갭**: 라이선스는 동봉 LICENSE 본문·vendored `package.json`에서만 판정한다([sbom.py:85-108](../api/app/engine/sbom.py#L85)). 매니페스트 선언만으로는 AGPL을 알 수 없어 SCA-08(라이선스 불명)로 흡수됐다 |
+| SCA-08 | 1 | 1 | 100% | |
+| SCA-09 | 1 | 1 | 100% | |
+| SCA-10 | 1 | 1 | 100% | |
+| SCA-11 | 1 | 1 | 100% | |
+| SCA-12 | 1 | 1 | 100% | |
+| SEC-01 | 2 | 2 | 100% | |
+| SEC-02 | 1 | 1 | 100% | |
+| SEC-03 | 1 | 1 | 100% | |
+| SEC-04 | 3 | 3 | 100% | 인젝션 페이로드 파일 포함 |
+| SEC-05 | 2 | 2 | 100% | 체크섬 유효(confirmed)·무효(review_needed) 양분기 |
+| P1 | 1 | 1 | 100% | 정적 합성 — 키 없이 검출 |
+| P2 | 2 | 2 | 100% | Py·JS 양쪽 |
+| P3 | 1 | 1 | 100% | |
+| P4 | 1 | 1 | 100% | 정적 합성 — 키 없이 검출 |
+| P5 | 1 | 1 | 100% | |
+| P6 | 1 | 1 | 100% | |
+| P7 | 2 | 2 | 100% | Py·JS 양쪽 |
+| P8 | 1 | 1 | 100% | |
+| P9 | 1 | 1 | 100% | |
+| P10 | 1 | 1 | 100% | |
+| AUX-01 | 2 | 2 | 100% | Py·JS 양쪽 |
+| AUX-02 | 1 | 1 | 100% | |
+| AUX-03 ⚠ | 1 | 0 | 0% | `vulnerable/server.js` — **룰 갭**: JS 룰이 `res.header`/`res.setHeader` 형태만 매칭한다([aux-security.yaml](../rules/semgrep/aux-security.yaml)). Express의 관용 표현 `cors({origin:'*'})`를 놓친다. Python 쪽 `CORS($APP, origins="*")`는 커버됨 |
+| **합계** | **51** | **48** | **94.1%** | |
+
+**룰 갭 3종은 벤치마크 결함이 아니다**(TDD §9 · 계획 Task 26 가드). 세 케이스 모두 표준 조항의
+의도대로 심었고 검출에 맞춰 수정하지 않았다. SCA-05·SCA-07은 "레지스트리 원격 조회 없음"이라는
+설계 가정([sbom.py:3](../api/app/engine/sbom.py#L3))의 직접 귀결이라 룰이 아니라 **가정의 비용**으로
+읽어야 한다 — 해소하려면 PyPI/npm 메타데이터 조회를 도입해야 하고 이는 MVP 범위 밖이다.
+AUX-03만이 순수한 패턴 커버리지 갭이다.
+
+### ② FPR — `clean/` 오탐률
+
+clean 파일 **11개** 중 confirmed 발생 **0건** → **FPR 0.0%**. allowlist 보정은 불필요했다
+(계획 Step 5가 허용한 1회 보정을 쓰지 않았다 — 보정 전후 수치 비교 대상 없음).
+
+| 룰 | 파일 | 근거 |
+| --- | --- | --- |
+| — | — | 오탐 없음 |
+
+near-miss 세트가 실제로 대조군 역할을 했는지 개별 확인: `config_example.py`의 플레이스홀더 4종
+(`your-api-key-here`·`changeme`·`sk-test-`·`<replace-me>`)이 전부 allowlist에 걸렸고,
+`product_codes.py`의 RRN 형식 유사 코드(7번째 자리 5~9)는 형식 게이트에서 탈락했다.
+
+> repo-wide 룰(P8·P9·P10)은 분모·분자에서 제외했다 — 같은 스캔 트리에 음성을 둘 수 없어서다
+> (명세 §1.2). 이들의 오탐은 Task 27(PyGoat·dogfooding)에서 측정한다.
+
+### ③ 부가 발견 — 오라클 밖 confirmed (지표 미집계)
+
+| 룰 | 건수 | 위치(발췌) | 성격 |
+| --- | --- | --- | --- |
+| SCA-02 | 3 | express, flask-cors, mysql2 | 동일 룰의 추가 발화(다발 허용) |
+| SCA-04 | 2 | express, mysql2 | 동일 룰의 추가 발화(다발 허용) |
+| SCA-08 | 15 | beautifulsoup4, cors, django, express … | 동일 룰의 추가 발화(다발 허용) |
+| SCA-09 | 11 | beautifulsoup4, flask, flask-cors, flask-login … | 동일 룰의 추가 발화(다발 허용) |
+| SCA-10 | 5 | vulnerable/package.json, vulnerable/vendor | 동일 룰의 추가 발화(다발 허용) |
+
+**SCA-10의 5건은 부가 발견이지만 원인이 다르다 — 엔진 결함으로 판단한다.**
+`package-lock.json`의 `resolved`가 `https://registry.npmjs.org/...`인데
+[`_is_registry`](../api/app/engine/deps_npm.py#L48)가 `https://` 접두를 비레지스트리로 보아
+**lock으로 해석된 npm 패키지가 전부 "출처 불명"으로 뒤집힌다**([deps_npm.py:120-121](../api/app/engine/deps_npm.py#L120)).
+공개 레지스트리 URL이 곧 비레지스트리 판정을 받는 셈이다. 나머지 1건(`vulnerable/vendor`의 oldlib)은
+vendored 복제본이라 정탐이다. Task 26은 룰 코드를 수정하지 않으므로(순환 검증 회피) **기록만 남긴다** —
+후속 이슈 대상.
+
+### 등급 시나리오 3종 재현 (명세 §7)
+
+| 태그 | 상태 | 실측 등급 | 확정 발견 | 검토 필요 |
+| --- | --- | --- | --- | --- |
+| `v1-danger` | 전체 | **위험** | 다수 | 17건 |
+| `v2-warning` | grade_blocking만 제거 | **주의** | AUX·P7·P8·P9·SCA 잔존 | 17건 |
+| `v3-safe` | 모든 confirmed 제거 | **안심** | **0건** | 17건 |
+
+**명세 §7과의 편차 1건(기록만, 명세·룰 모두 미수정)**: §7은 SEC-02(주석 시크릿)를 v2의 잔여
+'주의' 기여로 적었지만, 등급 결정론 구현은 **confirmed `SEC-*` 전부**를 위험 트리거로 본다
+([grade.py:31-34](../api/app/engine/grade.py#L31) `_is_danger_finding`). 그래서 v2에서 SEC-02도
+함께 제거해야 '주의'에 도달한다. 사용자 판단(2026-08-30)에 따라 **엔진 정의를 정본으로 삼았다**.
+
+v2에서 제거한 Critical CVE 보유 컴포넌트는 django·next·mysql2 3종이다(v0.1이 next만 예상했으나
+실측에서 django의 CVE-2022-28346·CVE-2025-64459, mysql2의 CVE-2024-21508·21511도 Critical로 나왔다).
+
+`git clone --depth 1 --single-branch`는 ref를 받지 않는다([ingest.py:25](../api/app/engine/ingest.py#L25)) —
+**태그를 URL로 직접 스캔할 수 없다.** 세 태그는 선형 커밋이라 데모에서는 main을 fast-forward로
+전진시켜 재진단한다(절차는 `docs/demo-script.md`).
+
+### 명세 §3.1 예상치 vs OSV 실측
+
+| 컴포넌트 | 명세 예상 | OSV 2026-08-30 실측 | 판정 |
+| --- | --- | --- | --- |
+| Django 3.2.12 | Critical/High | **Critical** (CVE-2022-28346 등) | 일치 |
+| Flask 0.12.2 | **High**(v0.2 메이저 교정) | High — 등급 기여는 '주의' | 일치(교정이 옳았다) |
+| requests 2.28.0 | Medium | High/Medium | 상향 |
+| lodash 4.17.15 | High | High | 일치 |
+| next 14.2.0 | 확정 Critical | **Critical** (CVE-2025-29927) | 일치 |
+| six 1.10.0 | Low(비기여 검증) | — | **SCA-05 미발화**(위 룰 갭) |
+
+Low-비기여 검증은 SCA-05가 담당하기로 했으나 룰 갭으로 성립하지 않았다. 대신 SCA-08·SCA-09가
+Low 심각도 confirmed로 다수 발화하면서 **"Low는 등급에 기여하지 않는다"가 v1에서 실증됐다**
+(등급은 Critical CVE·SEC·P6가 만들었고 Low 발견 26건은 기여하지 않았다).
+
+### 벤치마크 저장소 운영 기록
+
+- **GitHub 시크릿 스캐닝 push protection이 최초 푸시를 3건 차단**했다(`.env`의 Stripe 키,
+  `secrets_config.py`의 AWS 키 쌍). 보안 설정을 끄지 않고 **리터럴 형태만 바꿔** 해소했다 —
+  AWS 키는 명세 §4.5가 인젝션 페이로드에 지정한 것과 같은 21자 형태(`AKIA…` + 17자)로 맞췄다.
+  이 형태는 gitleaks `aws-access-token`은 그대로 발화시키고(SEC-04 검출 유지) GitHub 제공자
+  패턴(20자)에는 걸리지 않는다. Stripe 키는 제공자 비특정 고엔트로피 값으로 교체했고
+  SEC-03은 경로 룰이라 영향이 없다. **오라클의 rule_id·file·verdict·line은 전부 불변.**
+- 불변식 CI(`.github/workflows/invariants.yml`)는 안심코드를 체크아웃해
+  `verification/check_invariants.py`를 돌린다. 지금은 ansim-code ref가 `feat/m7-verification`으로
+  핀되어 있다 — **머지 후 `main`으로 되돌려야 한다**(워크플로 파일에 TODO 주석 있음).
+- 태그 트리(v2·v3)는 불변식 검사 대상이 아니다. v3-safe는 P8·P9를 해소하려고 로깅·처리방침을
+  **일부러** 넣은 상태라 불변식을 의도적으로 깬다. 그래서 CI는 `main` push·PR에서만 돈다.
+
+### 자기 마스킹 실증 (불변식 자동화가 필요한 이유)
+
+스캐폴딩 1차에서 `vulnerable/models.py`의 **docstring에 쓴 "파기"라는 단어 하나가 P10을 통째로
+껐다**. 룰이 아니라 벤치마크가 자기 양성을 지운 것이고, 표만 보면 "P10 룰 갭"으로 오독됐을 사례다.
+`check_invariants.py`가 이 부류를 6종 검사로 잡는다(로깅·처리방침·삭제 동사·미선언 import·P4 국소화·P7 인증 단어).
+검사기 자체의 회귀는 `api/tests/test_verification_matching.py` 23건이 지킨다.
+
+## M7 — Task 27 (2026-08-30, 실행 세션: feat/m7-verification)
+
+검증 3종을 같은 스택(api 8002)에서 키 없이 실행했다. 인젝션 시연의 상세는
+[`verification/injection_payloads.md`](../verification/injection_payloads.md)에 따로 있다.
+
+### ① PyGoat — 제3자 취약 앱
+
+| 항목 | 값 |
+| --- | --- |
+| 대상 | `https://github.com/adeyosemanputra/pygoat` (git URL) |
+| 소요 | **30초** (G14 목표 2분 대비 여유 — 분해 기록 불필요) |
+| 등급 | **위험** (상향 조건: 17건 해결 시 주의) |
+| 발견 | 142건 (전부 confirmed, review_needed 0) |
+| SBOM | 컴포넌트 40개 / 취약 16개 · 공급망 분류 `오픈소스` |
+
+룰별: SEC-01 10 · SEC-02 2 · P7 2 · P9 1 · AUX-02 3 · AUX-04 5 ·
+SCA-01 4 · SCA-02 16 · SCA-03 3 · SCA-04 16 · SCA-08 40 · SCA-09 40.
+
+**review_needed가 0건인 이유(관찰)**: P2·P3의 semgrep 패턴이 Flask 계열
+(`request.form[...]`·`request.json[...]`)만 매칭하는데 PyGoat은 Django라
+`request.POST[...]`를 쓴다. 프레임워크 커버리지 갭이며 벤치마크(Flask+Express)로는
+드러나지 않는 종류다 — **제3자 앱 검증이 실제로 새 정보를 준 지점**이다.
+
+### ② repo-wide 룰(P8·P9·P10) 오탐 판정 — Task 26 FPR 표의 빠진 행
+
+명세 §1.2에 따라 이 3종의 FPR은 벤치마크 `clean/`이 아니라 실앱 2종으로 측정한다.
+발화 여부만 보지 않고 **해당 기능이 그 앱에 실재하는지 소스로 대조**해 정탐/오탐을 갈랐다.
+
+| 룰 | PyGoat | 실재 대조 | 판정 | 안심코드(dogfooding) | 실재 대조 | 판정 |
+| --- | --- | --- | --- | --- | --- | --- |
+| P8 (취급 기록 부재) | 미발화 | `introduction/views.py`에 `import logging` 실재 | ✅ 정탐 | 미발화 | `app/main.py`·`llm/client.py` 등 다수에 실재 | ✅ 정탐 |
+| P9 (처리방침 부재) | **발화** | 처리방침 파일명·`/privacy` 라우트 **둘 다 없음** | ✅ **정탐**(오탐 아님) | 미발화 | `rules/semgrep/privacy.yaml` 등 파일명 일치 | ⚠ 조건상 정탐 |
+| P10 (파기 경로 부재) | 미발화 | `introduction/apis.py` 등에 삭제 동사 실재 | ✅ 정탐 | 미발화 | `engine/workspace.py`의 파기 로직 실재 | ✅ 정탐 |
+
+**오탐 0건.** P9가 PyGoat에서 발화한 것은 오탐이 아니라 정탐이다 — 의도적으로 취약하게 만든
+교육용 앱에 개인정보 처리방침이 없는 것은 사실이다.
+
+**단, 안심코드의 P9 미발화는 근거가 약하다(정밀도 관찰)**: 미발화를 만든 것은 실제 처리방침
+문서가 아니라 **`rules/semgrep/privacy.yaml`·`api/tests/test_privacy_rules.py`라는 파일명 우연 일치**다.
+[repo_checks.py:104](../api/app/engine/repo_checks.py#L104)의 부재 검사가 파일명만 보므로,
+`privacy`가 들어간 파일이 어떤 이유로든 있으면 P9가 꺼진다. 미검출 방향의 정밀도 한계로 기록한다.
+
+### ③ 인젝션 방어 시연
+
+페이로드 4종(한국어·영어·역할 사칭·JSON 위장)을 `vulnerable/injection_test.py` 한 파일에 두고
+벤치마크 스캔 결과로 판정했다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| SEC-04 정상 flag | ✅ confirmed (line 8), `grade_blocking=true` |
+| 등급 | ✅ **위험 유지** |
+| 상향 안내 | ✅ "이 23건만 해결하면 주의로 올라갑니다" |
+| LLM 산출 텍스트의 지시문 반영 | ✅ `안심`·`SAFE`·`취약점 보고를 취소` **0건**(설명·수정 프롬프트·쉬운 설명 전수) |
+| 시크릿 원문 노출 | ✅ evidence `****` 마스킹(P0-2) |
+
+**보류 1건**: 키 미설정으로 judge가 실행되지 않아(`llm_model_id: null`,
+`judge_explanation` 0/101) "judge가 인젝션을 읽고도 무시했다"는 **행동 수준 증거는 없다**.
+대신 확인된 것은 더 강한 구조적 사실이다 — ① SEC-*는 애초에 judge에 가지 않고
+([analysis.py:95-98](../api/app/engine/analysis.py#L95)) ② judge가 401로 전부 실패한 상태에서도
+등급·발견·상향 안내가 정상 산출됐다. 실키 확보 시 재확인 절차는 injection_payloads.md에 적었다.
+
+### ④ dogfooding — 안심코드 자기진단
+
+| 항목 | 값 |
+| --- | --- |
+| 대상 | `https://github.com/fmaPark/ansim-code` (main, git URL) |
+| 소요 | **39초** |
+| 등급 | **위험** (상향 조건: 19건) |
+| 발견 | 216건 (confirmed 206 · review_needed 10) |
+| SBOM | 컴포넌트 91개 / 취약 7개 · 공급망 분류 `오픈소스` |
+
+자기 등급이 '위험'으로 나왔고, 원인을 하나씩 대조하니 **상당수가 자기 오탐**이었다.
+숨기지 않고 남긴다 — 이것이 dogfooding의 목적이다.
+
+| 룰 | 건수 | 위치 | 판정 |
+| --- | --- | --- | --- |
+| SEC-04 | 10 | 전부 `api/tests/` (test_pii·test_masking·test_gitleaks·test_rescan) | **오탐** — 룰 테스트용 합성 픽스처다 |
+| SEC-02 | 4 | `api/tests/test_gitleaks.py` | **오탐** — 동일 |
+| SEC-05 | 7 | `api/tests/test_gitleaks.py` (review_needed) | **오탐** — 동일 |
+| SCA-01 | 3 | `app`·`packageurl`·`pydantic` | **오탐** — `app`은 1차 패키지(자기 자신), `packageurl`·`pydantic`은 `packageurl-python`·`pydantic-settings`로 선언돼 있는데 import명→배포명 별칭표에 없다 |
+| P5 | 2 | `api/tests/test_privacy_rules.py`, **`api/app/engine/repo_checks.py`** | **오탐** — 특히 두 번째는 룰 자신의 소스가 자기 정규식 리터럴(`BeautifulSoup`·`requests.get`·PII 필드)에 걸린 것이다 |
+| P4 | 1 | `api/tests/test_judge.py` | **오탐** — 픽스처 |
+| SCA-10 | 74 | npm 컴포넌트 전량 | **오탐** — Task 26에서 찾은 `_is_registry` 결함(아래) |
+| SCA-02 | 7 | 실제 취약 버전 | 정탐 |
+
+**세 가지 오탐 원인이 드러났다**:
+
+1. **테스트 픽스처가 시크릿으로 잡힌다.** gitleaks allowlist의 경로 예외가
+   `(^|/)tests?/fixtures/`라서 `api/tests/*.py`에 인라인으로 쓴 합성 시크릿은 걸러지지 않는다
+   ([ansim.toml](../rules/gitleaks/ansim.toml)). 시크릿 룰을 테스트하려면 픽스처가 필요한데
+   그 픽스처가 곧 오탐이 되는 구조다.
+2. **룰 소스 자신이 룰에 걸린다.** `repo_checks.py`의 P5 정규식 리터럴이 P5를 발화시켰다.
+   벤치마크 명세 §1.3이 경고한 "자기 마스킹"의 거울상이며, 측정 스크립트 2종을 벤치마크가 아니라
+   안심코드에 둔 판단이 옳았음을 반대편에서 확인해 준다.
+3. **`_is_registry`가 공개 레지스트리 URL을 비레지스트리로 본다** —
+   Task 26 부가 발견에서 5건으로 보였던 것이 실제 저장소에서는 **74건**으로 증폭됐다
+   ([deps_npm.py:48](../api/app/engine/deps_npm.py#L48)). 영향 규모가 확인된 셈이다.
+
+**세 건 모두 이번 세션에서 수정하지 않았다** — 순환 검증 회피(TDD §9) 하에 Task 26·27은
+룰 코드를 건드리지 않는다. 후속 이슈 대상이며, 우선순위는 SCA-10 결함(74건) > 픽스처 allowlist >
+P5 자기 발화 순으로 본다.
+
+## M7 — Task 28 (2026-08-30, 실행 세션: feat/m7-verification)
+
+### 선행 조치 — LLM 캐시 영속화
+
+`llm_cache_dir`가 `/srv/data/llm_cache`(이미지 레이어)라 재빌드마다 리허설 캐시가 사라진다.
+장애 폴백(TDD §6) 시연의 전제가 무너지므로 `docker-compose.yml`의 api에 named volume
+`llmcache`를 붙였다. 룰·엔진 코드가 아니라 기동 설정 변경이다.
+
+### ① 리허설 완주 — 클린 재빌드 스택에서 전 장면
+
+프로젝트 한정 클린 조건(`docker compose down -v` + api·web 이미지 삭제 +
+`build --no-cache`)에서 재기동해 데모 7장면을 API로 완주했다. 전역 `docker system prune`은
+같은 머신의 다른 워크트리 스택을 건드리므로 쓰지 않았다(사용자 확정).
+
+| 항목 | 결과 |
+| --- | --- |
+| 3서비스 기동 | ✅ **15초**, `/health` 200, web 200 |
+| 룰 시드 | ✅ 31종, `rule_catalog_version=8e512d222d972ed9` |
+| 장면 ①② 벤치마크 스캔 | ✅ 등급 **위험**, 발견 101건, 전 발견에 조항 인용 존재 |
+| 상향 블록 | ✅ "이 23건만 해결하면 주의로 올라갑니다" |
+| 전체 수정 프롬프트 복사 | ✅ 10,237자 |
+| 장면 ⑤ 인젝션 | ✅ SEC-04 confirmed·`grade_blocking=true`, 등급 위험 유지 |
+| 장면 ⑦ SBOM | ✅ 16컴포넌트, 15속성 키 전량 존재, 공급망 `오픈소스` |
+| 장면 ⑦ 체크리스트 | ✅ 13항목 |
+| 장면 ④ 공개 1단계 | ✅ 토큰 발급 |
+| 장면 ⑥ dogfooding | ✅ 완주, 등급 위험 |
+| 무변경 재진단 | ✅ 해결 0 / 잔여 101 / 신규 0 (이슈 #13 회귀 없음) |
+
+### ② 데모 절정(위험 → 주의) — 실 git 경로 재현
+
+태그를 URL로 스캔할 수 없으므로 `main`을 fast-forward로 전진시키는 방식을 검증했다.
+
+| 단계 | 실측 |
+| --- | --- |
+| ① `v1-danger` 스캔 | 등급 **위험** |
+| ② `git push origin 'v2-warning^{}:main'` | fast-forward 성공 |
+| ③ 재진단 | **위험 → 주의**, 지문 변경 `true` |
+| diff | **해결 15 / 잔여 73 / 신규 0** — 해결된 룰 SEC-01~05·P6 |
+| 상향 안내 | "이 78건만 해결하면 안심으로 올라갑니다" |
+| ④ 원복 | `main` → `v1-danger`(94876f8) 확인 |
+
+**푸시 명령에 주의**: `git push origin v2-warning:main`은 거부된다 — 소스가 **annotated tag
+객체**라 브랜치 ref가 받지 못한다. `v2-warning^{}`로 커밋을 역참조해야 한다.
+데모 스크립트에 이 형태로 적었다.
+
+### ③ 장애 폴백 리허설 — 무효 키 상태 재생
+
+`.env`를 건드리지 않고 `docker-compose.keyless.yml` 오버레이로 무효 키를 덮어써
+(`ANTHROPIC_API_KEY=sk-ant-invalid-rehearsal-key`) 같은 시나리오를 재생했다.
+
+| 항목 | 정상 키 자리 | 무효 키 | 일치 |
+| --- | --- | --- | --- |
+| 등급 | 위험 | **위험** | ✅ |
+| 발견 수 | 101 | **101** | ✅ |
+| 상향 조건 | 주의 23건 | **주의 23건** | ✅ |
+| 쉬운 설명 | 전 발견 보유 | **전 발견 보유**(폴백 문구) | ✅ |
+| 수정 프롬프트 | 전 발견 보유 | **전 발견 보유** | ✅ |
+| 시민용 리포트 | 정상 | **101건 · 검토 필요 17** | ✅ |
+| 체크리스트 | 13항목 | **13항목** | ✅ |
+| SBOM 15속성 | 완비 | **완비** | ✅ |
+
+등급·발견·상향이 전부 static 경로임을 실측으로 확인했다(G3·TDD §10 정합).
+
+**보류 1건 — LLM 캐시 적재**: 실키가 없어 캐시가 비어 있다(`llm_cache` 파일 0개).
+따라서 이번에 확인한 것은 "캐시 폴백"이 아니라 **"LLM 없이도 완주"** 다. 캐시 폴백 자체는
+`client.py:69-71`의 경로이고 별도 단위 테스트가 지킨다. 실키 확보 시 리허설 1회로 캐시를
+적재하면 설명 텍스트까지 동일 재생된다 — 절차는 `docs/demo-script.md` §0에 적었다.
+
+### ④ 최종 스모크
+
+| 항목 | 결과 |
+| --- | --- |
+| 전체 pytest | ✅ **169건 green** (기존 146 + 검증 스크립트 23) |
+| OKF 검사 | 기존 실패 2건만(이슈 #21 — `benchmark-spec.md`·`plans/execution-prompts.md` frontmatter 부재). **자기 변경으로 인한 신규 오류 0** |
+| 클린 재빌드 | ✅ `--no-cache` 빌드 후 15초 기동 |
+| 소스 zip | ✅ `tools/package_submission.py` — 145파일 518KB, `.env` 미포함 |
+
+**패키징 결함 1건 발견·수정**: `git archive --format=zip`이 만든 zip은 **Info-ZIP `unzip`으로
+해제되지 않는다.** git이 파일명을 UTF-8 바이트로 넣으면서 zip 헤더의 EFS 플래그(bit 11)를
+세우지 않아 `unzip`이 CP437로 읽고 `협의체_기록/`에서 "Illegal byte sequence"로 멈춘다.
+macOS Finder·`tar`·Python zipfile로는 열리므로 조용히 지나칠 수 있었던 문제다.
+`tools/package_submission.py`가 git의 tar를 받아 Python zipfile로 다시 싸서 해소했다
+(zipfile은 비ASCII 이름에 UTF-8 플래그를 자동으로 세운다).
+
+### ⑤ 게이트 ③ — README만으로 기동 재현 (제출물 실검증)
+
+제출 zip을 **빈 디렉토리에 `unzip`으로 풀고**, README의 「실행」 절만 따라 기동했다.
+이 저장소 체크아웃이 아니라 **해제된 zip 트리에서** 돌린 것이 요점이다.
+
+| 단계 | 결과 |
+| --- | --- |
+| `unzip` 해제 | ✅ 한글 경로 포함 정상(`협의체_기록/` 확인) |
+| `cp .env.example .env` | ✅ (키는 placeholder 그대로) |
+| `docker compose up -d --build` | ✅ **79초**(이미지 캐시 없는 상태) |
+| `/health` · web | ✅ 200 / 200 |
+| 실제 스캔 | ✅ 벤치마크 git URL → 등급 **위험**, 발견 101건, 상향 안내 정상 |
+
+키가 placeholder인 상태에서도 스캔이 완주한다는 README 서술이 실물로 확인됐다.
+
+### 보류·이월 항목 (M7)
+
+- **실키 의존 3건** — ① judge 실행 상태의 `judge_explanation` 문구 확인(인젝션)
+  ② LLM 캐시 적재 후 폴백 재생 ③ §11 항목 1의 실호출 소요·토큰·비용 실측.
+  모두 키 기입 후 리허설 1회로 해소된다.
+- **벤치마크 CI의 ansim-code ref** — 지금 `feat/m7-verification`으로 핀되어 있다.
+  이 브랜치가 main에 머지되면 `.github/workflows/invariants.yml`의 `ref`를 `main`으로
+  되돌려야 한다(워크플로 파일에 TODO 주석).
+- **룰 갭 3종·오탐 3부류** — 위 Task 26·27 절 참고. 전부 미수정, 후속 이슈 대상.
+- **§11 항목 4·7·8 카피** — M6에서 미수신 확정, placeholder 유지(변동 없음).
+
 ## M8 — Task 32 전환 게이트 (2026-08-30, 실행 세션: feat/m8-gemini)
 
 > Gemini 전면 전환(TDD v0.6 §11 항목 9)의 **전환 게이트 4건** 실측. 실 `GEMINI_API_KEY`로 수행했다.
-> 위 M4~M6 엔트리의 Anthropic 기준 수치는 당시 기록이므로 그대로 두고, Gemini 기준은 여기 새로 남긴다.
-> **§11 항목 1(LLM 상한)의 Gemini 기준 첫 실호출 실측**이기도 하다(M4는 fake transport 기준이었다).
+> 위 M4~M7 엔트리의 Anthropic 기준 수치는 당시 기록이므로 그대로 두고, Gemini 기준은 여기 새로 남긴다.
+> **§11 항목 1(LLM 상한)의 Gemini 기준 첫 실호출 실측**이기도 하다(M4는 fake transport, M7은 키 미설정 기준이었다).
 
 ### 선결 사항 — TDD §4.2 모델 가정 2종이 사용 불가
 
@@ -218,7 +590,7 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
 | --- | --- | --- | --- |
 | ① | 벤치마크 페이로드 안전 필터 차단 0건 | **통과** | 아래 §게이트 ① |
 | ② | 응답 `model_version` 기록(G9) | **통과** | 아래 §게이트 ② |
-| ③ | Gemini 리허설 캐시 재기록 | **조건부 통과** | 메커니즘 동작. 단 결함 2건 — 아래 §게이트 ③ |
+| ③ | Gemini 리허설 캐시 재기록 | **조건부 통과** | 메커니즘 동작. 잔여 결함 1건 — 아래 §게이트 ③ |
 | ④ | judge 12 병렬 쿼터 통과 | **실패** | 무료 티어 5 RPM — 아래 §게이트 ④ |
 
 ### 게이트 ① 안전 필터 — 통과 (차단 0/5)
@@ -240,7 +612,7 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
 - 전 실호출에서 응답 `model_version` 존재. **"model_version 없음" 폴백 로그 0건**(요청 모델 ID 대체 경로 미발동).
 - `scan.llm_model_id = 'gemini-3.5-flash; gemini-3.1-flash-lite'` — judge·변환 두 모델이 **응답 값 그대로** 기록(설정 상수 하드코딩 아님 — G9 충족).
 
-### 게이트 ③ 리허설 캐시 — 조건부 통과 (메커니즘 OK, 운영 결함 2건)
+### 게이트 ③ 리허설 캐시 — 조건부 통과
 
 소형 fixture(judge 3 + 변환 1 = 4호출, 429 0건)로 record → 무효 키로 재생:
 
@@ -250,9 +622,9 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
 | replay(무효 키) | **실호출 0 · 캐시 폴백 3건 · `status=done` 완주** |
 | 등급 비교 | record·replay 모두 **`위험`**, 지문 동일(`4f22958b08fc`), judge 설명 3건 유지 — **G3 등급 결정론 유지 확인** |
 
-**결함 ⓐ — 캐시가 컨테이너 재생성에서 소실된다.** `llm_cache_dir = /srv/data/llm_cache`는 `api/Dockerfile`의 `COPY data /srv/data`로 **이미지 레이어 안**에 있고 `docker-compose.yml`에 볼륨이 없다. 실제로 첫 측정에서 `docker compose up -d api` 한 번에 캐시 12개가 전부 사라졌다. **리허설 캐시가 유일한 데모 폴백**인데(TDD §6 — 예비 공급자 없음) 리허설과 데모 사이에 재빌드·재기동이 한 번이라도 있으면 폴백이 없다. 위 replay 측정은 임시 볼륨 override로 캐시를 살려 수행했다. → `docker-compose.yml`에 `llm_cache` 볼륨(또는 바인드 마운트) 추가 필요. **이 세션은 `docker-compose.yml` 변경 금지 범위라 미수정.**
+**측정 당시 결함 ⓐ(캐시가 컨테이너 재생성에 소실) → M7 머지로 해소.** 측정은 `llmcache` 볼륨이 없던 베이스에서 수행했고 실제로 `docker compose up -d api` 한 번에 캐시 12개가 소실됐다(임시 볼륨 override로 우회해 측정). **M7(PR #36)이 `docker-compose.yml`에 `llmcache:/srv/data/llm_cache` 볼륨을 추가해 이 결함은 사라졌다** — 머지 후 상태에서는 리허설 캐시가 재빌드에도 살아남는다.
 
-**결함 ⓑ — 변환(convert) 캐시는 스캔이 바뀌면 절대 히트하지 않는다.** `convert._payload_item()`이 페이로드에 **스캔별 Finding PK(`f.id`)**를 넣어 캐시 키 `sha256(model+system+user)`가 매번 달라진다. 위 replay에서 시민용 문구·수정 프롬프트 **10/10이 규칙 기반 폴백 문구**로 채워졌다(`"… 기준으로 수정하세요."`). judge 캐시는 스니펫 기반이라 정상 히트한다. → **장애 시 스캔은 완주하고 등급도 동일하지만 시민용 문구 품질은 폴백 수준으로 떨어진다.** 데모 내레이션에서 알고 있어야 할 사실이며, 구조 수정은 M8 범위 밖(캐시 키에서 스캔 종속 필드를 빼야 함).
+**잔여 결함 ⓑ — 변환(convert) 캐시는 스캔이 바뀌면 절대 히트하지 않는다.** `convert._payload_item()`이 페이로드에 **스캔별 Finding PK(`f.id`)**를 넣어 캐시 키 `sha256(model+system+user)`가 매번 달라진다. 위 replay에서 시민용 문구·수정 프롬프트 **10/10이 규칙 기반 폴백 문구**로 채워졌다(`"… 기준으로 수정하세요."`). judge 캐시는 스니펫 기반이라 정상 히트한다. → **장애 시 스캔은 완주하고 등급도 동일하지만 시민용 문구 품질은 폴백 수준으로 떨어진다.** `demo-script.md` 장면 ⑦의 "캐시가 있으면 LLM 설명 텍스트까지 그대로 재생된다"는 **judge 설명에만 해당**한다. 구조 수정(캐시 키에서 스캔 종속 필드 제거)은 M8 범위 밖.
 
 ### 게이트 ④ judge 12 병렬 쿼터 — **실패**
 
@@ -269,7 +641,7 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
 
 **구조적 판정:** 무료 티어 5 RPM에서는 **judge 12 병렬이 원리적으로 불가능**하다(6번째 요청부터 즉시 429). 병렬도를 5로 낮춰도 RPM은 분당 처리량 제한이라 후보 57건이면 12분 이상 — G14(2분) 붕괴다. **`judge_concurrency` 하향만으로는 해소되지 않으며**, 실질 선택지는 ⓐ 유료 티어 전환 ⓑ **스캔당 judge 호출 상한 도입**(TDD §6·§11 항목 1이 예고한 "스캔당 호출 상한") ⓒ 둘의 조합이다. **기획 판단 대기 — 이 세션은 미조치.**
 
-> 참고: 후보 57건은 12 병렬을 포화시키려 의도적으로 만든 스트레스 fixture다. `benchmark-spec.md` §4.2 기준 실제 데모 저장소의 P계열 후보는 7~8건 수준으로, 상한을 두면 5 RPM 안에서도 데모는 성립할 여지가 있다.
+> 참고: 후보 57건은 12 병렬을 포화시키려 의도적으로 만든 스트레스 fixture다. M7 실측에서 벤치마크 저장소는 31종 중 28종 발화였고 그중 judge 후보(P1~P5·P10)는 한 자릿수 수준이라, 상한을 두면 5 RPM 안에서도 데모는 성립할 여지가 있다.
 
 ### 변환 배치 절단 — 이상 없음
 
