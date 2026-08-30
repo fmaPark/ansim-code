@@ -51,3 +51,27 @@ def test_sec01_to_04_confirmed_and_evidence_masked():
     d = classify_secret(raw)
     assert d.status == "confirmed" and d.severity == "critical"
     assert "AKIAIOSFODNN7EXAMPLE" not in (d.evidence or "")     # G2: 원문 미저장
+
+
+def test_test_path_secret_demoted_to_review_needed():
+    """이슈 #29 — 테스트 경로의 합성 시크릿은 등급을 끌어내리지 않는다(목록에는 남는다)."""
+    from app.engine.gitleaks_runner import RawSecret
+    from app.engine.pii import classify_secret
+
+    key = "AKIAIOSFODNN7EXAMPLE"
+    for path in ("api/tests/test_gitleaks.py", "web/src/auth.test.ts", "pkg/foo_test.py"):
+        d = classify_secret(RawSecret("SEC-04", path, 1, key, f'KEY = "{key}"'))
+        assert d.status == "review_needed", path
+        assert "테스트 경로" in d.evidence          # 강등 사유가 리포트에 남는다
+
+    prod = classify_secret(RawSecret("SEC-04", "api/app/config.py", 1, key, f'KEY = "{key}"'))
+    assert prod.status == "confirmed"               # 운영 경로는 그대로 위험 트리거
+
+
+def test_test_path_demotion_does_not_promote():
+    """이미 review_needed인 건은 그대로 — 강등은 confirmed에서만 일어난다."""
+    from app.engine.gitleaks_runner import RawSecret
+    from app.engine.pii import classify_secret
+
+    phone = RawSecret("SEC-05", "api/tests/test_x.py", 5, "010-1234-5678", "phone = 010-1234-5678")
+    assert classify_secret(phone).status == "review_needed"

@@ -34,10 +34,12 @@ curl -s http://localhost:8000/health
 **벤치마크는 `main`이 `v1-danger` 상태여야 한다**(등급 위험). 확인:
 
 ```bash
-git ls-remote https://github.com/fmaPark/ansim-benchmark refs/heads/main refs/tags/v1-danger
+git ls-remote https://github.com/fmaPark/ansim-benchmark refs/heads/main 'refs/tags/v1-danger*'
 ```
 
-두 해시가 같으면 준비된 상태다. 어긋나 있으면 되돌린다(§장면 ③ 참조).
+`refs/heads/main`과 **`refs/tags/v1-danger^{}`** 의 해시가 같으면 준비된 상태다.
+`^{}`가 붙지 않은 줄은 annotated tag 객체 자신이라 커밋 해시와 다르다 — 이 줄과 비교하면 안 된다.
+어긋나 있으면 되돌린다(§장면 ③ 참조).
 
 **리허설을 먼저 1회 돌린다.** 실키 상태로 장면 ①~⑦을 그대로 한 번 완주하면 LLM 응답이
 `llmcache` 볼륨에 적재되고, 그 뒤로는 Gemini가 죽어도 같은 화면이 재생된다(장면 ⑦ 대비).
@@ -85,17 +87,28 @@ docker compose exec api sh -c 'ls /srv/data/llm_cache | wc -l'   # 리허설 후
 2. 준비해 둔 수정 커밋을 반영한다. 벤치마크의 `v2-warning` 태그가 그 커밋이며, 등급 상향을 막던
    확정 발견(시크릿 5종·평문 저장·유효 주민번호·Critical CVE 3종)만 걷어낸 상태다.
 
+   **이 명령은 벤치마크 체크아웃 안에서 실행한다** — 태그가 로컬에 있어야 한다. 없으면 먼저 받는다.
+
    ```bash
-   git push https://github.com/fmaPark/ansim-benchmark v2-warning:main
+   git clone https://github.com/fmaPark/ansim-benchmark && cd ansim-benchmark
+   ```
+
+   ```bash
+   git push origin 'v2-warning^{}:main'
    ```
 
    `v1-danger → v2-warning → v3-safe`는 선형 커밋이라 **fast-forward**로 전진한다(force 불필요).
+
+   **`^{}`를 빠뜨리면 거부된다.** 세 태그는 annotated tag라 `v2-warning`이 가리키는 것은 커밋이
+   아니라 태그 객체이고, 브랜치 ref는 태그 객체를 받지 못한다(`! [remote rejected] ... (failed)`).
+   `^{}`가 그 태그를 커밋으로 역참조한다.
 3. 리포트 화면의 **재진단**을 누른다 → diff 3분류(해결·잔여·신규)와 함께 **위험 → 주의**.
 
 **내레이션**: "고치면 등급이 오릅니다. 무엇을 고쳤고 무엇이 남았는지도 함께 보여 줍니다."
 **근거**: TDD 유스케이스 3 · §4.5 재진단 diff · 벤치마크 명세 §7.
 
-> **촬영 후 원복**: `git push --force https://github.com/fmaPark/ansim-benchmark v1-danger:main`
+> **촬영 후 원복**(같은 체크아웃에서): `git push --force origin 'v1-danger^{}:main'`
+> — 되돌리는 방향은 main이 뒤로 가므로 `--force`가 필요하다.
 >
 > **주의(기록된 관찰)**: diff 키가 `(rule_id, file_path, line)`이라 코드 수정으로 라인이 밀리면
 > 같은 룰이 '해결 1 + 신규 1' 쌍으로 잡힌다. 그런 쌍이 보이면 "위치 이동"이라고 한 마디 덧붙인다.

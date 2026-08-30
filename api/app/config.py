@@ -1,3 +1,5 @@
+import re
+
 from pydantic_settings import BaseSettings
 
 
@@ -34,3 +36,16 @@ class Settings(BaseSettings):
 settings = Settings()
 SKIP_DIRS = {"node_modules", "venv", ".venv", ".git", "__pycache__", "__MACOSX", "dist", "build"}
 OS_JUNK_FILES = {".DS_Store", "Thumbs.db"}
+
+# 테스트 경로 판정 — 시크릿 룰을 테스트하려면 형식이 유효한 합성 시크릿이 필요하고,
+# 그 필요 자체가 오탐의 원인이 된다(이슈 #29). 제외가 아니라 강등의 기준이므로
+# 판정은 여기 한 곳에만 두고 엔진 전체가 공유한다.
+_TEST_PATH = re.compile(
+    r"(^|/)tests?/"                                  # tests/ · test/ 디렉토리
+    r"|(^|/)test_[^/]+\.(py|js|jsx|ts|tsx)$"         # test_foo.py
+    r"|(^|/)[^/]+_test\.(py|js|jsx|ts|tsx)$"         # foo_test.py
+    r"|(^|/)[^/]+\.(test|spec)\.(js|jsx|ts|tsx)$")   # foo.test.ts · foo.spec.tsx
+
+
+def is_test_path(path: str | None) -> bool:
+    return bool(_TEST_PATH.search((path or "").replace("\\", "/")))

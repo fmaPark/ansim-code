@@ -47,6 +47,9 @@ def undeclared_dependencies(deps: list[Dependency], imports_py: set[str],
 # ── P5·P7~P10 저장소 단위 검사 (Task 15) ──────────────────────────────────────
 
 CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx"}
+# P9 부재 판정 전용 — 처리방침은 문서다. 코드 파일(privacy.yaml·test_privacy_rules.py)이
+# 파일명만으로 "처리방침 있음"을 만들어 룰을 통째로 끄던 문제를 막는다(이슈 #34).
+DOC_EXTS = {".md", ".html", ".htm", ".txt", ".pdf", ".rst"}
 
 _ROUTE = re.compile(r"@(app|api|bp)\.route\(|@router\.(get|post|put|delete)|"
                     r"\b(app|router)\.(get|post|put|delete)\(")
@@ -102,7 +105,7 @@ def run_repo_checks(root: Path, deps=None) -> list[FindingDraft]:
 
     # P9 — 처리방침 미공개 (0414 §7.3.1, confirmed·medium — 저장소 전체 판정)
     has_policy_file = any(
-        _PRIVACY_FILE.search(p.name) for p in root.rglob("*")
+        p.suffix.lower() in DOC_EXTS and _PRIVACY_FILE.search(p.name) for p in root.rglob("*")
         if p.is_file() and not (set(p.relative_to(root).parts[:-1]) & SKIP_DIRS))
     has_policy_route = any(_PRIVACY_ROUTE.search(t) for t in texts.values())
     if not has_policy_file and not has_policy_route:
