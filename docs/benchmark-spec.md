@@ -6,7 +6,7 @@
 | 근거 | [TDD §9 Testing Strategy](./tdd.md#9-testing-strategy), [mvp-implementation.md Task 26·27](./plans/mvp-implementation.md), TDD §11 항목 2 |
 | 룰 사양 | [rules/catalog.yaml](../rules/catalog.yaml) — 31종(SCA 12 · SEC 5 · P 10 · AUX 4) |
 | 확정 결정 | 프레임워크 **Flask + Express**(최소 파일) · CVE 핀 **5종 채택**(Next.js=확정 Critical) · RRN 무효=review_needed(2026-08-29 사용자 확정, [pii.py:15](../api/app/engine/pii.py#L15)) |
-| 버전 | **v0.2** (Draft) — PR #12 리뷰(블로커 5·메이저·마이너) 반영 |
+| 버전 | **v0.3** (Draft) — PR #12 재리뷰(B6·M1·M2·마이너) 반영 |
 | Status | **기획 확정 대기** — 승인 시 이 목록이 `ansim-benchmark/verification/expected_findings.yaml`가 된다 |
 
 > **순환 검증 회피(TDD §9)**: 모든 케이스는 **표준 조항의 의도**에서 작성했다(각 행에 근거 조항 표기). fire-condition을 함께 적어 개발이 커버리지를 검증하되 **룰을 이 목록에 맞춰 수정하지 않는다**. 일부 `[stretch]` 하드 변형은 현재 룰이 놓칠 수 있으며, **미검출은 벤치마크 결함이 아니라 룰 갭 신호**다.
@@ -48,7 +48,7 @@ P8·P9·P10은 저장소 **전체**를 훑어 "존재/부재"를 판정한다. �
 | **파일명 `privacy*`·`개인정보처리방침*` 금지, `/privacy` 라우트 금지** | 있으면 P9 미발화 | [repo_checks.py:104](../api/app/engine/repo_checks.py#L104) |
 | **삭제 동사(delete·destroy·expire·retention·purge·파기) 금지(전 파일)** | `clean/query_safe.py`의 예문에 `DELETE FROM`만 있어도 P10 마스킹 | [repo_checks.py:64](../api/app/engine/repo_checks.py#L64) |
 | **모든 비표준 import는 매니페스트 선언 또는 의도된 SCA-01로 등재** | `crawler.py`의 bs4(→beautifulsoup4)·`server.js`의 express·cors 미선언 시 **의도치 않은 SCA-01** 발생 | [repo_checks.py:30](../api/app/engine/repo_checks.py#L30) |
-| **P4 트리거 호출(`requests.post`·`fetch(`·`axios.`)은 `third_party.py`에만** | 다른 파일에 있으면 P4 오라클 외 발화 | [analysis.py:104](../api/app/engine/analysis.py#L104) |
+| **PII 필드 정규식과 외부 전송 호출이 *같은 파일에 동시* 등장하는 것은 `third_party.py`에서만**(외부 전송 호출 단독은 허용) | 두 정규식 **동시** 등장 시에만 P4 발화 — `measure_detection.py`의 `requests.post`는 PII 필드가 없으면 안전(M1 교정) | [analysis.py:126-131](../api/app/engine/analysis.py#L126) |
 
 > WP-3(리뷰어 제안)의 `check_invariants.py` + CI로 이 불변식 위반을 자동 검사하면 repo-wide 양성의 조용한 마스킹 회귀를 구조적으로 차단할 수 있다.
 
@@ -191,12 +191,13 @@ ansim-benchmark/                     # 별도 공개 저장소 (git URL 입력 �
 
 - **TPR 매칭 키**: 파일 키 룰 = `(rule_id, file)`; 컴포넌트 키 룰(SCA-01~09) = `(rule_id, package)`; declared_in 키 룰(SCA-10·11·12) = `(rule_id, declared_in)`; repo-wide 룰(P8·P9·P1) = `(rule_id)`. TPR = 검출/기대(룰별).
 - **대표 키잉 + 다발 허용**: 설계상 한 룰이 여러 컴포넌트에서 발화하면(SCA-09는 lock 부재 시 전 pypi 컴포넌트) 오라클이 명시한 대표 패키지 검출을 hit로 세고, **동일 룰의 추가 발화는 오탐이 아니다**.
+- **스캐폴딩 시 확정 필드(B6)**: SCA-09는 아래 오라클에서 `package: django`를 대표로 확정한다(lock 부재라 확실 hit). SCA-08(라이선스 불명)의 `package`는 불명 dep이 스캐폴딩 시 정해지므로 **개발이 기입하되 `rule_id`·`verdict`는 변경 불가**(line 절차와 동형 — §1.1). 플레이스홀더(`<...>`)는 오라클에 남기지 않는다.
 - **부가 발견(extra findings)** *(B3 신설 · 기획 승인)*: `vulnerable/`에서 나온 confirmed 중 오라클에도 없고 대표 키잉 집합에도 속하지 않는 발견은 **TPR·FPR 어느 지표에도 세지 않고**, 측정 리포트에 "부가 발견"으로 공개한다.
 - **FPR**: `clean/` 파일에서 발생한 confirmed 수 / clean 파일 수. repo-wide 룰(P8·P9·P10)은 제외(PyGoat·dogfooding으로 측정 — §1.2).
 
 ### 5.2 오라클
 
-스키마는 계획의 `{rule_id, file, note}`에 **`verdict`·`package`를 확장**(측정 매칭 명확화). repo-wide 룰은 `file: null`. `line`은 스캐폴딩 후 개발이 기입(§1.1 절차).
+스키마는 계획의 `{rule_id, file, line, note}`에 **`verdict`·`package`를 확장**(측정 매칭 명확화). repo-wide 룰은 `file: null`. `line`은 스캐폴딩 후 개발이 기입(§1.1 절차).
 
 ```yaml
 # ansim-benchmark/verification/expected_findings.yaml — 기획 확정본
@@ -251,8 +252,8 @@ positives:
   - { rule_id: SCA-05, package: six,      verdict: confirmed }
   - { rule_id: SCA-06, package: oldlib,   verdict: confirmed }
   - { rule_id: SCA-07, package: pymupdf,  verdict: confirmed }
-  - { rule_id: SCA-08, package: "<불명>", verdict: confirmed }
-  - { rule_id: SCA-09, package: "<대표>", verdict: confirmed, note: "lock 부재 전 컴포넌트 다발 — 대표 키잉(§5.1)" }
+  - { rule_id: SCA-08, package: TBD, verdict: confirmed, note: "라이선스 불명 dep — package는 스캐폴딩 시 개발 기입, rule_id·verdict 불변(§5.1)" }
+  - { rule_id: SCA-09, package: django, verdict: confirmed, note: "lock 부재 전 컴포넌트 다발 — django 대표(§5.1)" }
   # ── SCA-10·11·12: (rule_id, declared_in) 키 ── B4
   - { rule_id: SCA-10, file: vulnerable/requirements.txt,  verdict: confirmed }
   - { rule_id: SCA-11, file: vulnerable/requirements.txt,  verdict: confirmed }
@@ -312,7 +313,7 @@ negatives_expect_no_confirmed:
 | # | 항목 | 상태 |
 | --- | --- | --- |
 | 1 | RRN 무효=review_needed 기본값 | **이미 코드 확정**([pii.py:15](../api/app/engine/pii.py#L15), 2026-08-29) |
-| 2 | 이 취약점 목록(§4·§5) 전체 승인 | **대기** — v0.2로 블로커 5·메이저·마이너 반영 완료 |
+| 2 | 이 취약점 목록(§4·§5) 전체 승인 | **대기** — v0.3로 B1~B6·M1·M2·메이저·마이너 반영 완료 |
 | 3 | AUX-03 CORS 유지 | **확정** — JS 룰 실재, XSS·SSRF는 카탈로그 31종에 없어 교체 불가(리뷰 판정) |
 | 4 | 부가 발견 규칙 + 매칭 완화 | **승인**(2026-08-30) — §5.1 반영 |
 | 5 | P8·P9·P10 FPR을 PyGoat·dogfooding으로 측정 | **승인**(리뷰 판정) |
@@ -324,3 +325,4 @@ negatives_expect_no_confirmed:
 | --- | --- | --- |
 | v0.1 | 2026-08-29 | 최초 작성 — 31종 오라클·매니페스트·등급 시나리오 |
 | v0.2 | 2026-08-30 | PR #12 리뷰 반영 — B1(P1·P4 정적 합성·키 불요) / B2(인젝션 SEC-04 원문) / B3(§4↔§5 누락 3건 + 부가발견 규칙) / B4(SCA-09~12 키: 09=컴포넌트 다발·10·11·12=declared_in) / B5(불변식을 저장소 전체로 확장 + import 선언·P4 국소화) / 메이저(Flask High 정정, Low는 six) / 마이너(clean/ 경로·line 절차) / §5.1 매칭 의미론 신설 |
+| v0.3 | 2026-08-30 | PR #12 재리뷰 반영 — B6(SCA-08·09 플레이스홀더 매칭 교정: 09=django 대표, 08=스캐폴딩 기입) / M1(P4 불변식을 PII·외부전송 동시-등장 조건으로 완화) / M2(계획 Task 26 Produces를 §5.1 매칭 사양에 정렬) / 마이너(§5.2 스키마 line 포함) |
