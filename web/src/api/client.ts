@@ -77,6 +77,7 @@ export interface Provenance {
   llm_model_id: string | null
   vuln_db_snapshot_date: string | null
   vuln_match_incomplete?: boolean
+  registry_lookup_incomplete?: boolean
 }
 
 export interface RiskFactor {

@@ -1,6 +1,7 @@
 """SBOM 빌더 — 0309 §5.2 15속성 + §6.9 결합형태 3분류 + 0322 §5.1.1 공급망 분류.
 
-레지스트리 원격 조회는 하지 않는다(가정: 매니페스트·lock·동봉 LICENSE에서 얻는 범위만).
+이 모듈 자체는 레지스트리 원격 조회를 하지 않는다(매니페스트·lock·동봉 LICENSE에서
+얻는 범위만). 원격 보강은 `registry.py`의 파이프라인 단계가 수행한다(이슈 #33).
 부족한 속성은 null로 두되 **15속성 키는 언제나 전부 출력**한다.
 """
 
@@ -22,9 +23,11 @@ USAGE_DYNAMIC = "동적 참조"
 USAGE_FILE_COPY = "파일단위 복제"
 USAGE_NO_NOTICE = "복제·고지 없음"
 
-# SPDX 식별자 후보 — 동봉 LICENSE 본문에서 찾는 범위로만 판정한다(원격 조회 없음).
+# SPDX 식별자 후보 — 동봉 LICENSE 본문과 레지스트리 응답 문자열이 공유하는 패턴.
 _LICENSE_PATTERNS = [
-    (re.compile(r"\bGNU AFFERO GENERAL PUBLIC LICENSE\b|\bAGPL[- ]?3", re.I), "AGPL-3.0"),
+    # AFFERO 한 단어로 잡는다 — PyPI 원문에 "GNU AFFERO GPL 3.0"처럼 줄여 쓴 표기가 있어
+    # 전체 문구만 요구하면 아래 GPL 패턴이 먼저 삼킨다(PyMuPDF 실측).
+    (re.compile(r"\bAFFERO\b|\bAGPL[- ]?3", re.I), "AGPL-3.0"),
     (re.compile(r"\bServer Side Public License\b|\bSSPL\b", re.I), "SSPL-1.0"),
     (re.compile(r"\bGNU LESSER GENERAL PUBLIC LICENSE\b|\bLGPL\b", re.I), "LGPL-3.0"),
     (re.compile(r"\bGNU GENERAL PUBLIC LICENSE\b|\bGPL[- ]?3", re.I), "GPL-3.0"),
@@ -34,6 +37,26 @@ _LICENSE_PATTERNS = [
     (re.compile(r"\bMozilla Public License\b|\bMPL[- ]?2", re.I), "MPL-2.0"),
     (re.compile(r"\bISC License\b", re.I), "ISC"),
 ]
+
+
+def normalize_license(raw: str | None) -> str | None:
+    """원문 라이선스 문자열 → SPDX id(패턴 일치 시) 또는 짧은 토큰 보존.
+
+    PyPI `info.license`가 라이선스 전문 수천 자인 패키지가 있다 — 컬럼(String(128))
+    보호를 위해 패턴 불일치 장문은 None으로 버리고 호출자가 다음 후보로 폴스루한다.
+    `"(MIT OR AGPL-3.0)"` 같은 SPDX 식 토큰은 원문 그대로 남긴다(_is_service_copyleft가
+    부분 문자열로 매칭한다).
+    """
+    text = (raw or "").strip()
+    if not text:
+        return None
+    for pattern, spdx in _LICENSE_PATTERNS:
+        if pattern.search(text):
+            return spdx
+    if "\n" not in text and len(text) <= 64:
+        return text
+    return None
+
 
 _SUPPLIER = {"pypi": "PyPI", "npm": "npm registry"}
 
@@ -164,7 +187,7 @@ def build_sbom(deps: list[Dependency], root: Path) -> list[dict]:
             "license_usage": usage,                                           # ⑨
             "vulnerability_db": None,                                         # ⑩ Task 9·10이 채운다
             "relationship": dep.relationship,                                 # ⑪
-            "release_date": None,                                             # ⑫ 원격 조회 없음
+            "release_date": None,                                             # ⑫ stage_registry가 채운다
             "cve_ids": None,                                                  # ⑬ Task 9
             "cvss_base": None,                                                # ⑭ Task 9
             "cvss_impact": None,

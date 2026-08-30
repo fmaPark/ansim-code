@@ -168,6 +168,12 @@ export default function Report() {
         {report.provenance.vuln_match_incomplete && (
           <p className="review-strip">취약점 DB 대조가 일부 완료되지 않았습니다(부분 결과).</p>
         )}
+        {report.provenance.registry_lookup_incomplete && (
+          <p className="review-strip">
+            레지스트리 메타데이터가 일부 조회되지 않았습니다 — 장기 미갱신·라이선스 판정이
+            불완전할 수 있습니다.
+          </p>
+        )}
         {report.upgrade && <UpgradeBlock data={report.upgrade} />}
       </div>
 

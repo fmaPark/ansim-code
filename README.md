@@ -92,7 +92,7 @@ python3 verification/measure_detection.py --api http://localhost:8000 --repo htt
 
 측정 결과와 룰 갭은 [docs/measurements.md](docs/measurements.md), 인젝션 방어 시연은 [verification/injection_payloads.md](verification/injection_payloads.md)에 기록되어 있다.
 
-**룰 31종 중 실효는 29종이다.** SCA-05(장기 미갱신)와 SCA-07(AGPL/SSPL 서비스 배포)은 각각 컴포넌트의 릴리즈 일자와 선언된 패키지의 라이선스를 필요로 하는데, SBOM 빌더가 레지스트리를 원격 조회하지 않아(매니페스트·lock·동봉 LICENSE에서 얻는 범위만) 입력이 언제나 비어 있다. 판정식은 정상이고 입력이 없는 것이며, 원격 조회 도입은 설계 가정 변경이라 MVP 범위 밖으로 두었다. 자세한 사유와 대안은 [이슈 #33](https://github.com/fmaPark/ansim-code/issues/33)에 있다.
+**룰 31종이 모두 실효다.** SCA-05(장기 미갱신)와 SCA-07(AGPL/SSPL 서비스 배포)은 컴포넌트의 릴리즈 일자와 선언된 패키지의 라이선스를 필요로 하는데, 한때 SBOM 빌더가 레지스트리를 원격 조회하지 않아 입력이 언제나 비어 두 룰이 상시 미검출이었다([이슈 #33](https://github.com/fmaPark/ansim-code/issues/33)). 지금은 스캔 파이프라인이 PyPI/npm 레지스트리 메타데이터를 조회해 두 입력을 채운다 — 장애 격리는 OSV 대조와 동일하다(부분 결과 유지 + 리포트에 "일부 미조회" 표시, 스캔은 실패하지 않는다). 차단망에서는 `REGISTRY_LOOKUP_ENABLED=false`로 조회를 끌 수 있고, 이때 두 룰은 이전처럼 침묵한다.
 
 ## 도구
 
