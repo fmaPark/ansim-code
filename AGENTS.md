@@ -6,7 +6,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 
 - `api/` — FastAPI + Python 3.12, 의존성은 `api/requirements.txt` (pip)
 - `web/` — React 19.2 + TypeScript + Vite, 패키지 매니저는 **npm** (`web/package-lock.json`)
-- LLM은 Anthropic Claude API. 모델 ID는 `api/app/config.py`의 `judge_model`·`convert_model`
+- LLM은 Google Gemini API. 모델 ID는 `api/app/config.py`의 `judge_model`·`convert_model`
 
 ## Commands
 
@@ -15,7 +15,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 | Task | Command |
 |------|---------|
 | API 테스트 1개 파일 | `docker compose run --rm -v "$PWD:/work" -w /work/api api pytest tests/test_pii.py -v` |
-| 룰 변경분까지 반영한 테스트 | `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules api pytest tests/test_pii.py -v` |
+| 룰·데이터 변경분까지 반영한 테스트 | `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules -e KISA_CSV_PATH=/work/data/kisa/krcert_notices.csv api pytest tests/test_pii.py -v` |
 | 프론트 린트 1개 파일 | `cd web && npx oxlint src/pages/Home.tsx` |
 | 프론트 개발 서버 | `cd web && npm run dev` |
 
@@ -39,11 +39,12 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 
 - 파일 편집은 Write/Edit 도구로 한다. Bash의 `sed`·heredoc 편집은 세션 백업의 변경 파일 목록에서 누락된다.
 - `semgrep`·`gitleaks` 바이너리는 호스트에 없다. 이를 쓰는 테스트는 위 `docker compose run` 경로로만 검증된다.
-- `rules/`·`data/`는 API 이미지에 구워진다(`api/Dockerfile`). 테스트에 `RULES_DIR`를 주지 않으면 이미지 안 `/srv/rules`를 읽으므로, 방금 고친 룰이 조용히 무시된다. 서비스에 반영하려면 `docker compose up -d --build api`.
+- `rules/`·`data/`는 API 이미지에 구워진다(`api/Dockerfile`). 테스트에 `RULES_DIR`·`KISA_CSV_PATH`를 주지 않으면 이미지 안 `/srv/rules`·`/srv/data`를 읽으므로, 방금 고친 룰·스냅샷이 조용히 무시된다. 서비스에 반영하려면 `docker compose up -d --build api`.
+- `data/kisa/krcert_notices.csv`는 공공데이터 배포본 **원본 그대로**다(cp949, 무가공). 편집하지 말고 재다운로드로만 갱신하며, 출처·해시·한계는 `data/kisa/PROVENANCE.md`에 기록한다. 원본의 `작성자` 컬럼은 실명이라 로더가 읽지 않는다.
 - `rules/` 전체의 콘텐츠 해시가 `rule_catalog_version`이다. 룰 파일 변경은 버전 변경이며 재진단 diff에 영향을 준다.
 - uvicorn 워커는 1로 고정한다. 파이프라인이 `BackgroundTasks` in-process를 전제한다.
 - 원본 소스코드는 스캔별 격리 워크스페이스에만 존재하고 `try/finally`로 무조건 파기된다. 이 경로를 우회하는 변경 금지.
-- `ANTHROPIC_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
+- `GEMINI_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
 - `docs/` 문서는 OKF v0.2 번들이다. 문서를 추가·수정하면 YAML frontmatter를 유지하고 `tools/okf_check.py`로 확인한다. 단, 현재 `main`에는 frontmatter가 없는 문서가 남아 있어 이 검사가 **상시 실패**(exit 1)한다(이슈 #21 — 2026-08-30 기준 `plans/execution-prompts.md`·`benchmark-spec.md` 2건). 통과 여부가 아니라 **자기 변경으로 새 오류가 생겼는지**를 본다.
 - `web` 의존성 버전의 정본은 `web/package-lock.json`이다. 문서에 버전을 적을 때 lock에서 확인한다 — 스캐폴드(`npm create vite@latest`)가 버전을 고정하지 않아 React 표기가 실물과 어긋난 전례가 있다.
 

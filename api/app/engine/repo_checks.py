@@ -7,7 +7,7 @@
 import re
 from pathlib import Path
 
-from app.config import SKIP_DIRS
+from app.config import SKIP_DIRS, is_test_path
 from app.engine.deps_types import Dependency
 from app.engine.findings import FindingDraft
 
@@ -66,7 +66,9 @@ _PII_FIELD = re.compile(r"(?i)phone|birth|email|address|jumin|rrn|이름|전화|
 _MODEL_CLASS = re.compile(r"class \w+\((db\.Model|models\.Model|Base)\)")
 _DELETION = re.compile(r"(?i)\b(delete|destroy|expire|retention|purge)\b|파기")
 _PRIVACY_FILE = re.compile(r"(?i)privacy|개인정보처리방침")
-_PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy")
+# 라우트 경로는 privacy에서 끝나거나(따옴표) 세그먼트가 이어진다(슬래시). 파일명은 점이
+# 이어지므로 `"privacy.yaml"` 같은 상수가 라우트로 읽히지 않는다(이슈 #34 잔여분).
+_PRIVACY_ROUTE = re.compile(r"(?i)['\"]/?privacy(?:[-_]?policy)?['\"/]")
 
 
 def _code_files(root: Path):
@@ -107,7 +109,9 @@ def run_repo_checks(root: Path, deps=None) -> list[FindingDraft]:
     has_policy_file = any(
         p.suffix.lower() in DOC_EXTS and _PRIVACY_FILE.search(p.name) for p in root.rglob("*")
         if p.is_file() and not (set(p.relative_to(root).parts[:-1]) & SKIP_DIRS))
-    has_policy_route = any(_PRIVACY_ROUTE.search(t) for t in texts.values())
+    # 테스트 픽스처의 라우트 문자열은 서비스가 제공하는 라우트가 아니다(이슈 #34 잔여분).
+    has_policy_route = any(_PRIVACY_ROUTE.search(t) for p, t in texts.items()
+                           if not is_test_path(rel[p]))
     if not has_policy_file and not has_policy_route:
         drafts.append(FindingDraft("P9", "medium", None, None,
                                    "개인정보 처리방침 파일·라우트를 찾지 못함(저장소 전체)", "confirmed"))

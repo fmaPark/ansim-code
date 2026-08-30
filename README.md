@@ -25,7 +25,7 @@
 
 ## 기술 구성
 
-React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL 16 / Semgrep CE + gitleaks(자체 룰 전용) / OSV.dev API + KISA 보호나라 스냅샷 / Anthropic Claude API. 로컬 Docker Compose 3서비스로 기동한다.
+React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL 16 / Semgrep CE + gitleaks(자체 룰 전용) / OSV.dev API + KISA 보호나라 스냅샷 / Google Gemini API. 로컬 Docker Compose 3서비스로 기동한다.
 
 원본 소스코드는 스캔별 격리 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다 — 이 정책 자체가 TTAK.KO-12.0414 §7.3.5(지체 없는 파기)의 자기 적용이다.
 
@@ -37,7 +37,7 @@ React 19.2 + TypeScript(Vite, nginx 서빙) / FastAPI + Python 3.12 / PostgreSQL
 cp .env.example .env
 ```
 
-`.env`의 `ANTHROPIC_API_KEY`에 실제 Anthropic 키를 채운다 — 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다.
+`.env`의 `GEMINI_API_KEY`에 실제 Gemini 키를 채운다 — 비어 있어도 스캔은 끝까지 돌지만 LLM 판정과 시민용 변환 단계는 건너뛴다.
 
 ```bash
 docker compose up -d --build
@@ -56,7 +56,7 @@ docker compose up -d --build
 
 장면별 시연 순서는 [데모 스크립트](docs/demo-script.md)에 있다.
 
-### Anthropic API가 멈춘 상태 재현
+### Gemini API가 멈춘 상태 재현
 
 등급은 확정된 결함과 CVE만의 함수라 LLM이 죽어도 그대로 나온다. 무효 키 오버레이로 확인할 수 있다.
 
@@ -91,6 +91,8 @@ python3 verification/measure_detection.py --api http://localhost:8000 --repo htt
 ```
 
 측정 결과와 룰 갭은 [docs/measurements.md](docs/measurements.md), 인젝션 방어 시연은 [verification/injection_payloads.md](verification/injection_payloads.md)에 기록되어 있다.
+
+**룰 31종 중 실효는 29종이다.** SCA-05(장기 미갱신)와 SCA-07(AGPL/SSPL 서비스 배포)은 각각 컴포넌트의 릴리즈 일자와 선언된 패키지의 라이선스를 필요로 하는데, SBOM 빌더가 레지스트리를 원격 조회하지 않아(매니페스트·lock·동봉 LICENSE에서 얻는 범위만) 입력이 언제나 비어 있다. 판정식은 정상이고 입력이 없는 것이며, 원격 조회 도입은 설계 가정 변경이라 MVP 범위 밖으로 두었다. 자세한 사유와 대안은 [이슈 #33](https://github.com/fmaPark/ansim-code/issues/33)에 있다.
 
 ## 도구
 

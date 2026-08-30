@@ -86,15 +86,18 @@ ansim-benchmark/                     # 별도 공개 저장소 (git URL 입력 �
 
 ## 3. 매니페스트 실내용 (SCA 12종을 유발하는 핵심)
 
-> CVE 핀 severity는 **빌드 시 OSV 2026-08-29 스냅샷으로 최종 확정**. 5핀 모두 KISA 보호나라 스냅샷([data/kisa/krcert_notices.csv](../data/kisa/krcert_notices.csv))과 교차 → **SCA-03 동시 발화**. 앱이 실제로 쓰지 않는 dep도 매니페스트에 선언한다(= 바이브코딩의 "남은 의존성" 실패 모드 재현).
+> CVE 핀 severity는 **빌드 시 OSV 2026-08-29 스냅샷으로 최종 확정**. 앱이 실제로 쓰지 않는 dep도 매니페스트에 선언한다(= 바이브코딩의 "남은 의존성" 실패 모드 재현).
+>
+> **SCA-03 기대치 정정(이슈 #17, 2026-08-30).** "5핀 모두 KISA 교차 → SCA-03 동시 발화"는 표본 CSV 기준의 기대였고 **실데이터로는 성립하지 않는다**. data.go.kr 배포본은 게시판 목록만 제공해 추출되는 CVE 192건이 전부 국내 제품 건이며, 5핀 CVE는 하나도 포함되지 않는다(measurements.md). 실데이터로 SCA-03이 발화하는 것은 **제품명 교차가 걸리는 `Django` 1핀**뿐이다. 커버리지 회복이 필요하면 **`aiohttp`(pypi)·`electron`(npm) 핀 추가**를 권한다 — 두 제품 모두 실제 보호나라 보안공지가 있다. 핀 반영은 벤치마크 앱(별도 저장소) 작업이다.
 
 ### 3.1 `vulnerable/requirements.txt`
 
 | 라인(개념) | 유발 룰 | CVE / 근거 | 예상 severity |
 | --- | --- | --- | --- |
-| `Django==3.2.12` | SCA-02·03·04 | CVE-2022-28346 (SQLi) · KISA 교차 | **Critical/High**(OSV 확정) |
-| `requests==2.28.0` | SCA-02·03·04 | CVE-2023-32681 · KISA 교차 | Medium |
-| `Flask==0.12.2` | SCA-02·03·04 | CVE-2018-1000656(7.5) + CVE-2019-1010083 · KISA 교차 | **High**(주의 기여 — 메이저 교정) |
+| `Django==3.2.12` | SCA-02·**03**·04 | CVE-2022-28346 (SQLi) · **KISA 제품명 교차**("Django 제품 보안 업데이트 권고") | **Critical/High**(OSV 확정) |
+| `requests==2.28.0` | SCA-02·04 | CVE-2023-32681 (KISA 공지 없음 → SCA-03 미발화) | Medium |
+| `Flask==0.12.2` | SCA-02·04 | CVE-2018-1000656(7.5) + CVE-2019-1010083 (KISA 공지 없음) | **High**(주의 기여 — 메이저 교정) |
+| `aiohttp==3.9.0` (권장 추가) | SCA-02·**03**·04 | OSV 핀 + **KISA 제품명 교차**("Python aiohttp 라이브러리 보안 업데이트 권고", 2024-03-18) | 스캐폴딩 시 OSV 확정 |
 | `six==1.10.0` | SCA-05 | 릴리즈 3년 초과·CVE 없음 | **Low(비기여 검증 담당)** |
 | `PyMuPDF` (AGPL-3.0) | SCA-07 | 라이선스 ∈ {AGPL, SSPL} + 서비스 배포 | Medium |
 | `<라이선스 불명 dep>` | SCA-08 | 메타데이터 라이선스 미확인 | Low |
@@ -109,8 +112,9 @@ ansim-benchmark/                     # 별도 공개 저장소 (git URL 입력 �
 
 | 라인(개념) | 유발 룰 | CVE / 근거 | 예상 severity |
 | --- | --- | --- | --- |
-| `"lodash": "4.17.15"` | SCA-02·03·04 | CVE-2020-8203 (프로토타입 오염) · KISA 교차 | **High** |
-| `"next": "<취약범위>"` | SCA-02·03·04 | CVE-2025-29927 (인증우회) · KISA 교차 | **확정 Critical** |
+| `"lodash": "4.17.15"` | SCA-02·04 | CVE-2020-8203 (프로토타입 오염) — KISA 공지 없음 → SCA-03 미발화 | **High** |
+| `"next": "<취약범위>"` | SCA-02·04 | CVE-2025-29927 (인증우회) — KISA 공지 없음 | **확정 Critical** |
+| `"electron": "<취약범위>"` (권장 추가) | SCA-02·**03**·04 | OSV 핀 + **KISA 제품명 교차**("Electron 원격 코드 실행 취약점 업데이트 권고") | 스캐폴딩 시 OSV 확정 |
 | lock의 선언≠매니페스트 1건 | SCA-12 | 매니페스트-lock 불일치(declared_in 키) | Medium |
 | (left-pad require 하되 미선언) | SCA-01(npm) | JS import − 매니페스트 갭 | Medium |
 
@@ -166,7 +170,7 @@ ansim-benchmark/                     # 별도 공개 저장소 (git URL 입력 �
 | --- | --- | --- | --- | --- |
 | SCA-01 | package | redis(pypi)·left-pad(npm) | confirmed | 주의 |
 | SCA-02 | package ×5 | django·next·lodash·requests·flask | confirmed | **위험**(next Critical) / 주의 |
-| SCA-03 | package ×5 | 위 5종(KISA 교차) | confirmed | (SCA-02 겸용) |
+| SCA-03 | package ×1(권장 핀 추가 시 ×3) | **django**(제품명 교차) — 권장 핀 추가 시 aiohttp·electron | confirmed | (SCA-02 겸용) |
 | SCA-04 | package ×5 | 위 5종(fixed 존재) | confirmed | 주의 |
 | SCA-05 | package | six | confirmed | 무기여(Low) |
 | SCA-06 | package | oldlib(vendor, LICENSE 부재) | confirmed | 주의 |
@@ -239,11 +243,11 @@ positives:
   - { rule_id: SCA-02, package: lodash,   verdict: confirmed }
   - { rule_id: SCA-02, package: requests, verdict: confirmed }
   - { rule_id: SCA-02, package: flask,    verdict: confirmed }
-  - { rule_id: SCA-03, package: django,   verdict: confirmed }   # B3 — 5핀 전체
-  - { rule_id: SCA-03, package: next,     verdict: confirmed }
-  - { rule_id: SCA-03, package: lodash,   verdict: confirmed }
-  - { rule_id: SCA-03, package: requests, verdict: confirmed }
-  - { rule_id: SCA-03, package: flask,    verdict: confirmed }
+  # SCA-03은 KISA 실데이터로 제품명 교차가 걸리는 핀만 기대한다(이슈 #17 — 5핀 전체 기대는 철회).
+  - { rule_id: SCA-03, package: django,   verdict: confirmed }
+  # 권장 핀 추가 시 함께 기대(벤치마크 앱 별도 저장소 반영 필요):
+  # - { rule_id: SCA-03, package: aiohttp,  verdict: confirmed }
+  # - { rule_id: SCA-03, package: electron, verdict: confirmed }
   - { rule_id: SCA-04, package: django,   verdict: confirmed }   # B3 — 5핀 전체
   - { rule_id: SCA-04, package: next,     verdict: confirmed }
   - { rule_id: SCA-04, package: lodash,   verdict: confirmed }

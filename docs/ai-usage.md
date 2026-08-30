@@ -6,7 +6,7 @@ status: draft
 tags: [ansimcode, ai-usage, process]
 sources:
   - { id: session-logs, resource: "logs/agent/*.md (저장소 밖 — .gitignore)", title: "세션 백업 로그 23건 (2026-08-24~08-31)" }
-  - { id: gh, resource: "https://github.com/fmaPark/ansim-code", title: "PR 27건 · 이슈 14건 · 커밋 123건" }
+  - { id: gh, resource: "https://github.com/fmaPark/ansim-code", title: "PR 28건 · 이슈 14건 · 커밋 124건" }
   - { id: prompts, resource: ./plans/execution-prompts.md, title: "실행 프롬프트 모음" }
   - { id: plan, resource: ./plans/mvp-implementation.md, title: "MVP 구현 계획 — G1~G16 · 28태스크 DoD" }
   - { id: measure, resource: ./measurements.md, title: "실측 기록 — 게이트·자기진단 결과" }
@@ -34,8 +34,8 @@ sources:
 | 기간 | 2026-08-24 ~ 08-31 (8일) |
 | 세션 | **23건** — 로컬 워크트리 13 · 저장소 루트 7 · Cowork(Windows, 팀원) 2 · claude.ai 웹 1 |
 | 사람이 입력한 프롬프트 | **161개** |
-| 커밋 | 123건 중 **76건에 AI 공동저자 표기** (Fable 5 43 · Opus 5 29 · Opus 4.8 4) |
-| PR / 이슈 | 27건 / 14건 — 본문 전량 AI 작성 |
+| 커밋 | 124건 중 **77건에 AI 공동저자 표기** (Fable 5 43 · Opus 5 30 · Opus 4.8 4) |
+| PR / 이슈 | 28건 / 14건 — 본문 전량 AI 작성 |
 | 사람이 직접 쓴 코드 | 사실상 없음 |
 
 **이 프로젝트 AI 활용의 특징 5가지**
@@ -108,7 +108,7 @@ priority를 태그로, high 이상은 담당자 지정"이 추가됐다. **판�
 사람은 모델이 잘못 지정돼 있을 때만 수동으로 되돌렸다(로그상 7회).
 
 커밋에는 **실제로 그 커밋을 만든 모델**을 공동저자로 적는 규약을 뒀다(`AGENTS.md`).
-그래서 "Fable 5 43건 / Opus 5 29건 / Opus 4.8 4건"이 추정이 아니라 커밋 단위 실측이다.
+그래서 "Fable 5 43건 / Opus 5 30건 / Opus 4.8 4건"이 추정이 아니라 커밋 단위 실측이다.
 
 ### 1.6 세션 기록을 자동화하고, 저장소를 AI가 읽는 형태로 정비
 

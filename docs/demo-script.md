@@ -19,7 +19,7 @@ sources:
 ## 0. 촬영 전 준비
 
 ```bash
-cp .env.example .env          # ANTHROPIC_API_KEY에 실제 키 기입
+cp .env.example .env          # GEMINI_API_KEY에 실제 키 기입
 docker compose up -d --build  # 3서비스 기동, 룰 31종 시드
 curl -s http://localhost:8000/health
 ```
@@ -42,7 +42,7 @@ git ls-remote https://github.com/fmaPark/ansim-benchmark refs/heads/main 'refs/t
 어긋나 있으면 되돌린다(§장면 ③ 참조).
 
 **리허설을 먼저 1회 돌린다.** 실키 상태로 장면 ①~⑦을 그대로 한 번 완주하면 LLM 응답이
-`llmcache` 볼륨에 적재되고, 그 뒤로는 Anthropic이 죽어도 같은 화면이 재생된다(장면 ⑦ 대비).
+`llmcache` 볼륨에 적재되고, 그 뒤로는 Gemini가 죽어도 같은 화면이 재생된다(장면 ⑦ 대비).
 
 ```bash
 docker compose exec api sh -c 'ls /srv/data/llm_cache | wc -l'   # 리허설 후 캐시 파일 수
@@ -158,13 +158,26 @@ docker compose exec api sh -c 'ls /srv/data/llm_cache | wc -l'   # 리허설 후
 `https://github.com/fmaPark/ansim-code`를 입력해 안심코드가 자기 자신을 진단한다.
 SBOM 91개 컴포넌트가 나오고 등급이 매겨진다.
 
-**내레이션**: "만든 도구로 만든 사람을 검사합니다. 결과는 '위험'이고, 뜯어보니 상당수가
-저희 도구의 오탐이었습니다 — 룰 테스트용 가짜 시크릿을 진짜로 읽었고, 룰 소스 자신의 정규식에
-룰이 걸렸습니다. 숨기지 않고 기록에 남겼습니다."
+**내레이션**: "만든 도구로 만든 사람을 검사합니다. 뜯어보니 일부는 저희 도구의 오탐이었고
+— 룰 테스트용 가짜 시크릿을 진짜로 읽었습니다 — 일부는 진짜 결함이었습니다. 둘 다 숨기지 않고
+기록에 남겼고, 고칠 수 있는 것은 고쳤습니다."
 
-**근거**: TDD §9 자기진단 · [docs/measurements.md](./measurements.md) M7 Task 27 ④.
+**짚어 줄 발견 둘**:
+
+- **P5(크롤링 개인정보 수집)는 룰 소스 자기 발화다.** `api/app/engine/repo_checks.py`가 자기
+  정규식 리터럴에 걸린 것으로, 정규식이 패턴을 정의한 소스와 사용한 소스를 구분하지 못해
+  생긴다. 정적 분석 도구가 자기를 검사할 때의 알려진 성질이고 `review_needed`라 등급에는
+  기여하지 않는다(이슈 #30).
+- **P9(처리방침 미공개)는 정탐이다.** 안심코드에 처리방침 문서가 실제로 없다. 처음에는 파일명에
+  `privacy`가 든 룰 파일 때문에 "있음"으로 오판정했고, 그 조용한 미검출을 찾아 고친 뒤
+  발화하게 됐다(이슈 #34). `confirmed`·medium이라 등급에 들어간다.
+
+**근거**: TDD §9 자기진단 · [docs/measurements.md](./measurements.md) M7 Task 27 ④와
+「후속 이슈 처리 2회차」.
 
 > 벤치마크가 **별도 저장소**라서 자기 등급이 오염되지 않는다는 점을 한 마디 붙인다.
+> 룰 31종 중 SCA-05·SCA-07 2종은 레지스트리 원격 조회가 없어 발화하지 않는다(실효 29종,
+> 이슈 #33) — 질문이 나오면 숨기지 말고 그대로 답한다.
 
 ## 장면 ⑦ SBOM 다운로드·체크리스트 — 그리고 장애 폴백
 
@@ -173,7 +186,7 @@ SBOM 91개 컴포넌트가 나오고 등급이 매겨진다.
 1. **SBOM JSON 다운로드** — 0309 §5.2의 15속성이 전부 채워져 내려온다(값이 없으면 `null`,
    키는 언제나 존재).
 2. **조직 요구사항 체크리스트** 탭.
-3. **장애 폴백**: Anthropic이 죽은 상황을 재현한다.
+3. **장애 폴백**: Gemini가 죽은 상황을 재현한다.
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.keyless.yml up -d api

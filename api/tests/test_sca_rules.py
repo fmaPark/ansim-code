@@ -199,7 +199,9 @@ def test_run_semgrep_without_config_is_noop(tmp_path):
 def _vulnerable_zip() -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
-        z.writestr("app/requirements.txt", "flask==0.12\nrequests>=2.0\n")
+        # Django 핀은 KISA 제품명 교차(SCA-03)를 태우기 위한 것이다 — 실데이터 스냅샷의
+        # 보안공지 제목에 Django가 있고, flask·lodash CVE는 배포본에 없다.
+        z.writestr("app/requirements.txt", "flask==0.12\nrequests>=2.0\nDjango==3.2.12\n")
         z.writestr("app/main.py", "import flask\nimport boto3\n")
         z.writestr("app/package.json", json.dumps({"dependencies": {"lodash": "4.17.15"}}))
         z.writestr("app/vendor/leftpad/index.js", "module.exports = 1;\n")
@@ -212,7 +214,12 @@ def _osv_stub():
     async def _stub(purls, transport=None):
         vulns = {}
         for purl in purls:
-            if purl.startswith("pkg:pypi/flask"):
+            if purl.lower().startswith("pkg:pypi/django"):
+                vulns[purl] = [VulnInfo(
+                    id="GHSA-2gwj-7jmv-h26r", cve_ids=["CVE-2022-28346"],
+                    cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                    severity="critical", fixed_version="3.2.13")]
+            elif purl.startswith("pkg:pypi/flask"):
                 vulns[purl] = [VulnInfo(
                     id="GHSA-562c-5r94-xh97", cve_ids=["CVE-2018-1000656"],
                     cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
