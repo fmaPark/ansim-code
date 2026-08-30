@@ -190,3 +190,87 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
   라인이 2줄 밀리자 AUX-01·02가 '해결+신규' 쌍으로 잡혔다. 카운트는 정직하나 데모 내레이션 시
   "동일 룰 해결+신규 쌍 = 위치 이동"임을 언급할 것. 개선은 M6 범위 밖(백엔드 diff.py).
 - **LLM 실호출(§11 항목 1)** — `.env` 키 placeholder(401) → 전 스캔이 폴백 경로. M7 데모 전 실키 필수.
+
+## M8 — Task 32 전환 게이트 (2026-08-30, 실행 세션: feat/m8-gemini)
+
+> Gemini 전면 전환(TDD v0.6 §11 항목 9)의 **전환 게이트 4건** 실측. 실 `GEMINI_API_KEY`로 수행했다.
+> 위 M4~M6 엔트리의 Anthropic 기준 수치는 당시 기록이므로 그대로 두고, Gemini 기준은 여기 새로 남긴다.
+> **§11 항목 1(LLM 상한)의 Gemini 기준 첫 실호출 실측**이기도 하다(M4는 fake transport 기준이었다).
+
+### 선결 사항 — TDD §4.2 모델 가정 2종이 사용 불가
+
+`models.list()`에는 나오지만 `generateContent` 호출이 **404 "no longer available to new users"**:
+
+| 모델 | 결과 |
+| --- | --- |
+| `gemini-2.5-flash` (TDD judge 가정) | ❌ 404 — 신규 계정 사용 불가 |
+| `gemini-2.5-flash-lite` (TDD 변환 가정) | ❌ 404 — 동일 |
+| `gemini-3.5-flash` | ✅ `thinking_budget=0` 그대로 수용 |
+| `gemini-3.1-flash-lite` | ✅ `thinking_budget=0` 그대로 수용 |
+| `gemini-3.6-flash`·`gemini-3.5-flash-lite`·`gemini-flash-lite-latest` | ⚠️ 동작하나 `thinking_budget` 미지원(400) → `thinking_level="low"` 필요 |
+| `gemini-3.7-flash`·`gemini-flash-latest` | ⚠️ 503 high demand(간헐) |
+
+→ **사용자 확정(2026-08-30): judge=`gemini-3.5-flash`, 변환=`gemini-3.1-flash-lite`.** TDD §4.2 문구(thinking 비활성)를 코드 변경 없이 충족하고 flash/flash-lite 이원화 구조를 유지하는 조합이다. **TDD §4.2·§11 항목 9 ①의 모델 가정은 실물과 어긋나므로 정정 필요**(기획 사후 승인 대상).
+
+### 게이트 판정
+
+| # | 게이트 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| ① | 벤치마크 페이로드 안전 필터 차단 0건 | **통과** | 아래 §게이트 ① |
+| ② | 응답 `model_version` 기록(G9) | **통과** | 아래 §게이트 ② |
+| ③ | Gemini 리허설 캐시 재기록 | **조건부 통과** | 메커니즘 동작. 단 결함 2건 — 아래 §게이트 ③ |
+| ④ | judge 12 병렬 쿼터 통과 | **실패** | 무료 티어 5 RPM — 아래 §게이트 ④ |
+
+### 게이트 ① 안전 필터 — 통과 (차단 0/5)
+
+`benchmark-spec.md` §4.1·§4.2·§4.5 페이로드를 **실제 judge 프롬프트(`JUDGE_SYSTEM`+`JUDGE_USER_TMPL`)에 실어** 호출했다. 인젝션·시크릿은 SEC-\* 룰이라 설계상 LLM을 경유하지 않으므로(G2), 스니펫으로 실어 최악 케이스를 만든 것이다.
+
+| 페이로드 | 결과 |
+| --- | --- |
+| 주민번호(합성 체크섬 통과) 2건 + 계좌 + 휴대전화 + RRN insert (§4.2) | 통과 · out 107t |
+| 인젝션 지시문 4종(한국어·영어·역할 사칭·JSON 위장) + `AKIA…` (§4.5) | 통과 · out 77t — **모델이 지시를 따르지 않고 코드로 취급**(`is_likely_issue: true`) |
+| 시크릿 리터럴 원문 3종(sk-live·AKIA·AWS secret) (§4.1 최악 케이스) | 통과 · out 74t |
+| 민감정보 건강·질병·종교·범죄 (§4.2 P3) | 통과 · out 83t |
+| 크롤링 PII 수집 (§4.2 P5) | 통과 · out 86t |
+
+**차단 0건 · `finish_reason=SAFETY` 0건 · `block_reason` 0건.** 전 카테고리 `BLOCK_NONE` 설정(`SAFETY_OFF_CATEGORIES` 5종)이 의도대로 동작한다.
+
+### 게이트 ② `model_version` — 통과
+
+- 전 실호출에서 응답 `model_version` 존재. **"model_version 없음" 폴백 로그 0건**(요청 모델 ID 대체 경로 미발동).
+- `scan.llm_model_id = 'gemini-3.5-flash; gemini-3.1-flash-lite'` — judge·변환 두 모델이 **응답 값 그대로** 기록(설정 상수 하드코딩 아님 — G9 충족).
+
+### 게이트 ③ 리허설 캐시 — 조건부 통과 (메커니즘 OK, 운영 결함 2건)
+
+소형 fixture(judge 3 + 변환 1 = 4호출, 429 0건)로 record → 무효 키로 재생:
+
+| 단계 | 결과 |
+| --- | --- |
+| record(실키) | 4호출 성공, 캐시 파일 4개 기록 |
+| replay(무효 키) | **실호출 0 · 캐시 폴백 3건 · `status=done` 완주** |
+| 등급 비교 | record·replay 모두 **`위험`**, 지문 동일(`4f22958b08fc`), judge 설명 3건 유지 — **G3 등급 결정론 유지 확인** |
+
+**결함 ⓐ — 캐시가 컨테이너 재생성에서 소실된다.** `llm_cache_dir = /srv/data/llm_cache`는 `api/Dockerfile`의 `COPY data /srv/data`로 **이미지 레이어 안**에 있고 `docker-compose.yml`에 볼륨이 없다. 실제로 첫 측정에서 `docker compose up -d api` 한 번에 캐시 12개가 전부 사라졌다. **리허설 캐시가 유일한 데모 폴백**인데(TDD §6 — 예비 공급자 없음) 리허설과 데모 사이에 재빌드·재기동이 한 번이라도 있으면 폴백이 없다. 위 replay 측정은 임시 볼륨 override로 캐시를 살려 수행했다. → `docker-compose.yml`에 `llm_cache` 볼륨(또는 바인드 마운트) 추가 필요. **이 세션은 `docker-compose.yml` 변경 금지 범위라 미수정.**
+
+**결함 ⓑ — 변환(convert) 캐시는 스캔이 바뀌면 절대 히트하지 않는다.** `convert._payload_item()`이 페이로드에 **스캔별 Finding PK(`f.id`)**를 넣어 캐시 키 `sha256(model+system+user)`가 매번 달라진다. 위 replay에서 시민용 문구·수정 프롬프트 **10/10이 규칙 기반 폴백 문구**로 채워졌다(`"… 기준으로 수정하세요."`). judge 캐시는 스니펫 기반이라 정상 히트한다. → **장애 시 스캔은 완주하고 등급도 동일하지만 시민용 문구 품질은 폴백 수준으로 떨어진다.** 데모 내레이션에서 알고 있어야 할 사실이며, 구조 수정은 M8 범위 밖(캐시 키에서 스캔 종속 필드를 빼야 함).
+
+### 게이트 ④ judge 12 병렬 쿼터 — **실패**
+
+대형 fixture(LLM 후보 57건, 12 병렬)로 실측:
+
+| 항목 | 값 |
+| --- | --- |
+| 쿼터 | `GenerateRequestsPerMinutePerProjectPerModel-FreeTier`, **limit 5** (`generate_content_free_tier_requests`, model `gemini-3.5-flash`) |
+| 429 `RESOURCE_EXHAUSTED` | **45건** (전부 judge/`gemini-3.5-flash`. 변환/`gemini-3.1-flash-lite`는 3배치 전부 성공, 429 0건) |
+| judge 설명 기록 | **9 / 57** — 48건은 설명 없이 `review_needed` 유지(파이프라인은 계속, G3대로 등급 불변) |
+| 성공 호출 | 12건(judge 9 + 변환 3), in 11,529t / out 6,915t |
+| 서버 안내 재시도 지연 | 42~46초 |
+| 스캔 완주 | `status=done`, 등급 `위험` — **실패해도 스캔은 완주한다** |
+
+**구조적 판정:** 무료 티어 5 RPM에서는 **judge 12 병렬이 원리적으로 불가능**하다(6번째 요청부터 즉시 429). 병렬도를 5로 낮춰도 RPM은 분당 처리량 제한이라 후보 57건이면 12분 이상 — G14(2분) 붕괴다. **`judge_concurrency` 하향만으로는 해소되지 않으며**, 실질 선택지는 ⓐ 유료 티어 전환 ⓑ **스캔당 judge 호출 상한 도입**(TDD §6·§11 항목 1이 예고한 "스캔당 호출 상한") ⓒ 둘의 조합이다. **기획 판단 대기 — 이 세션은 미조치.**
+
+> 참고: 후보 57건은 12 병렬을 포화시키려 의도적으로 만든 스트레스 fixture다. `benchmark-spec.md` §4.2 기준 실제 데모 저장소의 P계열 후보는 7~8건 수준으로, 상한을 두면 5 RPM 안에서도 데모는 성립할 여지가 있다.
+
+### 변환 배치 절단 — 이상 없음
+
+`TOKENS_PER_ITEM=350` 유지 상태에서 발견 77건 → 3배치(30/30/17), `max_output_tokens` 10,500. **규칙 기반 폴백 문구 0/77**, `easy_description`·`fix_prompt` 미충족 0건 — 절단·매핑 실패 없음.

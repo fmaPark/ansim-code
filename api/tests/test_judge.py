@@ -12,7 +12,7 @@ from app.engine.findings import FindingDraft
 from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 
-FAKE_MODEL = "gemini-2.5-flash-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
+FAKE_MODEL = "gemini-3.5-flash-20260101"   # API 응답이 주는 값 — 설정값과 달라야 G9 검증이 됨
 SECRET = "Sup3rSecret99"
 
 

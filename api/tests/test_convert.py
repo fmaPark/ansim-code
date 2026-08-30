@@ -13,7 +13,7 @@ from app.engine.masking import MaskRegistry
 from app.llm.client import LlmClient, LlmResponse
 from app.llm.convert import generate_texts
 
-FAKE_MODEL = "gemini-2.5-flash-lite-20260101"   # 설정값과 달라야 G9 검증이 된다
+FAKE_MODEL = "gemini-3.1-flash-lite-20260101"   # 설정값과 달라야 G9 검증이 된다
 SECRET = "Sup3rSecret99"
 
 
