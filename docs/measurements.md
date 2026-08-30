@@ -582,6 +582,127 @@ macOS Finder·`tar`·Python zipfile로는 열리므로 조용히 지나칠 수 �
   → 이 중 5건을 아래 「후속 이슈 수정」에서 해소했다.
 - **§11 항목 4·7·8 카피** — M6에서 미수신 확정, placeholder 유지(변동 없음).
 
+## M8 — Task 32 전환 게이트 (2026-08-30, 실행 세션: feat/m8-gemini)
+
+> Gemini 전면 전환(TDD v0.6 §11 항목 9)의 **전환 게이트 4건** 실측. 실 `GEMINI_API_KEY`로 수행했다.
+> 위 M4~M7 엔트리의 Anthropic 기준 수치는 당시 기록이므로 그대로 두고, Gemini 기준은 여기 새로 남긴다.
+> **§11 항목 1(LLM 상한)의 Gemini 기준 첫 실호출 실측**이기도 하다(M4는 fake transport, M7은 키 미설정 기준이었다).
+
+### 선결 사항 — TDD §4.2 모델 가정 2종이 사용 불가
+
+`models.list()`에는 나오지만 `generateContent` 호출이 **404 "no longer available to new users"**:
+
+| 모델 | 결과 |
+| --- | --- |
+| `gemini-2.5-flash` (TDD judge 가정) | ❌ 404 — 신규 계정 사용 불가 |
+| `gemini-2.5-flash-lite` (TDD 변환 가정) | ❌ 404 — 동일 |
+| `gemini-3.5-flash` | ✅ `thinking_budget=0` 그대로 수용 |
+| `gemini-3.1-flash-lite` | ✅ `thinking_budget=0` 그대로 수용 |
+| `gemini-3.6-flash`·`gemini-3.5-flash-lite`·`gemini-flash-lite-latest` | ⚠️ 동작하나 `thinking_budget` 미지원(400) → `thinking_level="low"` 필요 |
+| `gemini-3.7-flash`·`gemini-flash-latest` | ⚠️ 503 high demand(간헐) |
+
+→ **사용자 확정(2026-08-30): judge=`gemini-3.5-flash`, 변환=`gemini-3.1-flash-lite`.** TDD §4.2 문구(thinking 비활성)를 코드 변경 없이 충족하고 flash/flash-lite 이원화 구조를 유지하는 조합이다. **TDD §4.2·§11 항목 9 ①의 모델 가정은 실물과 어긋나므로 정정 필요**(기획 사후 승인 대상).
+
+### 게이트 판정
+
+| # | 게이트 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| ① | 벤치마크 페이로드 안전 필터 차단 0건 | **통과** | 아래 §게이트 ① |
+| ② | 응답 `model_version` 기록(G9) | **통과** | 아래 §게이트 ② |
+| ③ | Gemini 리허설 캐시 재기록 | **조건부 통과** | 메커니즘 동작. 잔여 결함 1건 — 아래 §게이트 ③ |
+| ④ | judge 12 병렬 쿼터 통과 | **실패** | 무료 티어 5 RPM — 아래 §게이트 ④ |
+
+### 게이트 ① 안전 필터 — 통과 (차단 0/5)
+
+`benchmark-spec.md` §4.1·§4.2·§4.5 페이로드를 **실제 judge 프롬프트(`JUDGE_SYSTEM`+`JUDGE_USER_TMPL`)에 실어** 호출했다. 인젝션·시크릿은 SEC-\* 룰이라 설계상 LLM을 경유하지 않으므로(G2), 스니펫으로 실어 최악 케이스를 만든 것이다.
+
+| 페이로드 | 결과 |
+| --- | --- |
+| 주민번호(합성 체크섬 통과) 2건 + 계좌 + 휴대전화 + RRN insert (§4.2) | 통과 · out 107t |
+| 인젝션 지시문 4종(한국어·영어·역할 사칭·JSON 위장) + `AKIA…` (§4.5) | 통과 · out 77t — **모델이 지시를 따르지 않고 코드로 취급**(`is_likely_issue: true`) |
+| 시크릿 리터럴 원문 3종(sk-live·AKIA·AWS secret) (§4.1 최악 케이스) | 통과 · out 74t |
+| 민감정보 건강·질병·종교·범죄 (§4.2 P3) | 통과 · out 83t |
+| 크롤링 PII 수집 (§4.2 P5) | 통과 · out 86t |
+
+**차단 0건 · `finish_reason=SAFETY` 0건 · `block_reason` 0건.** 전 카테고리 `BLOCK_NONE` 설정(`SAFETY_OFF_CATEGORIES` 5종)이 의도대로 동작한다.
+
+### 게이트 ② `model_version` — 통과
+
+- 전 실호출에서 응답 `model_version` 존재. **"model_version 없음" 폴백 로그 0건**(요청 모델 ID 대체 경로 미발동).
+- `scan.llm_model_id = 'gemini-3.5-flash; gemini-3.1-flash-lite'` — judge·변환 두 모델이 **응답 값 그대로** 기록(설정 상수 하드코딩 아님 — G9 충족).
+
+### 게이트 ③ 리허설 캐시 — 조건부 통과
+
+소형 fixture(judge 3 + 변환 1 = 4호출, 429 0건)로 record → 무효 키로 재생:
+
+| 단계 | 결과 |
+| --- | --- |
+| record(실키) | 4호출 성공, 캐시 파일 4개 기록 |
+| replay(무효 키) | **실호출 0 · 캐시 폴백 3건 · `status=done` 완주** |
+| 등급 비교 | record·replay 모두 **`위험`**, 지문 동일(`4f22958b08fc`), judge 설명 3건 유지 — **G3 등급 결정론 유지 확인** |
+
+**측정 당시 결함 ⓐ(캐시가 컨테이너 재생성에 소실) → M7 머지로 해소.** 측정은 `llmcache` 볼륨이 없던 베이스에서 수행했고 실제로 `docker compose up -d api` 한 번에 캐시 12개가 소실됐다(임시 볼륨 override로 우회해 측정). **M7(PR #36)이 `docker-compose.yml`에 `llmcache:/srv/data/llm_cache` 볼륨을 추가해 이 결함은 사라졌다** — 머지 후 상태에서는 리허설 캐시가 재빌드에도 살아남는다.
+
+**결함 ⓑ(변환 캐시가 스캔이 바뀌면 미히트) → 이 세션에서 수정 완료.** `convert._payload_item()`이 페이로드에 **스캔별 Finding PK(`f.id`)**를 실어 캐시 키 `sha256(model+system+user)`가 매 스캔 달라졌다. 최초 replay 측정에서 시민용 문구·수정 프롬프트 **10/10이 규칙 기반 폴백 문구**(`"… 기준으로 수정하세요."`)로 채워졌다 — judge 캐시는 스니펫 기반이라 정상 히트하는데 변환만 전량 미스였다.
+
+수정: 페이로드의 `id`를 PK가 아니라 **배치 안 순번**으로 바꾸고 `_apply()`의 매핑도 순번 기준으로 맞췄다. 파이프라인이 `order_by(Finding.id)`로 넘기므로 같은 코드면 순번이 같아 캐시가 스캔을 건너 산다. 회귀 테스트 `test_payload_carries_no_scan_scoped_id`가 **서로 다른 PK를 가진 두 스캔의 페이로드가 바이트 동일**함을 고정한다.
+
+실측 재검증(같은 zip 2회 — 실키 record → 무효 키 replay):
+
+| 항목 | 수정 전 | 수정 후 |
+| --- | --- | --- |
+| 캐시 폴백 건수 | 3 (judge만) | **4 (judge 3 + 변환 1)** |
+| replay의 규칙 기반 폴백 문구 | **10/10** | **0/10** — LLM 문구 그대로 재생 |
+| replay 실호출 | 0 | 0 |
+
+→ `demo-script.md` 장면 ⑦의 "캐시가 있으면 LLM 설명 텍스트까지 그대로 재생된다"가 **시민용 문구·수정 프롬프트까지 포함해 사실이 됐다.**
+
+### 게이트 ④ judge 12 병렬 쿼터 — **실패**
+
+대형 fixture(LLM 후보 57건, 12 병렬)로 실측:
+
+| 항목 | 값 |
+| --- | --- |
+| 쿼터 | `GenerateRequestsPerMinutePerProjectPerModel-FreeTier`, **limit 5** (`generate_content_free_tier_requests`, model `gemini-3.5-flash`) |
+| 429 `RESOURCE_EXHAUSTED` | **45건** (전부 judge/`gemini-3.5-flash`. 변환/`gemini-3.1-flash-lite`는 3배치 전부 성공, 429 0건) |
+| judge 설명 기록 | **9 / 57** — 48건은 설명 없이 `review_needed` 유지(파이프라인은 계속, G3대로 등급 불변) |
+| 성공 호출 | 12건(judge 9 + 변환 3), in 11,529t / out 6,915t |
+| 서버 안내 재시도 지연 | 42~46초 |
+| 스캔 완주 | `status=done`, 등급 `위험` — **실패해도 스캔은 완주한다** |
+
+**구조적 판정:** 무료 티어 5 RPM에서는 **judge 12 병렬이 원리적으로 불가능**하다(6번째 요청부터 즉시 429). 병렬도를 5로 낮춰도 RPM은 분당 처리량 제한이라 후보 57건이면 12분 이상 — G14(2분) 붕괴다. **`judge_concurrency` 하향만으로는 해소되지 않으며**, 실질 선택지는 ⓐ 유료 티어 전환 ⓑ **스캔당 judge 호출 상한 도입**(TDD §6·§11 항목 1이 예고한 "스캔당 호출 상한") ⓒ 둘의 조합이다. **기획 판단 대기 — 이 세션은 미조치.**
+
+> 참고: 후보 57건은 12 병렬을 포화시키려 의도적으로 만든 스트레스 fixture다. M7 실측에서 벤치마크 저장소는 31종 중 28종 발화였고 그중 judge 후보(P1~P5·P10)는 한 자릿수 수준이다.
+
+### 게이트 ④ 후속 — D2ⓑ(스캔당 judge 호출 상한) 도입과 **일일 쿼터 발견**
+
+기획 회신(2026-08-30, PR #37 리뷰)이 **ⓑ 상한 채택**으로 확정돼 `settings.judge_max_calls`를 도입했다. 상한 초과분은 설명 없이 `review_needed`로 남고 등급은 static 경로라 무관하다(G3). 선별은 **심각도 높은 순 + 결정적 정렬**(`(severity, rule_id, file_path, line)`)이라 같은 코드면 같은 대상이 뽑힌다(재진단 diff 안정 — G11).
+
+상한 값 실측:
+
+| 상한 | 결과 |
+| --- | --- |
+| 5 | 상한은 정상 동작(judged 5 / skipped 49). 그러나 **버스트 5건이 5 RPM과 정확히 같아 여유가 없어 429 2건** — judge 성공 3/5 |
+| **3** (채택) | 상한 정상 동작(judged 3 / skipped 51). 데모의 스캔→재진단 연속(같은 분 2 버스트)과 JSON 파싱 재요청까지 흡수 |
+
+**⚠️ 새로 드러난 제약 — 무료 티어에는 분당(RPM)뿐 아니라 일일(RPD) 쿼터가 있다.**
+
+```
+quotaId : GenerateRequestsPerDayPerProjectPerModel-FreeTier
+metric  : generativelanguage.googleapis.com/generate_content_free_tier_requests
+limit   : 20      model: gemini-3.5-flash
+```
+
+상한 3 검증 도중 이 한도에 걸렸다 — 이날 게이트 측정으로 누적된 judge 호출이 **20건**을 넘어 이후 judge 호출이 전부 429가 됐다(`retryDelay` 32s로 안내되지만 실제로는 자정까지 회복되지 않는다). 그 상태의 두 스캔은 **judge 설명 0건으로 완주**했고 등급 `위험`·시민용 문구 폴백 0/77은 유지됐다 — 설계된 열화 경로가 그대로 동작함을 오히려 확인한 셈이다.
+
+**의미:** `gemini-3.5-flash` judge는 **하루 20호출**이 총량이다. 상한 3 기준 하루 약 6스캔분이며, 리허설과 본 데모를 같은 날 돌리면 빠듯하다. D2ⓑ(상한)만으로는 RPM은 해소되나 **RPD는 해소되지 않는다.** 완화 수단은 ① 리허설 캐시(judge 캐시는 스니펫 기반이라 같은 코드면 히트 — 쿼터 소진 후에도 같은 화면 재생) ② 유료 티어(D2ⓒ) 두 가지다. `gemini-3.1-flash-lite`(변환)는 같은 날 12호출까지 정상이었다 — lite 쪽 한도가 더 크다.
+
+> 이 RPD 제약은 기획 회신이 작성된 시점에 알려지지 않았던 정보다(당시 근거는 5 RPM뿐). **D2 재판단이 필요한지 확인 요청** — PR #37 본문 §1 참조.
+
+### 변환 배치 절단 — 이상 없음
+
+`TOKENS_PER_ITEM=350` 유지 상태에서 발견 77건 → 3배치(30/30/17), `max_output_tokens` 10,500. **규칙 기반 폴백 문구 0/77**, `easy_description`·`fix_prompt` 미충족 0건 — 절단·매핑 실패 없음.
+
 ## 후속 이슈 수정 — #28·#29·#31·#32·#34 (2026-08-30)
 
 M7이 기록만 남긴 이슈 8건 중 이 저장소 코드 수정만으로 고칠 수 있는 5건을 처리했다.
@@ -729,8 +850,9 @@ M3 시점에 프록시 차단으로 못 받았던 배포본을 직접 내려받�
 첫 실행에서 evidence에 OSV가 돌려준 **CVE 26건이 전량 나열**돼 리포트 카드가 깨졌다.
 상한 3건 + "외 N건"으로 축약하고 회귀 테스트를 걸었다(`test_product_cross_evidence_truncates_cve_list`).
 
-머지 후 전체 테스트 **193건 green**(origin/main `cfbeb09` 병합본), `tools/okf_check.py`는
-기존 2건(#21) 외 새 오류 없음.
+머지 후 전체 테스트 **196건 green**(origin/main `bb10d57` = M8 Gemini 전환까지 병합한 본),
+`tools/okf_check.py`는 기존 2건(#21) 외 새 오류 없음. 이 변경은 LLM 공급자 전환(M8)과 서로
+독립이다 — SCA-03은 static 경로라 LLM을 경유하지 않는다.
 
 ### 보류·이월 항목
 

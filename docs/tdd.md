@@ -10,6 +10,7 @@ sources:
   - { id: adr001, resource: ./platform-decision.md, title: "ADR-001 플랫폼 선정", author: "human:개발-풀스택", last_modified: "2026-08-26" }
   - { id: spec-final, resource: ../협의체_기록/최종확정명세_반영검토_및_개발회신.md, title: "최종 확정 명세 반영 검토 결과 및 개발 회신", author: "human:개발-풀스택", last_modified: "2026-08-26" }
   - { id: review-v03, resource: ../협의체_기록/TDD_v0.3_검토의견_개발회신.md, title: "TDD v0.3 검토의견 개발 회신", author: "human:개발-풀스택" }
+  - { id: llm-provider-switch, resource: ../협의체_기록/LLM_공급자_Gemini_전면전환_TDD반영_검토요청.md, title: "LLM 공급자 Gemini 전면 전환 — TDD 반영 검토 요청", author: "human:개발-풀스택", last_modified: "2026-08-30" }
   - { id: plan-v3, resource: "기획서 v3 — 10종 룰 반영 (저장소 외부)", title: "안심코드 기획서 v3", author: "human:기획" }
   - { id: std0259, resource: ./references/TTAK.KO-11.0259_R1.md, title: "TTAK.KO-11.0259/R1 오픈소스 소프트웨어 보안취약점 관리 지침", author: "TTA", last_modified: "2024-12-06" }
   - { id: std0309, resource: ./references/TTAK.KO-11.0309_R1.md, title: "TTAK.KO-11.0309/R1 SBOM 속성 규격", author: "TTA", last_modified: "2024-12-06" }
@@ -25,7 +26,7 @@ sources:
 | 기획 / PM | 기획 1인 |
 | 프로젝트 | 2026 ICT 표준 챌린지 공모전 데모 |
 | 기반 문서 | 기획서 v3(10종 룰 반영), [ADR-001 플랫폼 선정](./platform-decision.md), 최종 확정 명세·검토 기록(`협의체_기록/`) |
-| 버전 | v0.5 |
+| 버전 | v0.6 (Gemini 전면 전환 반영 — 기획 반영 검토 요청 중) |
 | Status | Draft |
 | Created | 2026-08-24 |
 | Last Updated | 2026-08-30 |
@@ -83,7 +84,7 @@ sources:
 - 취약점 대조: **OSV.dev API** + **KISA 보호나라 공공데이터 CSV 스냅샷** — 공지 제목 CVE 추출·교차 + 제품명 교차, "국내 보안공지 발령" 표시(가산점 항목). 배포본에 공지 본문·링크가 없다는 실측 결과를 반영한 2경로 교차다(§4.6·이슈 #17)
 - **진단 룰 약 30종**(표준 직접 도출 27종 + 일반 보안 보조 4종): SCA 룰 + 시크릿 룰 + 개인정보 10종 룰(0414 §7.3) + 보조 룰
 - **한국형 개인정보 패턴 검출**: 주민등록번호(체크섬 검증), 휴대전화, 계좌번호 패턴
-- **LLM 결합 진단**(Claude API 실호출, 확정): 맥락 판단, '검토 필요' 분리, 근거 코드 라인 병기 — **LLM 경유 발견은 등급에 기여하지 않음**(§4.5 등급 결정론)
+- **LLM 결합 진단**(Google Gemini API 실호출, 확정 — 2026-08-30 Anthropic에서 전면 전환, §11 항목 9): 맥락 판단, '검토 필요' 분리, 근거 코드 라인 병기 — **LLM 경유 발견은 등급에 기여하지 않음**(§4.5 등급 결정론)
 - **이중 리포트**: 개발자용(표준 조항 인용, §9.3 감사보고서 형식, §7.3.1 6대 원칙 축 요약) + 시민용(쉬운 한국어)
 - 발견 사항별 **수정 프롬프트** 생성 + **복사 액션**(항목별·전체 일괄)
 - **안전등급 산정**(안심·주의·위험, 0259 §11.3 근거) + **등급 상향 조건 표시**("이 N건 해결 시 상승")
@@ -147,7 +148,7 @@ graph TB
 
     GIT[🌐 공개 Git 저장소<br/>GitHub 등]
     OSV[🌐 OSV.dev API<br/>오픈소스 취약점 DB]
-    CLAUDE[🤖 Anthropic Claude API]
+    GEMINI[🤖 Google Gemini API]
 
     Dev -->|git URL 입력 · zip 업로드| FE
     Citizen -->|공개 등급 · 배지 조회| FE
@@ -161,11 +162,11 @@ graph TB
     VULN --> KISA
     ING --> RULES
     RULES -->|플래그 스니펫 · 마스킹 후 전달<br/>시크릿 룰은 미경유| LLMJ
-    LLMJ --> CLAUDE
+    LLMJ --> GEMINI
     VULN --> GRADE
     RULES --> GRADE
     GRADE --> REPORT
-    REPORT -->|쉬운 한국어 변환 · 수정 프롬프트| CLAUDE
+    REPORT -->|쉬운 한국어 변환 · 수정 프롬프트| GEMINI
     API <--> DB
     REPORT --> DB
 
@@ -179,7 +180,7 @@ graph TB
     class FE,API front
     class ING,DEP,SBOM,VULN,RULES,LLMJ,REPORT,GRADE engine
     class DB,KISA data
-    class GIT,OSV,CLAUDE external
+    class GIT,OSV,GEMINI external
 ```
 
 **0259 §11 관리 프로세스와 파이프라인 대응** (다이어그램 단계명·`current_stage` 용어의 근거):
@@ -204,7 +205,7 @@ graph TB
 | Frontend | React 19.2 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
 | DB | PostgreSQL 16 | 팀 선호. JSONB로 SBOM·finding의 가변 구조 저장, 관계형으로 scan-finding 연결 |
 | 정적 분석 | Semgrep CE + gitleaks | Semgrep: 단일 엔진으로 Python·JS/TS 겸용, YAML 커스텀 룰의 metadata에 TTA 조항을 직접 기입해 Finding 매핑이 1:1. 레지스트리 룰은 라이선스 제약(non-competing)으로 미사용 — 100% 자체 룰 작성. gitleaks: regex+entropy 시크릿 검출, 단일 바이너리, custom rule(TOML)로 **한국 특화 패턴**(주민등록번호 체크섬 등) 추가, `[allowlist]`로 플레이스홀더(`your-api-key-here`, `changeme`, `sk-test-` 등) 제외. 둘 다 subprocess + JSON 출력으로 통합(외부 전송 없음, TruffleHog식 실검증은 시크릿 외부 전송이라 원칙상 배제) |
-| LLM | Anthropic Claude API | 실호출 확정. **가정**: 판정(judge)은 `claude-sonnet-5`, 쉬운 한국어 변환·수정 프롬프트 생성은 `claude-haiku-4-5`로 비용 절감. `temperature=0`(설명문 안정성용 — 등급 결정론은 §4.5의 구조로 담보). `llm_model_id`는 하드코딩이 아니라 **API 응답의 `model` 필드를 그대로 기록**(표기 오류 원천 차단) |
+| LLM | Google Gemini API (2026-08-30 Anthropic에서 **전면 전환 확정** — 기획 비용 절감 요청. Anthropic 경로는 코드에 남기지 않으며 복구 수단은 git 이력뿐) | 실호출 확정. **가정**: 판정(judge)은 `gemini-2.5-flash`, 쉬운 한국어 변환·수정 프롬프트 생성은 `gemini-2.5-flash-lite`로 비용 절감. `temperature=0` 유지(설명문 안정성용 — 등급 결정론은 §4.5의 구조로 담보), thinking 비활성(`thinking_budget=0` — 지연·비용 통제). `llm_model_id`는 하드코딩이 아니라 **API 응답의 `model_version` 필드를 그대로 기록**(표기 오류 원천 차단 — G9 유지. 응답에 필드가 없으면 요청 모델 ID를 기록하고 그 사실을 로그로 남긴다 — 실응답으로 확인 후 §11 항목 9에서 확정). 안전 필터는 최소 차단으로 설정 — 진단 대상 스니펫(시크릿·PII·인젝션 페이로드)이 차단되면 judge 설명이 누락된다(§6 리스크) |
 | 실행 환경 | Docker Compose | 심사 환경 재현성. 데모 제출 형태(로컬 실행 + 영상)와 일치 |
 
 ### 4.3 데이터 모델 개요
@@ -285,7 +286,7 @@ graph TB
 | --- | --- | --- | --- |
 | OSV.dev API | 외부 API | purl 기반 취약점 배치 질의 | 무료, 인증 불필요 |
 | KISA 보호나라 KrCERT 게시판 ([data.go.kr](https://www.data.go.kr/data/15155789/fileData.do)) | 공공데이터 | 배포본은 **게시판 목록만 제공**한다(`순번·게시판 종류·게시판 제목·작성자·작성일·조회수`, cp949, 6,802행, 월간 갱신 — 본문·링크 컬럼 없음). 그래서 교차가 2경로다: ① 공지 **제목**의 CVE ∩ OSV CVE ② 보안공지 제목의 **제품명** ↔ 컴포넌트명(OSV 취약 판정 컴포넌트 한정). 교차 시 "국내 보안공지 발령" 표시 + 보안공지 게시판 링크 노출(개별 공지 상세 URL은 opaque id라 CSV에서 복원 불가). **확정(2026-08-30, 이슈 #17)** — 실측·한계는 measurements.md·data/kisa/PROVENANCE.md | 이용허락 제한 없음. CSV 스냅샷을 이미지에 동봉(원본 무가공, `작성자` 컬럼은 개인정보라 로드하지 않음) |
-| Anthropic Claude API | 외부 API | 맥락 판정·쉬운 한국어 변환·수정 프롬프트 생성 | 유료(API key), 스니펫 단위 호출로 비용 제한 |
+| Google Gemini API | 외부 API | 맥락 판정·쉬운 한국어 변환·수정 프롬프트 생성 (2026-08-30 Anthropic에서 전면 전환 — 예비 경로 없음, §11 항목 9) | 유료(API key), 스니펫 단위 호출로 비용 제한 |
 | TTA 표준 문서 4종 | 문서 | 조항 텍스트 인용(리포트 출처 표기) | 출처 명시 인용 |
 | Semgrep CE | 정적 분석 엔진 | Python·JS/TS 커스텀 룰 실행 — 자체 룰만 사용, 레지스트리 룰 미동봉 | 엔진 LGPL-2.1, 무료 |
 | gitleaks | 시크릿 스캐너 | 하드코딩 시크릿·한국형 PII 검출(단일 바이너리, custom rule TOML + allowlist) | MIT, 무료 |
@@ -303,7 +304,7 @@ sequenceDiagram
     participant API as ⚙️ FastAPI
     participant ENG as 🔍 Analysis Engine
     participant OSV as 🌐 OSV.dev
-    participant LLM as 🤖 Claude API
+    participant LLM as 🤖 LLM API — Gemini
     participant DB as 💾 PostgreSQL
 
     Dev->>FE: git URL 입력 또는 zip 업로드
@@ -425,11 +426,11 @@ graph TB
         subgraph DbC["db 컨테이너"]
             PG[(💾 PostgreSQL 16<br/>내부 네트워크 전용)]
         end
-        ENV[🔑 .env<br/>ANTHROPIC_API_KEY<br/>git 미추적]
+        ENV[🔑 .env<br/>GEMINI_API_KEY<br/>git 미추적]
     end
 
     OSVX[🌐 OSV.dev API]
-    ANTH[🤖 Anthropic API]
+    GEM[🤖 Google Gemini API]
     GH[🌐 공개 Git 저장소]
 
     Browser --> NGINX
@@ -438,7 +439,7 @@ graph TB
     FASTAPI --> TMPV
     FASTAPI --> SEED
     FASTAPI -.->|HTTPS| OSVX
-    FASTAPI -.->|HTTPS| ANTH
+    FASTAPI -.->|HTTPS| GEM
     FASTAPI -.->|HTTPS shallow clone| GH
     ENV -.-> FASTAPI
 
@@ -450,7 +451,7 @@ graph TB
     class Browser client
     class NGINX,FASTAPI,TMPV svc
     class PG,SEED,ENV data
-    class OSVX,ANTH,GH ext
+    class OSVX,GEM,GH ext
 ```
 
 ## 5. 대안 비교 (Alternatives Considered)
@@ -493,12 +494,13 @@ graph TB
 | 시크릿 오탐(플레이스홀더)이 '위험' 등급 남발 | Medium | Medium | gitleaks `[allowlist]`에 플레이스홀더 제외 목록(`your-api-key-here`, `changeme`, `sk-test-`, 문서 디렉토리). M4 벤치마크 오탐률 실측으로 보강(§11 항목 3) |
 | OSV API 장애·지연 | Medium | Medium | 응답 캐시, 타임아웃 시 KISA 스냅샷만으로 부분 결과 + "일부 미대조" 표시. 예외·타임아웃 시 `status=failed` 확정 |
 | 악성 업로드(zip bomb·path traversal) | High | Low | 압축 해제 상한(파일 수·총 크기), 경로 정규화 검증, 격리 작업 디렉토리, 코드 실행 금지 |
-| LLM 비용·쿼터 초과 | Medium | Medium | 플래그 스니펫만 전달, 스캔당 호출 상한(M4 실측 후 확정), judge/변환 모델 이원화(sonnet/haiku), judge 병렬 처리 |
+| LLM 비용·쿼터 초과 | Medium | Medium | 플래그 스니펫만 전달, 스캔당 호출 상한(M4 실측 후 확정), judge/변환 모델 이원화(flash/flash-lite), judge 병렬 처리. **Gemini 전환 시 judge 12 병렬이 RPM 쿼터에 걸리는지 실측 필요**(§11 항목 9 게이트) |
 | 진단 룰 품질(오탐·미탐) | Medium | High | 자체 벤치마크(취약점 목록 기획 선확정 — 순환 검증 회피) + 제3자 취약 앱 1개로 룰별 TPR·FPR 측정을 데모 전 게이트(M7)로 설정. 검출률 공개는 전체 룰 기준, 데모 시연은 일부 룰("데모 시연 n종" 명시) |
 | 공개 등급의 재현성(코드 파기 후 판정 근거 검증 불가) | Medium | High | 콘텐츠 지문 + rule_catalog_version + llm_model_id + vuln_db_snapshot_date를 스캔마다 기록. 등급 결정론(§4.5)으로 같은 입력·같은 기준이면 항상 같은 등급 |
 | 공개 등급 악용(제3자가 남의 앱을 '위험'으로 공개) | High | Medium | git 전용 공개 + `.ansimcode` 토큰 소유 증명, zip 공개 제외(우회로 차단) — [ADR-001 v1.3](./platform-decision.md) |
 | Semgrep 레지스트리 룰 라이선스 저촉 | Medium | Low | 레지스트리 룰(Semgrep Rules License — non-competing·non-SaaS 제한)은 동봉·사용하지 않고 100% 자체 작성 룰만 사용. 엔진(LGPL-2.1)은 subprocess 호출로만 사용 |
-| Anthropic API 장애(데모 중) | High | Low | 데모 리허설 시점의 응답 캐시를 폴백으로 준비(실호출 우선, 장애 시에만 사용) |
+| LLM API 장애(데모 중) | High | Low | 데모 리허설 시점의 응답 캐시를 폴백으로 준비(실호출 우선, 장애 시에만 사용). **전면 전환으로 기존 Anthropic 캐시는 전량 무효**(캐시 키가 모델 ID를 포함)이고 예비 공급자 경로도 없으므로, **Gemini 리허설 캐시 재기록이 유일한 데모 폴백** — 전환 게이트(§11 항목 9) |
+| **Gemini 안전 필터가 진단 스니펫을 차단**(시크릿·PII·인젝션 페이로드는 이 제품의 정상 입력) | Medium | Medium | 안전 필터 최소 차단 설정 + **벤치마크 페이로드(인젝션·시크릿·주민번호)로 차단률 실측을 전환 게이트로 설정**(§11 항목 9). 차단되어도 등급 불변 — judge는 설명만 담당하고 review_needed가 유지된다(§4.5 등급 결정론이 기능 저하를 등급 오류로 번지지 않게 차단) |
 
 ## 7. Implementation Plan
 
@@ -530,11 +532,11 @@ graph TB
 | 영역 | 정책 |
 | --- | --- |
 | **업로드 코드 보호 (P0)** | 원본 코드는 스캔별 격리 임시 디렉토리에서만 존재. 처리 전체를 `try/finally`로 감싸 **파싱 실패·LLM 타임아웃·OSV 장애 등 어떤 실패 경로에서도 `finally`에서 무조건 삭제**(`tempfile.TemporaryDirectory` 컨텍스트 매니저). `purged_at`은 삭제 성공 시각, 삭제 실패는 에러 로그. DB에는 리포트·SBOM·발견 사항만 저장. 이 정책 자체가 TTAK.KO-12.0414 §7.3.5(지체 없는 파기)의 자기 적용. 업로드 코드에는 개인정보가 실제로 섞여 들어오므로(Escape.tech 실측: PII 노출 175건) 코드 전체를 개인정보 포함 가능 데이터로 간주 |
-| **시크릿 마스킹 (P0)** | 검출된 시크릿 값은 리포트·DB·로그 어디에도 원문 저장 금지(마스킹된 evidence만 저장). **LLM 전송 직전 마스킹 패스를 한 번 더 적용**해 시크릿 매칭 구간을 `****`로 치환 후 전송하며, **시크릿 룰 자체는 static 전용으로 LLM을 경유하지 않는다** — "실검증은 시크릿 외부 전송이라 배제" 원칙을 Claude API 호출에도 동일 적용 |
+| **시크릿 마스킹 (P0)** | 검출된 시크릿 값은 리포트·DB·로그 어디에도 원문 저장 금지(마스킹된 evidence만 저장). **LLM 전송 직전 마스킹 패스를 한 번 더 적용**해 시크릿 매칭 구간을 `****`로 치환 후 전송하며, **시크릿 룰 자체는 static 전용으로 LLM을 경유하지 않는다** — "실검증은 시크릿 외부 전송이라 배제" 원칙을 LLM API 호출에도 동일 적용(공급자와 무관) |
 | **입력 검증** | zip ≤50MB, 압축 해제 파일 수·총 크기 상한, 경로 정규화(path traversal 차단), symlink 무시, `node_modules`/`venv` 자동 스킵. git은 공개 repo만 shallow clone |
 | **코드 실행 금지** | 정적 분석만 수행. 의존성 해석 시 `setup.py` 실행류 일절 배제 |
 | **LLM 안전** | 업로드 코드를 데이터로 취급하는 구조화 프롬프트(프롬프트 인젝션 방어), **LLM은 등급에 기여 불가**(경유 발견은 항상 review_needed — §4.5 등급 결정론), 스니펫 단위 전송(전체 코드 미전송), 인젝션 방어를 데모에서 실증(M7) |
-| **API 키 관리** | `ANTHROPIC_API_KEY`는 `.env`(git 미추적)로 주입, 프론트엔드 노출 금지 |
+| **API 키 관리** | `GEMINI_API_KEY`는 `.env`(git 미추적)로 주입, 프론트엔드 노출 금지. `ANTHROPIC_API_KEY`는 폐기 — `.env`·`.env.example`에서 제거(전면 전환, §11 항목 9) |
 | **공개 등급 통제** | 공개는 **git 전용 opt-in + `.ansimcode` 토큰 소유 증명**(zip 공개 제외 — 소유 증명 우회로 차단), "인증이 아닌 자가점검 보조" 고지 상시 표기. 등급에 콘텐츠 지문·룰 버전·모델 ID·취약DB 시점 기록 |
 | **인증/개인정보** | 로그인 없음 — 서비스가 수집하는 개인정보 자체가 없음(**가정**: 데모 범위). 실서비스 전환 시 재검토 |
 
@@ -569,6 +571,7 @@ graph TB
 | 6 | 미커버 §7.3 요구사항 4건 — "인지하되 보류"(§4.5). 휴면 이용자 파기만 여유 시 P10 흡수 검토 | 기획+풀스택 | 심사 질의 대비 |
 | 7 | 시민용 공개 페이지 법적 고지 문구 최종안(기획 초안 확인 대기) | 기획 | M6 전 |
 | 8 | zip 사용자 공개 제한 안내 문구 | 기획 | M6 전 |
+| 9 | **LLM 공급자 Gemini 전면 전환 — 방식 확정(2026-08-30, 기획): 전면 교체.** Anthropic transport 코드 미보존(복구는 git 이력), `ANTHROPIC_API_KEY` 폐기. **잔여 미확정 3건**: ① 모델 가정 승인(judge=`gemini-2.5-flash`·변환=`gemini-2.5-flash-lite`) ② 전환 게이트 실측 — 벤치마크 페이로드 안전 필터 차단 0건 + `model_version` 기록 확인(G9) + Gemini 리허설 캐시 재기록 + judge 12 병렬 쿼터 통과 ③ **당일(08-30) 게이트 미충족 시의 처리 사전 승인** — 예비 공급자 경로가 없으므로 폴백은 "LLM 단계 데모 제외"뿐이며, 이 경우 §7 MVP 경계선의 "LLM 실호출 1개 이상 시나리오(목업 불가)" 조항 개정이 필요하다(판정 설명·LLM 생성 문구는 규칙 기반 폴백으로 대체, 검출·등급·리포트 완주는 키 없이도 동작 — 상세는 검토 요청 문서) | ①③ 기획 / ② 풀스택 | **즉시(08-30)** |
 
 ## 개정 이력
 
@@ -578,5 +581,6 @@ graph TB
 | v0.2 | 2026-08-25 | Implementation Plan을 일 단위 일정에서 마일스톤·선후행 관계 정의로 변경, Open Questions를 추후 확정 필요사항으로 정리(기한 표현 삭제), API 경로의 버전 표기(/v1/) 제거, 문서 버전 관리 도입 |
 | v0.3 | 2026-08-25 | 정적 분석 도구 확정 — Semgrep CE(자체 룰 전용) + gitleaks 채택, 의존성 파싱 라이브러리 명시, rule_catalog_version 산출 방식(rules/ 디렉토리 해시) 정의, 레지스트리 룰 라이선스 리스크 추가 |
 | v0.4 | 2026-08-26 | 최종 확정 명세 반영 — **P0 3건**(파기 finally·격리, LLM 전송 전 마스킹·시크릿 룰 LLM 미경유, 등급 결정론) / 조항 오귀속 정정(주석 검사 §9.3→§9.5) 및 매핑표 확장(0309 §6 전체·§7.2~7.4, 0259 §9.5~9.6·§10·§11, 0414 §7.3.1, 0322 §5.1.2) / 개인정보 룰 10종 확정(P5 크롤링·P9 처리방침 교체) + 한국형 PII(주민번호 체크섬) / 등급 2축·결정론·상향 조건 표시(§11.3 근거) / 재진단 git·zip 분기 + `previous_scan_id` + diff + 유스케이스 3 / 공개는 git 전용 + `.ansimcode` 소유 증명, zip 공개 제외(ADR v1.3) / SBOM CVSS 3값·결합형태 3분류·취약점별 출처 / KISA CVE 교차 / `current_stage`·`vuln_db_snapshot_date`·복사 버튼·배지 캐시 헤더 / Why Now 과징금 근거 교체 / 벤치마크 별도 저장소 + 제3자 앱 + TPR·FPR 공개 / 인젝션 시연·dogfooding / MVP 포기 순서 최종 확정 |
-| v0.6 | 2026-08-30 | **KISA 공공데이터 확정(§11 항목 5, 이슈 #17) — 기획 검토 필요.** data.go.kr/15155789 배포본을 직접 확인한 결과 **공지 본문·링크 컬럼이 없고**(게시판 목록만 제공) 제목에서 추출되는 CVE 192건이 전부 국내 제품 건이어서, "공지 **본문**에서 CVE 추출 → 교차"라는 v0.4의 전제가 사실과 달랐다. §4.6·In Scope를 실측에 맞게 정정하고 SCA-03 교차를 ① CVE 교차 ② **제품명 교차**(OSV 취약 판정 컴포넌트 한정) 2경로로 확장했다 — **룰 사양 변경이므로 기획 확인 대상**이다. 등급 산정 입력·결정론(§4.5)은 불변. 실측은 measurements.md |
 | v0.5 | 2026-08-30 | 표기 정정 — 프론트엔드를 React 18 → **React 19.2**로(§4.1 시스템 아키텍처 다이어그램, §4.2 기술 스택 표). **설계 판단 변경 없음** — 실물(`web/package-lock.json` 기준 react·react-dom 19.2.8)과의 표기 불일치 해소다. 이 계획·ADR이 근거로 삼은 판단 집합은 v0.4와 동일하므로 `plans/mvp-implementation.md`·`platform-decision.md`의 "TDD v0.4" 참조는 그대로 둔다 |
+| v0.6 | 2026-08-30 | **LLM 공급자 전면 전환** — Anthropic Claude → **Google Gemini**(기획 비용 절감 요청 → 같은 날 기획 확정: 전면 교체, Anthropic 경로 미보존·복구는 git 이력·`ANTHROPIC_API_KEY` 폐기). 갱신: §3 In Scope, §4.1 아키텍처 다이어그램, §4.2 기술 스택 표(모델 가정·`model_version` 기록·thinking 비활성·안전 필터), §4.4 시퀀스 다이어그램, §5 외부 의존성 표, §6 리스크(비용·장애 행 갱신 + 안전 필터 차단 행 신설), §8 배포 다이어그램·API 키 관리, §11 항목 9(확정 기록 + 잔여 3건 — 모델 승인·게이트 실측·게이트 실패 시 처리). **등급 결정론(§4.5)·마스킹(P0)·G1~G16 등 판정 구조는 무변경** — 공급자 교체는 transport 계층에 국한된다. 반영 완결성은 기획 검토 요청 중: `협의체_기록/LLM_공급자_Gemini_전면전환_TDD반영_검토요청.md` |
+| v0.7 | 2026-08-30 | **KISA 공공데이터 확정(§11 항목 5, 이슈 #17) — 기획 검토 필요.** data.go.kr/15155789 배포본을 직접 확인한 결과 **공지 본문·링크 컬럼이 없고**(게시판 목록만 제공) 제목에서 추출되는 CVE 192건이 전부 국내 제품 건이어서, "공지 **본문**에서 CVE 추출 → 교차"라는 v0.4의 전제가 사실과 달랐다. §4.6·In Scope를 실측에 맞게 정정하고 SCA-03 교차를 ① CVE 교차 ② **제품명 교차**(OSV 취약 판정 컴포넌트 한정) 2경로로 확장했다 — **룰 사양 변경이므로 기획 확인 대상**이다. 등급 산정 입력·결정론(§4.5)은 불변. 실측은 measurements.md. (작업 중에는 v0.6으로 적었으나 같은 날 main에 Gemini 전환 v0.6이 먼저 들어가 v0.7로 물렸다 — 두 변경은 서로 독립이다) |

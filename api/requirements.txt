@@ -4,8 +4,8 @@ sqlalchemy==2.0.*
 psycopg[binary]==3.2.*
 pydantic-settings==2.*
 python-multipart==0.0.*
-httpx==0.27.*
-anthropic==0.39.*
+httpx==0.28.*                        # google-genai가 >=0.28.1을 요구 — 0.27에 묶으면 SDK가 1.2.0으로 역해석된다
+google-genai==1.*                    # thinking_budget(TDD §4.2 thinking 비활성)은 1.10+ 필요
 pip-requirements-parser==32.*
 tomli==2.*; python_version < "3.11"   # 타깃은 3.12(stdlib tomllib) — 3.10 환경 폴백
 packageurl-python==0.15.*

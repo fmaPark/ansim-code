@@ -19,7 +19,7 @@ sources:
 ## 0. 촬영 전 준비
 
 ```bash
-cp .env.example .env          # ANTHROPIC_API_KEY에 실제 키 기입
+cp .env.example .env          # GEMINI_API_KEY에 실제 키 기입
 docker compose up -d --build  # 3서비스 기동, 룰 31종 시드
 curl -s http://localhost:8000/health
 ```
@@ -42,7 +42,7 @@ git ls-remote https://github.com/fmaPark/ansim-benchmark refs/heads/main 'refs/t
 어긋나 있으면 되돌린다(§장면 ③ 참조).
 
 **리허설을 먼저 1회 돌린다.** 실키 상태로 장면 ①~⑦을 그대로 한 번 완주하면 LLM 응답이
-`llmcache` 볼륨에 적재되고, 그 뒤로는 Anthropic이 죽어도 같은 화면이 재생된다(장면 ⑦ 대비).
+`llmcache` 볼륨에 적재되고, 그 뒤로는 Gemini가 죽어도 같은 화면이 재생된다(장면 ⑦ 대비).
 
 ```bash
 docker compose exec api sh -c 'ls /srv/data/llm_cache | wc -l'   # 리허설 후 캐시 파일 수
@@ -173,7 +173,7 @@ SBOM 91개 컴포넌트가 나오고 등급이 매겨진다.
 1. **SBOM JSON 다운로드** — 0309 §5.2의 15속성이 전부 채워져 내려온다(값이 없으면 `null`,
    키는 언제나 존재).
 2. **조직 요구사항 체크리스트** 탭.
-3. **장애 폴백**: Anthropic이 죽은 상황을 재현한다.
+3. **장애 폴백**: Gemini가 죽은 상황을 재현한다.
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.keyless.yml up -d api
