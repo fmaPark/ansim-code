@@ -41,7 +41,7 @@ def _seed_scan(database, **overrides):
         source_type="git", source_ref="https://example.com/a.git", status="done",
         grade="주의", content_fingerprint="c" * 40, fingerprint_type="git_commit",
         rule_catalog_version="rcv-test", llm_model_id="claude-sonnet-5-t",
-        vuln_db_snapshot_date="OSV@2026-08-29; KISA-CSV@2026-08-29",
+        vuln_db_snapshot_date="OSV@2026-08-29; KISA-CSV@2025-12-04",
         easy_report_json={"grade": "주의", "disclaimer": "d",
                           "easy_descriptions": ["쉬운 설명"], "review_needed_count": 1},
     )

@@ -190,3 +190,99 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
   라인이 2줄 밀리자 AUX-01·02가 '해결+신규' 쌍으로 잡혔다. 카운트는 정직하나 데모 내레이션 시
   "동일 룰 해결+신규 쌍 = 위치 이동"임을 언급할 것. 개선은 M6 범위 밖(백엔드 diff.py).
 - **LLM 실호출(§11 항목 1)** — `.env` 키 placeholder(401) → 전 스캔이 폴백 경로. M7 데모 전 실키 필수.
+
+## 이슈 #17 — §11 항목 5 KISA 공공데이터 확정 (2026-08-30, 실행 세션: claude/issue-17-data-validation-445ff4)
+
+측정 환경: macOS 호스트 + Docker Compose. 실행 커맨드(스냅샷 경로까지 마운트본으로 지정 —
+지정하지 않으면 이미지 안 `/srv/data`의 옛 스냅샷을 읽는다):
+
+```
+docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules \
+  -e KISA_CSV_PATH=/work/data/kisa/krcert_notices.csv api pytest -q
+```
+
+### 실데이터 확정 — data.go.kr/15155789 배포본 실측
+
+M3 시점에 프록시 차단으로 못 받았던 배포본을 직접 내려받아 확인했다(다운로드 2026-08-30).
+**표본 CSV의 스키마 가정(제목·게시일·링크·본문)은 실제와 달랐다.**
+
+| 항목 | 실측값 |
+| --- | --- |
+| 원본 파일명 | `한국인터넷진흥원_보호나라KrCDRT_게시판 기본 1_20251204.csv` (617,421 bytes) |
+| 인코딩 | **cp949** — 로더의 `utf-8-sig → cp949` 폴백이 그대로 동작 |
+| 컬럼 | `순번, 게시판 종류, 게시판 제목, 작성자, 작성일, 조회수` — **본문·링크 컬럼 없음** |
+| 행 수 | 헤더 1 + 6,802행, 전 행 6컬럼 정상 파싱 (1996-01-24 ~ 2025-12-01) |
+| 게시판 종류 | 보안공지 2,316 · 보고서/가이드 1,545 · 맞춤형전용백신 1,185 · 취약점 정보 170 · Vulnerability Information 151 … |
+| CVE 추출 | 337행 / **고유 192건** |
+| 배포 조건 | 이용허락범위 제한 없음 · 무료 · 월간 갱신(차기 2026-01-05) |
+| SHA-256 | `b862046982df341c306fc065d0907166189130986f978b5896fc489650770b39` |
+
+### 확인된 제약 두 가지 (설계 변경으로 이어짐)
+
+1. **추출되는 192개 CVE는 전부 국내 제품 건**이다 — `취약점 정보`·`Vulnerability Information`
+   게시판의 KISA CNA 할당분(한컴·알집·투비소프트·Hitron DVR 등)과 MS/Adobe 악성코드 관련.
+   **pypi/npm 생태계 CVE는 0건**이며, 벤치마크 5핀(django·next·lodash·requests·flask)과
+   기존 데모 fixture(flask·lodash)의 CVE도 **하나도 포함되지 않는다**. 즉 CVE 교차 1경로만으로는
+   SCA-03이 진단 대상 생태계(Python·JS)에서 구조적으로 발화하지 못한다.
+2. **로더가 실데이터에서 오작동했다** — title 판별이 "URL·날짜·CVE를 포함하지 않는 첫 셀"이라
+   192건 전부 title이 `순번` 숫자(`'6269'`)로 잡히고 url은 전부 빈 문자열이었다. 이슈 #17이 적어 둔
+   "코드 변경 없이 CSV만 교체" 전제는 성립하지 않는다.
+
+### 조치 — 교차 2경로 + 로더 보강
+
+- 로더: 헤더 행이 있으면 **헤더명으로 컬럼 매핑**(제목·게시판 종류·작성일·링크), 없으면 형태
+  휴리스틱(순수 숫자 셀 제외, 최장 셀) 폴백. `작성자` 컬럼은 KISA 담당자 실명이라 **읽지 않는다**.
+  개별 공지 상세 URL은 opaque id라 복원 불가 — 보호나라 보안공지 게시판 URL을 대신 싣는다.
+- SCA-03: ① CVE 교차(기존) + ② **제품명 교차** — 보안공지 제목의 제품명 ↔ 컴포넌트명.
+  ②는 **OSV가 이미 취약 판정한 컴포넌트에만** 적용하고 `vulnerability_db`에는 기록하지 않는다
+  (KISA가 그 CVE를 발령한 것이 아니므로 출처 오귀속 방지). 등급 영향 없음 — 대상 컴포넌트는
+  정의상 SCA-02가 이미 confirmed로 잡은 것들이라 `calc_grade` 입력이 달라지지 않는다.
+
+### 제품명 교차 커버리지·오탐 (실측)
+
+실사용 상위 패키지명 99종(pypi 55 + npm 44)을 스냅샷에 대조한 결과 **6종 매칭 / 오탐 0**.
+
+| 컴포넌트 | 매칭된 보안공지 | 공지일 |
+| --- | --- | --- |
+| django | Django 제품 보안 업데이트 권고 | 2025-09-05 |
+| aiohttp | Python aiohttp 라이브러리 보안 업데이트 권고 | 2024-03-18 |
+| mlflow | MLflow 및 ClearML 플랫폼 보안 업데이트 권고 | 2024-01-22 |
+| jupyterlab | JupyterLab 제품 보안 업데이트 권고 | 2024-07-29 |
+| redis | Redis 제품 보안 업데이트 권고 | 2025-10-09 |
+| electron | Electron 원격 코드 실행 취약점 업데이트 권고 | 2018-01-26 |
+
+오탐 차단 가드가 실제로 걸러낸 사례: `six` → "Is your AD safe, season 2(**Six** AD Practice…)"
+(3글자 이하 + 보안공지 게시판 아님), `@babel/core`의 `core` → "Microsoft XML **Core** Services…"
+(일반 명사 목록). 두 사례 모두 회귀 테스트로 고정했다(`test_product_match_rejects_false_positives`).
+
+### 재현성 값 갱신
+
+`vuln_db_snapshot_date`의 KISA 부분이 `KISA-CSV@2026-08-29`(표본) → **`KISA-CSV@2025-12-04`**
+(배포본 기준일)로 바뀐다. `rules/catalog.yaml`의 SCA-03 사양도 함께 바뀌므로
+`rule_catalog_version`이 **`ccbf492fd4e4b464` → `f21f19d6e22a822d`**로 변한다 — 이 커밋 이전
+스캔과의 재진단 diff는 룰 버전 변경분을 포함한다.
+
+### 실동작 확인 (재빌드 이미지 + OSV 실호출)
+
+`docker compose up -d --build api` 후 `Django==3.2.12`·`requests==2.28.0`만 담은 zip을 실제 업로드.
+
+| 확인 | 결과 |
+| --- | --- |
+| SCA-03 발화 | ✅ django 1건 — `국내 보안공지 발령(제품명 일치) 「Django 제품 보안 업데이트 권고」(2025-09-05 …)` |
+| 미발화 대조 | ✅ requests는 OSV CVE 4건이 잡혔지만 국내 공지가 없어 SCA-03 없음(2경로 모두 불일치) |
+| 취약점별 출처 | ✅ django의 `vulnerability_db`에 KISA 항목 **0건**(제품명 교차는 출처를 만들지 않는다) |
+| 재현성 | ✅ `OSV@2026-08-30; KISA-CSV@2025-12-04`, `rule_catalog_version=f21f19d6e22a822d` |
+| 등급 | ✅ 위험(SCA-02 critical 기여) — 제품명 교차 추가로 달라지지 않음 |
+
+첫 실행에서 evidence에 OSV가 돌려준 **CVE 26건이 전량 나열**돼 리포트 카드가 깨졌다.
+상한 3건 + "외 N건"으로 축약하고 회귀 테스트를 걸었다(`test_product_cross_evidence_truncates_cve_list`).
+
+축약 반영 후 전체 테스트 **162건 green**(위 커맨드), `tools/okf_check.py`는 기존 2건(#21) 외 새 오류 없음.
+
+### 보류·이월 항목
+
+- **벤치마크 SCA-03 기대치** — `docs/benchmark-spec.md`의 5핀 기대는 실데이터로 성립하지 않는다.
+  django 1건으로 정정하고 aiohttp(pypi)·electron(npm) 핀 추가를 제안해 뒀다. 벤치마크 앱이
+  별도 저장소라 **핀 반영은 그쪽 작업**이다.
+- **월간 갱신** — 제출 직전 재다운로드 시 `SNAPSHOT_DATE`·교차 결과가 달라질 수 있다. 갱신하면
+  이 절의 실측 수치도 다시 잰다.

@@ -26,6 +26,8 @@ from app.models import Finding, SbomComponent, Scan
 
 log = logging.getLogger(__name__)
 
+_EVIDENCE_CVE_LIMIT = 3      # SCA-03 제품명 교차 evidence의 CVE 나열 상한(Django는 26건까지 나온다)
+
 
 def upload_path(scan_id) -> Path:
     return Path(settings.upload_dir) / f"{scan_id}.zip"
@@ -120,33 +122,63 @@ async def stage_osv(db, scan, components: list[SbomComponent]) -> OsvResult:
 
 
 def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
-    """§11.3 위험 분석 2단계 — OSV CVE ∩ KISA 공지 CVE → SCA-03 (Task 10).
+    """§11.3 위험 분석 2단계 — KISA 공지 교차 → SCA-03 (Task 10).
+
+    교차는 두 경로다(배포본에 공지 본문이 없어서다 — `data/kisa/PROVENANCE.md`).
+      1. **CVE 교차** — OSV CVE ∩ 공지 제목 CVE. 취약점별 출처(⑩)에도 KISA를 남긴다.
+      2. **제품명 교차** — 보안공지 제목의 제품명 ↔ 컴포넌트명. **OSV가 이미 취약하다고
+         판정한 컴포넌트에만** 적용한다(오탐·등급 영향 차단). KISA가 그 CVE를 발령한 건
+         아니므로 `vulnerability_db`에는 넣지 않는다 — 출처 오귀속 방지.
 
     OSV가 `incomplete`여도 얻은 CVE에 대한 교차는 그대로 수행한다(부분 결과 정책).
     """
-    notices = load_kisa()
+    snapshot = load_kisa()
     findings: list[Finding] = []
-    if notices:
+    product_matches = 0
+    if snapshot:
         for component in components:
-            matched = [cve for cve in (component.cve_ids or []) if cve in notices]
-            if not matched:
+            label = f"{component.component_name} {component.version or ''}".strip()
+            matched = [cve for cve in (component.cve_ids or []) if cve in snapshot]
+            if matched:
+                sources = list(component.vulnerability_db or [])
+                for cve in matched:
+                    notice = snapshot.by_cve[cve]
+                    sources.append({"id": cve, "source": "KISA", "notice_url": notice.url,
+                                    "match": "cve"})
+                    findings.append(Finding(
+                        scan_id=scan.id, rule_id="SCA-03", severity="high",
+                        file_path=None, line=None,
+                        evidence=(f"{label} — {cve}: 국내 보안공지 발령(CVE 교차) "
+                                  f"「{notice.title}」 {notice.url}"),
+                        status="confirmed"))
+                component.vulnerability_db = sources    # ⑩ 취약점별 출처에 KISA 추가
                 continue
-            sources = list(component.vulnerability_db or [])
-            for cve in matched:
-                notice = notices[cve]
-                sources.append({"id": cve, "source": "KISA", "notice_url": notice.url})
-                findings.append(Finding(
-                    scan_id=scan.id, rule_id="SCA-03", severity="high",
-                    file_path=None, line=None,
-                    evidence=(f"{component.component_name} {component.version or ''} — {cve}: "
-                              f"국내 보안공지 발령 「{notice.title}」 {notice.url}").strip(),
-                    status="confirmed"))
-            component.vulnerability_db = sources        # ⑩ 취약점별 출처에 KISA 추가
+
+            if not component.cve_ids:                   # OSV 미취약 컴포넌트는 대상 아님
+                continue
+            notice = snapshot.match_product(component.component_name)
+            if notice is None:
+                continue
+            product_matches += 1
+            cves = list(component.cve_ids)
+            shown = ", ".join(cves[:_EVIDENCE_CVE_LIMIT])
+            if len(cves) > _EVIDENCE_CVE_LIMIT:
+                shown += f" 외 {len(cves) - _EVIDENCE_CVE_LIMIT}건"
+            findings.append(Finding(
+                scan_id=scan.id, rule_id="SCA-03", severity="high",
+                file_path=None, line=None,
+                evidence=(f"{label} — {shown}: 국내 보안공지 발령"
+                          f"(제품명 일치) 「{notice.title}」({notice.date} 보호나라 보안공지) "
+                          f"{notice.url} · 공공데이터 배포본은 공지 제목만 제공하므로 "
+                          f"공지 본문의 CVE 일치는 확인되지 않았습니다"),
+                status="confirmed"))
         db.add_all(findings)
 
     _set(db, scan, vuln_db_snapshot_date=f"{osv_snapshot_date()}; {kisa_snapshot_label()}")
-    log.info("KISA 교차", extra={"scan_id": str(scan.id), "kisa_cve_count": len(notices),
-                                 "sca03_findings": len(findings)})
+    log.info("KISA 교차", extra={"scan_id": str(scan.id), "kisa_cve_count": len(snapshot),
+                                 "kisa_advisory_count": len(snapshot.advisories),
+                                 "sca03_findings": len(findings),
+                                 "sca03_product_matches": product_matches})
     return findings
 
 
