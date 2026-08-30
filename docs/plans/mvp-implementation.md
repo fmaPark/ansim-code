@@ -1933,20 +1933,24 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 **M4 / Task 16 (2026-08-29, feat/m4-rules-llm 세션):**
 - §11 항목 1(LLM 상한): fake transport 기준 — judge Semaphore(12) 병렬 검증: 24건 × 1.0s 모사 지연 → wall 2.02s(이론치 일치). **실호출 소요·토큰·비용은 보류** — ANTHROPIC_API_KEY 미준비(.env 없음). 키 준비 후 Task 16 Step 4 수행.
-- §11 항목 3(gitleaks 오탐): **보류** — 샌드박스에 gitleaks 바이너리 반입 불가. Docker 이미지(v8.18.4 동봉) 안에서 skipif 2케이스 + fixture 스캔으로 측정 예정. 초기 allowlist(G13)로 시작.
+- §11 항목 3(gitleaks 오탐): ~~**보류**~~ → **해소(2026-08-29, 이슈 #15)** — 아래 "이슈 #13·#15" 항목 참고. 당시 사유: 샌드박스에 gitleaks 바이너리 반입 불가. 초기 allowlist(G13)로 시작했었다.
 - 참고: semgrep 자체 룰 9종 fixture(10파일) 1.24s, repo_checks 1ms. 상세는 `docs/measurements.md`.
 - **§11 항목 2(벤치마크 목록): 기획에 확정 재요청 — M7 착수 전 마감 게이트.**
 - **M4 게이트 검증 결과 (2026-08-29): 조건부 통과.** ① 시크릿(SEC-01~05)·개인정보(P1~P10)·보조(AUX-01~04) 룰 전체 실행 경로 연결 — green ② 주민번호 체크섬 분기 테스트 green ③ LLM 페이로드 시크릿 0건(P0-2) + SEC-* 미경유 테스트 green ④ judge 12 병렬 — Semaphore 검증 green, 단 **실호출은 보류**(키 미준비) ⑤ 실측 기록 — fake 기준 기록, 실호출·gitleaks 오탐 2건 보류. 잔여 2건은 키 준비 + Docker 이미지 안 재수행으로 해소.
 
 **M5 / Task 17~21 (2026-08-29, feat/m5-report-grade 세션):**
 - **M5 게이트 검증 결과: 조건부 통과.** ① **같은 입력 → 같은 등급 재현 green** — 동일 zip 2회 스캔에서 지문·룰버전·취약DB 시점·등급(위험) 전부 일치, LLM 스텁을 실행마다 다르게 준 파이프라인 테스트도 등급 불변(B3 DoD) ② 상향 조건 — "이 18건만 해결하면 안심으로 올라갑니다"(발견 12 + CVE 6) 표시 ③ 개발자/시민 리포트 — 발견 14건 전부 조항 인용·수정 프롬프트·쉬운 설명 보유 ④ 체크리스트 API 13항목 200 ⑤ 재진단 diff — 시크릿 제거 시 **위험 → 주의**, 지문 변경 감지, 3분류 반환. 테스트 136건 green.
-- **잔여 1건(M5 범위 밖 · 미수정): gitleaks finding의 `file_path`가 워크스페이스 절대경로.** 임시 디렉토리명이 스캔마다 달라 diff 키가 스캔 간 불일치한다 — 동일 zip 재진단(지문 무변경)에서 SEC-04가 `해결 1건 + 신규 1건`으로 잡히는 오보를 실측했다. 수정 지점이 M4 파일(`gitleaks_runner.py`/`pii.py`)이라 이 세션은 손대지 않았다. **M6 착수 전 별도 승인 후 수정 권고** — 재진단 diff는 데모 절정 장면이다. 상세는 `docs/measurements.md`.
+- **잔여 1건(M5 범위 밖 · 미수정 → 이슈 #13으로 이관, 2026-08-29 수정 완료 — 아래 항목): gitleaks finding의 `file_path`가 워크스페이스 절대경로.** 임시 디렉토리명이 스캔마다 달라 diff 키가 스캔 간 불일치한다 — 동일 zip 재진단(지문 무변경)에서 SEC-04가 `해결 1건 + 신규 1건`으로 잡히는 오보를 실측했다. 수정 지점이 M4 파일(`gitleaks_runner.py`/`pii.py`)이라 이 세션은 손대지 않았다. 상세는 `docs/measurements.md`.
 - §11 항목 1(LLM 실호출 실측): **여전히 보류** — `.env` 키가 플레이스홀더라 401. Task 18 변환은 설계된 폴백 경로로 동작(모든 finding에 두 텍스트 존재 확인).
+
+**이슈 #13·#15 (2026-08-29, claude/fix-issues-13-15-3cbb4c 세션):**
+- **#13 수정 완료** — `run_gitleaks`가 `File`을 `root` 상대경로로 정규화(semgrep 러너와 동일 이디엄). 실바이너리 회귀: 두 워크스페이스 스캔의 diff 키 일치 + `diff_findings` 전량 `remaining` green. 재진단 통합 테스트에 `resolved_count == 0`·`new_count == 0` 단언 추가.
+- **#15 §11 항목 3 확정** — Docker 이미지 안 실측: 플레이스홀더 코퍼스 15종 기준 초기 allowlist 적중률 **8/15(53%)** → `ansim.toml` 보강 후 **15/15(100%)**, 대조군 4종(형식-유효 AKIA 키 등) 무손실. skipif 2케이스도 컨테이너 안 해제 실행 green. 상세는 `docs/measurements.md`.
 
 **M6 / Task 22~25 (2026-08-29, feat/m6-frontend 세션):**
 - **M6 게이트 검증 결과: 통과.** 브라우저(로컬 Docker, web 8085/api 8001 — 다른 워크트리 스택의 8080/8000 점유로 로컬 오버라이드)에서 전 흐름 연속 완주: git URL 업로드 → 5단계 스텝퍼 → 리포트(주의) → 전체 수정 프롬프트 복사 → 공개 2단계(**실공개 repo `fmaPark/ansim-publish-test`에 `.ansimcode` 커밋해 소유 증명**) → 배지 SVG 200(image/svg+xml·ETag·304) → git 재진단 diff(주의→주의, 잔여 5). zip 공개는 403 + 안내 문구 확인. 백엔드 테스트 143건 green, `tsc --noEmit`·`npm run build` 클린. 수동 체크리스트 항목별 결과는 `docs/measurements.md` M6 블록.
 - **§11 항목 7·8 카피: 기획 미수신 확정(세션 시작 질의) → placeholder 문구로 구현 유지.** 교체 지점은 `api/app/routes/public.py` 상수 2개(`LEGAL_NOTICE`·`ZIP_PUBLISH_NOTICE`) + FE 미러 1곳(`web/src/components/PublishFlow.tsx`). 항목 4(주민번호 무효)도 미수신 — Task 13의 review_needed 기본값 유지.
-- **M5 이월(gitleaks·PII 절대경로 file_path): 이 세션 미수정** — 사용자 지시로 다른 워크트리에서 수정 진행 중(선머지 예정). 이번 브랜치는 `engine/gitleaks_runner.py`·`pii.py`를 건드리지 않아 코드 충돌 없음. 실측 재확인: 시크릿 포함 zip 재진단에서 SEC-04·05가 절대경로로 기록됨(리포트 UI 노출 + diff 키 불일치 위험). 그쪽 머지 후 재진단 diff 화면만 재검증 필요.
+- **M5 이월(gitleaks·PII 절대경로 file_path): #18 머지 후 해소 확인(2026-08-30).** 이 브랜치는 해당 파일 미변경(충돌은 docs 2개뿐, 코드 무충돌). 머지 후 재검증 — SEC-04·05 상대경로 기록 + 같은 zip 재진단 해결 0·신규 0, 전체 테스트 146건 green. 상세는 `docs/measurements.md` M6 보류·이월 항목.
 - 배지 SVG는 계획 초안 폭 140에서 **170으로 보정**("주의 2026-08-29"가 우측 70px에 잘림 — 실렌더 확인 후 수정, 테스트 green 유지).
 - §11 항목 1(LLM 실호출): **여전히 보류** — `.env` 키가 placeholder(`sk-ant-...`)라 401 → 캐시/폴백 경로로 동작(M6 게이트에는 무관). M7 데모 전 실키 필요.
 
