@@ -43,8 +43,14 @@ class FindingDraft:
     status: str = "confirmed"
 
 
+def component_label(name, version) -> str:
+    """evidence 앞머리의 `이름 버전` 라벨. 버전 미상도 **2토큰**을 유지해야 한다 —
+    `verification/measure_detection.py`의 `_LABEL_RE`가 이 형태로 컴포넌트를 되뽑는다."""
+    return f"{name} {version or '(버전 미상)'}".strip()
+
+
 def _label(row: dict) -> str:
-    return f"{row.get('component_name')} {row.get('version') or '(버전 미상)'}".strip()
+    return component_label(row.get("component_name"), row.get("version"))
 
 
 def _older_than(release_date: str | None, years: int) -> bool:

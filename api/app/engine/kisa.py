@@ -18,7 +18,6 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from itertools import chain
 from pathlib import Path
 
 from app.config import settings
@@ -38,6 +37,11 @@ NOTICE_BOARD_URL = "https://knvd.krcert.or.kr/info/vuln/notice"
 ADVISORY_BOARD = "보안공지"               # 제품명 교차 대상 게시판(오탐 차단)
 MIN_PRODUCT_NAME_LEN = 4                  # 3글자 이하 컴포넌트명은 제목과 우연히 겹친다
 TITLE_MAX_LEN = 200
+
+# 헤더 없는 배포본에서 작성자·게시판 종류 같은 '반복되는 짧은 라벨' 컬럼을 가려내는 기준.
+LABEL_COLUMN_MAX_LEN = 20
+LABEL_COLUMN_UNIQUE_RATIO = 0.2
+MIN_ROWS_FOR_COLUMN_STATS = 20
 
 # 제품명이라기엔 너무 흔한 단어 — 공지 제목의 다른 제품에 얹혀 걸린다
 # (`core` ← "Microsoft XML Core Services"). 제품명 교차에서 제외한다.
@@ -75,11 +79,14 @@ class _Columns:
 
 @dataclass
 class KisaSnapshot:
-    """스냅샷 1개 = CVE 색인 + 보안공지 제목 색인."""
+    """스냅샷 1개 = CVE 색인 + 보안공지 제목 색인.
+
+    `advisories`는 `(소문자 제목, 공지)` 한 리스트로 들고 공지 목록은 파생시킨다 —
+    두 리스트를 락스텝으로 append하면 드리프트가 난다.
+    """
 
     by_cve: dict[str, KisaNotice] = field(default_factory=dict)
-    advisories: list[KisaNotice] = field(default_factory=list)
-    _titles: list[tuple[str, KisaNotice]] = field(default_factory=list, repr=False)
+    advisories: list[tuple[str, KisaNotice]] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return bool(self.by_cve or self.advisories)
@@ -90,19 +97,29 @@ class KisaSnapshot:
     def __contains__(self, cve: str) -> bool:
         return cve in self.by_cve
 
+    @property
+    def notices(self) -> list[KisaNotice]:
+        return [notice for _, notice in self.advisories]
+
     def match_product(self, component_name: str | None) -> KisaNotice | None:
         """컴포넌트명이 보안공지 제목에 제품명으로 등장하는가 (2차 교차).
 
         토큰 경계로만 맞추고 3글자 이하·일반 명사는 아예 보지 않는다 — `six`가
         "Six AD Practice"에 걸리는 식의 오탐을 막는다. npm scope 이름(`@babel/core`)은
-        스코프를 떼지 않고 통째로 맞춰 `core` 같은 조각 매칭을 만들지 않는다. 같은 제품
-        공지가 여럿이면 **최신 공지**를 고른다(동일 날짜는 제목 사전순) — 결정론(G3) 유지.
+        스코프를 떼지 않고 통째로 맞춘다. 같은 제품 공지가 여럿이면 **최신 공지**를
+        고른다(동일 날짜는 제목 사전순) — 결정론(G3) 유지.
+
+        경계에 `-`·`.`·`_`도 포함한다. 이것이 없으면 npm 패키지 `link`가
+        "TP-Link 제품 보안 업데이트 권고"에 걸려 무관한 공유기 공지를 근거로
+        confirmed·high 발견이 만들어진다(실데이터에 하이픈 토큰 제목 45건).
+        대가로 `next`는 "Next.js …" 같은 제목에 더 이상 걸리지 않는다 —
+        하이픈 제품명 오탐을 허용하는 쪽이 훨씬 나쁘다.
         """
         name = (component_name or "").strip().lower()
         if len(name) < MIN_PRODUCT_NAME_LEN or name in GENERIC_NAMES:
             return None
-        pattern = re.compile(rf"(?<![0-9a-z]){re.escape(name)}(?![0-9a-z])")
-        matched = [notice for title, notice in self._titles if pattern.search(title)]
+        pattern = re.compile(rf"(?<![0-9a-z._-]){re.escape(name)}(?![0-9a-z._-])")
+        matched = [notice for title, notice in self.advisories if pattern.search(title)]
         if not matched:
             return None
         return max(matched, key=lambda n: (n.date, n.title))
@@ -124,6 +141,9 @@ def _norm(cell: str) -> str:
 
 def _map_columns(row: list[str]) -> _Columns | None:
     """첫 행이 헤더면 컬럼 역할을 돌려준다. 헤더가 아니면 None."""
+    joined = " ".join(row)
+    if CVE_RE.search(joined) or _URL_RE.search(joined) or _DATE_RE.search(joined):
+        return None          # 데이터 행이다 — "제목"이 값에 들어 있어 헤더로 오인하면 전 컬럼이 어긋난다
     title = date = url = board = None
     skip: set[int] = set()
     for i, cell in enumerate(row):
@@ -151,6 +171,27 @@ def _at(row: list[str], index: int | None) -> str:
     return row[index].strip()
 
 
+def _label_columns(rows: list[list[str]]) -> frozenset:
+    """헤더가 없을 때 '짧은 값이 되풀이되는' 컬럼을 찾는다 — 작성자·게시판 종류가 그렇다.
+
+    `작성자`에는 KISA 담당자 실명이 들어 있다. 헤더가 있을 때만 이름으로 걸러내면
+    "작성자 컬럼은 읽지 않는다"(AGENTS.md·data/kisa/PROVENANCE.md)는 불변식이 헤더
+    유무에 기대게 된다 — 폴백에서도 구조적으로 지키려고 컬럼 통계로 근사한다.
+    표본이 적으면(테스트용 몇 행짜리 CSV) 통계가 무의미하므로 아무것도 제외하지 않는다.
+    """
+    if len(rows) < MIN_ROWS_FOR_COLUMN_STATS:
+        return frozenset()
+    labels = set()
+    for i in range(max(len(r) for r in rows)):
+        values = [r[i].strip() for r in rows if i < len(r) and r[i].strip()]
+        if not values:
+            continue
+        if (max(map(len, values)) <= LABEL_COLUMN_MAX_LEN
+                and len(set(values)) / len(values) < LABEL_COLUMN_UNIQUE_RATIO):
+            labels.add(i)
+    return frozenset(labels)
+
+
 def _fallback_title(cells: list[str]) -> str:
     """헤더가 없을 때 — URL·날짜·순수 숫자를 뺀 셀 중 가장 긴 것을 제목으로 본다."""
     candidates = [c.strip() for c in cells
@@ -173,8 +214,11 @@ def load_kisa(csv_path: str | Path | None = None) -> KisaSnapshot:
     if header is None:
         return KisaSnapshot()
     columns = _map_columns(header)
-    rows = reader if columns else chain([header], reader)
-    columns = columns or _Columns()
+    if columns is None:              # 헤더가 없다 — 첫 행도 데이터고, 작성자 컬럼은 통계로 찾는다
+        rows = [header, *reader]
+        columns = _Columns(skip=_label_columns(rows))
+    else:
+        rows = list(reader)
 
     snapshot = KisaSnapshot()
     for row in rows:
@@ -194,8 +238,7 @@ def load_kisa(csv_path: str | Path | None = None) -> KisaSnapshot:
 
         # 게시판 종류 컬럼이 없는 배포본은 전 행을 공지로 본다(보안공지 게시판 export 전제).
         if board == ADVISORY_BOARD or columns.board is None:
-            snapshot.advisories.append(notice)
-            snapshot._titles.append((title.lower(), notice))
+            snapshot.advisories.append((title.lower(), notice))
 
     log.info("KISA 스냅샷 로드",
              extra={"kisa_csv_path": str(path), "cve_count": len(snapshot.by_cve),

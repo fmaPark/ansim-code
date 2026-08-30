@@ -36,7 +36,7 @@ def test_author_column_is_never_loaded(tmp_path):
     csv = _write(tmp_path, REAL_HEADER +
                  "6277,보안공지,기업 문자발송 시스템 해킹 주의(CVE-2024-11111),홍길동,2024-01-31,77976\n")
     snapshot = load_kisa(csv)
-    loaded = list(snapshot.by_cve.values()) + snapshot.advisories
+    loaded = list(snapshot.by_cve.values()) + snapshot.notices
     assert loaded
     assert not any("홍길동" in f"{n.title} {n.url} {n.date} {n.board}" for n in loaded)
 
@@ -66,6 +66,27 @@ def test_fallback_without_header_skips_numeric_cells(tmp_path):
     assert notice.date == "2024-01-30"
 
 
+def test_headerless_fallback_excludes_author_column(tmp_path):
+    """헤더가 없어도 `작성자`(실명)는 로드하지 않는다 — 불변식이 헤더 유무에 기대면 안 된다.
+
+    작성자 셀을 제목보다 길게 둬서, 가드가 없으면 폴백의 '최장 셀' 규칙이 실명을
+    공지 제목으로 뽑도록 만든 입력이다.
+    """
+    rows = [f"{i},보안공지,공지 {i},홍길동홍길동홍길동,2024-02-{i:02d},100" for i in range(1, 26)]
+    rows[0] = "1,보안공지,CVE-2024-11111 취약점,홍길동홍길동홍길동,2024-02-01,100"
+    snapshot = load_kisa(_write(tmp_path, "\n".join(rows) + "\n"))
+
+    loaded = " ".join(f"{n.title} {n.board} {n.url}" for n in snapshot.notices)
+    assert "홍길동" not in loaded
+    assert snapshot.by_cve["CVE-2024-11111"].title == "CVE-2024-11111 취약점"
+
+
+def test_data_row_is_not_mistaken_for_header(tmp_path):
+    """첫 행에 '제목' 같은 말이 들어 있어도 CVE·날짜가 있으면 데이터 행이다."""
+    csv = _write(tmp_path, "1,보안공지,제목 검색 기능 CVE-2024-22222 취약점,관리자,2024-02-01,10\n")
+    assert load_kisa(csv).by_cve["CVE-2024-22222"].title == "제목 검색 기능 CVE-2024-22222 취약점"
+
+
 def test_rows_without_cve_are_not_indexed(tmp_path):
     csv = _write(tmp_path, "제목,본문,링크\n일반 안내,CVE 없음,https://boho.or.kr/3\n")
     assert load_kisa(csv).by_cve == {}
@@ -93,7 +114,7 @@ def test_repo_snapshot_loads_real_distribution():
 def test_repo_snapshot_has_no_staff_names():
     """실데이터 회귀 가드 — 배포본 `작성자` 실명이 스냅샷에 유입되지 않는다."""
     snapshot = load_kisa(REPO_CSV)
-    blob = " ".join(f"{n.title} {n.board}" for n in snapshot.advisories)
+    blob = " ".join(f"{n.title} {n.board}" for n in snapshot.notices)
     assert not any(name in blob for name in ("신우성", "고은혜", "김대식"))
 
 
@@ -109,6 +130,8 @@ def test_product_match_against_real_snapshot():
     "flask", "lodash", "requests",     # 실데이터에 국내 보안공지가 없는 컴포넌트
     "six", "ab",                       # 3글자 이하 — "Six AD Practice" 오탐 차단
     "core", "@babel/core",             # 일반 명사 — "XML Core Services" 오탐 차단
+    "link",                            # 하이픈 토큰 조각 — "TP-Link 제품 …" 오탐 차단
+    "excel", "parseexcel",             # 〃 — "Spreadsheet-ParseExcel …"
 ])
 def test_product_match_rejects_false_positives(name):
     assert load_kisa(REPO_CSV).match_product(name) is None
@@ -247,6 +270,33 @@ async def test_product_cross_evidence_truncates_cve_list(client, monkeypatch):
         evidence = db.query(Finding).filter(Finding.scan_id == scan_id,
                                             Finding.rule_id == "SCA-03").one().evidence
     assert "외 3건" in evidence and evidence.count("CVE-") == 3
+
+
+@pytest.mark.asyncio
+async def test_evidence_label_keeps_two_tokens_when_version_unknown(client, monkeypatch):
+    """버전 미상 컴포넌트도 `이름 (버전 미상) — …` 2토큰을 유지해야 한다.
+
+    `verification/measure_detection.py`의 `_LABEL_RE`가 이 형태로 컴포넌트를 되뽑는다 —
+    1토큰이 되면 TPR·FPR 집계에서 조용히 "예상 밖 발견"으로 샌다.
+    """
+    import re
+
+    from app.db import SessionLocal
+    from app.models import Finding
+
+    label_re = re.compile(r"^(.*?)\s+(?:\(버전 미상\)|\S+)\s+—\s")   # measure_detection.py:56과 동일
+
+    _use_repo_snapshot(monkeypatch)
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _osv_stub(_DJANGO_OSV))
+
+    scan_id = await _scan(client, _zip("Django>=3.0\n"))            # 범위 핀 → 버전 미상
+
+    with SessionLocal() as db:
+        evidence = db.query(Finding).filter(Finding.scan_id == scan_id,
+                                            Finding.rule_id == "SCA-03").one().evidence
+    assert "(버전 미상)" in evidence
+    matched = label_re.match(evidence)
+    assert matched and matched.group(1).lower() == "django"
 
 
 @pytest.mark.asyncio

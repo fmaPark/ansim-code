@@ -19,7 +19,7 @@ from app.engine.kisa import kisa_snapshot_label, load_kisa
 from app.engine.osv import OsvResult, osv_snapshot_date, query_osv
 from app.engine.imports_py import extract_python_imports
 from app.engine.sbom import build_sbom, classify_supply_chain, component_row, vendored_dependencies
-from app.engine.sca_rules import evaluate_sca_rules, matrix_0322
+from app.engine.sca_rules import component_label, evaluate_sca_rules, matrix_0322
 from app.engine.semgrep_runner import extract_js_imports
 from app.engine.workspace import scan_workspace
 from app.models import Finding, SbomComponent, Scan
@@ -127,8 +127,13 @@ def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
     교차는 두 경로다(배포본에 공지 본문이 없어서다 — `data/kisa/PROVENANCE.md`).
       1. **CVE 교차** — OSV CVE ∩ 공지 제목 CVE. 취약점별 출처(⑩)에도 KISA를 남긴다.
       2. **제품명 교차** — 보안공지 제목의 제품명 ↔ 컴포넌트명. **OSV가 이미 취약하다고
-         판정한 컴포넌트에만** 적용한다(오탐·등급 영향 차단). KISA가 그 CVE를 발령한 건
+         판정한 컴포넌트에만** 적용한다(오탐 차단). KISA가 그 CVE를 발령한 건
          아니므로 `vulnerability_db`에는 넣지 않는다 — 출처 오귀속 방지.
+
+    등급은 **단계가 바뀌지 않는다** — 대상 컴포넌트는 정의상 SCA-02가 이미 confirmed로
+    잡은 것들이라 `_grade_of`의 판정이 달라질 입력이 없다. 다만 confirmed 발견이 늘어난
+    만큼 `grade.py`의 `_blocking`이 세는 **상향 조건 건수(`upgrade_count`)와 blocking
+    목록은 증가**한다("이 N건 해결 시 상승"의 N).
 
     OSV가 `incomplete`여도 얻은 CVE에 대한 교차는 그대로 수행한다(부분 결과 정책).
     """
@@ -137,7 +142,7 @@ def stage_kisa(db, scan, components: list[SbomComponent]) -> list[Finding]:
     product_matches = 0
     if snapshot:
         for component in components:
-            label = f"{component.component_name} {component.version or ''}".strip()
+            label = component_label(component.component_name, component.version)
             matched = [cve for cve in (component.cve_ids or []) if cve in snapshot]
             if matched:
                 sources = list(component.vulnerability_db or [])
