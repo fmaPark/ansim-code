@@ -9,7 +9,7 @@ services:
     env_file: .env
     environment: { DATABASE_URL: "postgresql+psycopg://ansim:ansim@db:5432/ansim" }
     depends_on: { db: { condition: service_healthy } }
-    ports: ["8000:8000"]          # 개발 편의 (데모 진입점은 8080)
+    ports: ["${API_PORT:-8000}:8000"]   # 개발 편의(데모 진입점은 8080) — 점유 시 API_PORT로만 덮어쓴다
   web:
     build: ./web
     depends_on: [ api ]
