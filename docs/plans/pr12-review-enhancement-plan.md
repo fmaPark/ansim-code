@@ -6,6 +6,7 @@
 | 목적 | 리뷰 판정 근거를 기록하고, 명세 v0.2 개정과 후속 구현을 서브에이전트 작업 패키지(WP)로 분해한다 |
 | 검증 방법 | 명세가 인용한 코드 전부를 현행 main과 대조했다 (`rules/catalog.yaml` · `repo_checks.py` · `pii.py` · `sca_rules.py` · `analysis.py` · `pipeline.py` · `judge.py` · `gitleaks_runner.py` · `imports_py.py` · KISA CSV · TDD §9 · Task 26·27) |
 | 작성 | 2026-08-30 |
+| 진행 현황 | **PR #12 승인·머지 완료(2026-08-30)** — 리뷰 3회(B1~B5 → B6·M1·M2 → 승인)를 거쳐 v0.3이 M7 게이트를 통과했다. WP-1·WP-2는 이 과정에서 명세 본문에 흡수되어 완료됐고, 다음 착수 지점은 WP-3·WP-4다 |
 
 ## 1. 리뷰 판정 요약
 
@@ -109,7 +110,7 @@ P4는 `requests.post|fetch(|axios.`가 트리거이므로 이 호출은 `third_p
 
 - **목표**: Task 26 Step 3의 측정 스크립트를 WP-2 매칭 규칙대로 구현한다.
 - **산출물**: `verification/measure_detection.py` — API 스캔 호출 → finding 회수 → 사후 필터(vulnerable/·clean/ 외 경로 제외, repo-wide 룰은 예외) → 룰별 키 매칭 → TPR·FPR·부가 발견 3단 표 생성 → `docs/measurements.md` append 형식 출력.
-- **완료 기준**: 오라클 YAML만 바꿔도 재실행이 되는 순수 함수형 매칭 + 부가 발견이 표에 분리 표기.
+- **완료 기준**: 오라클 YAML만 바꿔도 재실행이 되는 순수 함수형 매칭 + 부가 발견이 표에 분리 표기 + **fail-closed 검사**: 오라클에 미기입 센티넬(`TBD`인 SCA-08 패키지명, SEC 계열의 빈 `line`)이 남아 있으면 측정을 진행하지 않고 에러로 중단한다(PR #12 리뷰에서 작성자가 수락한 비차단 제안 — "값 불일치 → 조용한 TPR 0" 계열을 구조적으로 차단).
 
 ### WP-5. 측정 실행과 기록 — WP-3·4 완료 후
 
