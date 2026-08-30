@@ -1,11 +1,11 @@
 # 안심코드 MVP — executing-plans 실행 프롬프트 모음
 
-[mvp-implementation.md](./mvp-implementation.md)(28태스크)를 executing-plans 스킬로 구현하기 위한 세션별 프롬프트.
+[mvp-implementation.md](./mvp-implementation.md)(33태스크)를 executing-plans 스킬로 구현하기 위한 세션별 프롬프트.
 스킬은 계획 파일 전체를 로드하므로 **각 프롬프트가 이번 세션의 태스크 범위를 명시적으로 제한**한다. 각 프롬프트는 복사-붙여넣기로 단독 동작하도록 공통 규칙을 반복 포함한다.
 
 ## 세션 분할과 실행 순서
 
-**기본(순차) — 6세션:**
+**기본(순차) — 7세션:**
 
 | 세션 | 범위 | 마일스톤 | 선행 | 특이사항 |
 | --- | --- | --- | --- | --- |
@@ -15,6 +15,7 @@
 | S4 | Task 17–21 | M5 | S3 | — |
 | S5 | Task 22–25 | M6 | S4 | 기획 카피 게이트, 브라우저 수동 검증 |
 | S6 | Task 26–28 | M7 | S5 + **기획 벤치마크 목록**(PR #12 완료) | 별도 공개 저장소·실키 필요 |
+| S7 | Task 29–33 | M8 | S6 + **PR #27(TDD v0.6) 머지 베이스** | 실 `GEMINI_API_KEY` 필요 · `ANTHROPIC_API_KEY` 불요(폐기) |
 
 **병렬 변형(작업자·세션 여유 시):** S1 완료 후 3개 레인 동시 진행 → 레인 A: S2 그대로 / 레인 B: S3a(Task 12–14) / 레인 C: S3c(Task 23 FE 골격). A·B 병합 후 S3b(Task 15–16), 이후 S4 → S5'(Task 22·24·25 — 23 제외) → S6.
 병합 순서 A → B → C 권장. 공유 접점은 `api/app/engine/pipeline.py` 연결부와 `api/app/config.py`뿐(레인 C는 `web/`만 수정) — B·C 병합 시 이 두 파일만 충돌 주의.
@@ -142,6 +143,36 @@ executing-plans 스킬을 사용해 docs/plans/mvp-implementation.md 계획을 �
 
 이 세션 특이사항:
 - 실 ANTHROPIC_API_KEY 필요(리허설 record + 인젝션 시연). 인젝션 페이로드 시연 결과(등급 불변)는 verification/injection_payloads.md에 기록.
+```
+
+## S7 — M8 LLM 공급자 Gemini 전환 (Task 29–33)
+
+```
+executing-plans 스킬을 사용해 docs/plans/mvp-implementation.md 계획을 실행해줘.
+
+이번 세션 범위: Task 29~33 (M8 LLM 공급자 Gemini 전환)만. 범위 밖 태스크는 절대 건드리지 말 것 — Task 1~28은 완료된 이력이므로 본문·Step 기록·DoD를 소급 수정하지 않는다(계획 문서의 '저장소 파일 구조' 항 표기도 마찬가지).
+브랜치: PR #27(TDD v0.6 — Gemini 전면 전환 반영)이 머지된 최신 베이스에서 feat/m8-gemini 분기. main 직접 작업 금지.
+
+사양 authority: docs/tdd.md v0.6 §4.2·§4.6·§6·§8·§11 항목 9 + 협의체_기록/LLM_공급자_Gemini_전면전환_TDD반영_검토요청.md. 계획 M8 절의 서술과 어긋나면 TDD가 우선하고, 둘 다로 판단이 서지 않으면 멈추고 물을 것.
+
+규칙:
+- 계획의 Global Constraints(G1~G16)·각 태스크 선행 조건·DoD를 그대로 따를 것. 특히 G2(시크릿 마스킹·SEC-* LLM 미경유)·G3(등급 결정론 — LLM 경유 발견은 항상 review_needed)·G9(llm_model_id는 응답 값 기록)는 공급자가 바뀌어도 그대로다. 이 3건을 건드려야 할 것 같으면 그게 잘못 가고 있다는 신호이니 멈추고 물을 것.
+- 전환은 transport 계층에 국한한다. docker-compose.yml·api/app/models.py·web/·파이프라인 판정 로직은 변경 금지. AGENTS.md의 「Commit Attribution」 절(Co-Authored-By: Claude …)은 저장소 코딩 에이전트 표기이므로 절대 바꾸지 말 것.
+- Task 29~31은 한 덩어리다 — 중간 커밋에서 테스트가 red일 수 있고 green 판정은 Task 31 Step 3에서 한 번에 한다. 회귀는 반드시 docker compose run 경로로 돌릴 것(호스트에 semgrep·gitleaks 바이너리가 없다). 직전 기준선 146건보다 줄면 멈추고 보고.
+- 파일 편집은 Write/Edit 도구로. Bash의 sed·heredoc 편집 금지.
+- 완료 스텝은 계획 문서 체크박스를 [x]로 갱신해 해당 커밋에 포함.
+- 막히면 추측하지 말고 중단 후 질문.
+- 범위 완료 시: M8 게이트(계획 '마일스톤 순서' 표 M8행 — 전환 게이트 4건 포함)를 실제 명령으로 검증하고 테스트 출력 요약과 함께 보고한 뒤 멈출 것. PR 생성은 내가 지시할 때만.
+
+이 세션 특이사항:
+- 실 GEMINI_API_KEY 필요(Task 32 게이트 4건). .env에 없으면 Task 29~31·33까지만 하고 Task 32는 보류 표시 후 나에게 키를 요청할 것. ANTHROPIC_API_KEY는 폐기 — .env·.env.example에서 지운다.
+- 키 값은 코드·문서·로그·커밋 어디에도 남기지 말 것.
+- 의존성 교체이므로 docker compose build api(이미지 재빌드) 없이는 SDK가 컨테이너 안에 없다.
+- 파라미터 매핑이 1:1이 아니다 — 특히 타임아웃 단위(초 → 밀리초)와 usage 필드명(usage_metadata.prompt_token_count·candidates_token_count), 응답 모델 ID(model_version). 계획 Task 30의 매핑 표를 그대로 따를 것.
+- 안전 필터는 전 카테고리 최소 차단으로 설정한다 — 시크릿·PII·인젝션 스니펫이 이 제품의 정상 입력이기 때문이다(TDD §6).
+- Task 32 게이트 4건 중 하나라도 실패하면 스스로 우회하지 말고 정지 후 보고. 예비 공급자 경로가 없어 폴백은 "LLM 단계 데모 제외"뿐이고, 그건 TDD §7 MVP 경계선 개정(기획 승인)이 선행되어야 하는 결정이다.
+- 실측은 docs/measurements.md에 신규 엔트리로 기록(기존 엔트리 소급 수정 금지) + 계획 '실측 기록' 섹션에 요약 append.
+- 완료 보고에 "기획 회신 대기 2건(모델 가정 승인 · 게이트 미충족 시 처리 사전 승인 — TDD §11 항목 9 ①③)" 리마인드를 포함할 것.
 ```
 
 ---

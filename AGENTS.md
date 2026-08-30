@@ -6,7 +6,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 
 - `api/` — FastAPI + Python 3.12, 의존성은 `api/requirements.txt` (pip)
 - `web/` — React 19.2 + TypeScript + Vite, 패키지 매니저는 **npm** (`web/package-lock.json`)
-- LLM은 Anthropic Claude API. 모델 ID는 `api/app/config.py`의 `judge_model`·`convert_model`
+- LLM은 Google Gemini API. 모델 ID는 `api/app/config.py`의 `judge_model`·`convert_model`
 
 ## Commands
 
@@ -43,7 +43,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 - `rules/` 전체의 콘텐츠 해시가 `rule_catalog_version`이다. 룰 파일 변경은 버전 변경이며 재진단 diff에 영향을 준다.
 - uvicorn 워커는 1로 고정한다. 파이프라인이 `BackgroundTasks` in-process를 전제한다.
 - 원본 소스코드는 스캔별 격리 워크스페이스에만 존재하고 `try/finally`로 무조건 파기된다. 이 경로를 우회하는 변경 금지.
-- `ANTHROPIC_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
+- `GEMINI_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
 - `docs/` 문서는 OKF v0.2 번들이다. 문서를 추가·수정하면 YAML frontmatter를 유지하고 `tools/okf_check.py`로 확인한다. 단, 현재 `main`에는 frontmatter가 없는 문서가 남아 있어 이 검사가 **상시 실패**(exit 1)한다(이슈 #21 — 2026-08-30 기준 `plans/execution-prompts.md`·`benchmark-spec.md` 2건). 통과 여부가 아니라 **자기 변경으로 새 오류가 생겼는지**를 본다.
 - `web` 의존성 버전의 정본은 `web/package-lock.json`이다. 문서에 버전을 적을 때 lock에서 확인한다 — 스캐폴드(`npm create vite@latest`)가 버전을 고정하지 않아 React 표기가 실물과 어긋난 전례가 있다.
 
