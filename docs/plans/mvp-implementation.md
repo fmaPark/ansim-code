@@ -20,7 +20,7 @@ sources:
 
 **Architecture:** React SPA(nginx 서빙) + FastAPI 단일 서비스. Analysis Engine은 백엔드 내장 Python 모듈 파이프라인(0259 §11 5단계 매핑)이며 FastAPI BackgroundTasks + DB 상태 폴링으로 비동기 실행(uvicorn 단일 워커 고정). 원본 코드는 스캔별 격리 임시 디렉토리에서만 존재하고 `try/finally`로 무조건 파기된다.
 
-**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 19.2·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Google Gemini API(judge=`gemini-2.5-flash`, 변환=`gemini-2.5-flash-lite` — 2026-08-30 Anthropic Claude에서 전면 전환, M8·TDD v0.6 §11 항목 9) / Docker Compose.
+**Tech Stack:** Python 3.12·FastAPI·SQLAlchemy·PostgreSQL 16 / React 19.2·TypeScript·Vite / Semgrep CE(자체 룰만)·gitleaks / OSV.dev API·KISA 보호나라 CSV 스냅샷 / Google Gemini API(judge=`gemini-3.5-flash`, 변환=`gemini-3.1-flash-lite` — 2026-08-30 Anthropic Claude에서 전면 전환, M8·TDD v0.6 §11 항목 9. TDD 가정이던 2.5 계열은 실호출 404로 사용 불가라 정정했다 — Task 32) / Docker Compose.
 
 **Spec:** [docs/tdd.md](../tdd.md) (TDD v0.4) · [docs/platform-decision.md](../platform-decision.md) (ADR-001 v1.3) — 이 계획의 모든 판단 근거. 각 태스크에 `TDD 참조`를 병기해 구현 세션이 TDD를 다시 읽지 않아도 되게 했다.
 
@@ -1997,7 +1997,7 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 
 ### Task 29: 의존성·설정 교체 — `google-genai` + `GEMINI_API_KEY`
 
-**TDD 참조:** §4.2 기술 스택 표(모델 **가정**: judge=`gemini-2.5-flash`, 변환=`gemini-2.5-flash-lite` — 기획 승인 대기), §4.6 외부 의존성, §8 API 키 관리(`ANTHROPIC_API_KEY` 폐기), §11 항목 9
+**TDD 참조:** §4.2 기술 스택 표(모델 **가정**: judge=`gemini-2.5-flash`, 변환=`gemini-2.5-flash-lite` — 기획 승인 대기. **실호출 결과 두 모델 모두 404라 Task 32에서 `gemini-3.5-flash`·`gemini-3.1-flash-lite`로 정정**), §4.6 외부 의존성, §8 API 키 관리(`ANTHROPIC_API_KEY` 폐기), §11 항목 9
 
 **선행 조건:** 없음(M8의 첫 태스크). Task 30·31이 이 태스크에 의존
 
@@ -2168,8 +2168,9 @@ API_KEY = "AKIAIOSFODNN7REALKEY1"          # 실제 취약: 하드코딩 키
 - **Task 29~31·33 완료.** 전체 회귀 **146건 green**(M6 기준선 동일). `api/`·`.env.example`·`docker-compose.yml` Anthropic 표기 0건. `docker-compose.yml`·`models.py`·`web/` 무변경 diff 확인.
 - **계획 대비 추가 변경 1건 — `httpx==0.27.* → 0.28.*`.** 0.27 핀이 `google-genai`를 1.2.0으로 역해석시켰고 그 버전엔 `ThinkingConfig.thinking_budget`이 없다(`include_thoughts`뿐). `thinking_budget`을 가진 1.10+ 전 버전이 `httpx>=0.28.1`을 요구하므로 TDD §4.2의 thinking 비활성을 지키려면 동반 상향이 불가피했다. 확정 해석: `google-genai 1.75.0`·`httpx 0.28.1`·`pydantic 2.13.5`.
 - **모델 가정 정정(TDD §4.2 실물 불일치).** `gemini-2.5-flash`·`gemini-2.5-flash-lite` 둘 다 실호출 404("no longer available to new users") → 사용자 확정으로 **judge=`gemini-3.5-flash`·변환=`gemini-3.1-flash-lite`**. **TDD §4.2·§11 항목 9 ① 정정 필요(기획 사후 승인 대상).**
-- **Task 32 게이트 4건: ①통과 ②통과 ③조건부 ④실패 → M8 게이트 미충족.** ①안전 필터 차단 0/5(주민번호·인젝션 4종·시크릿 원문·민감정보·크롤링) ②`model_version` 폴백 0건·`llm_model_id`에 응답값 2종 기록 ③캐시 폴백 재생 완주·등급 동일하나 **캐시가 이미지 안이라 컨테이너 재생성에 소실**(볼륨 부재) + **변환 캐시는 스캔이 바뀌면 미히트**(캐시 키에 스캔별 finding id) ④**무료 티어 5 RPM** — judge 12 병렬에서 429 45건, 후보 57건 중 9건만 판정. 상세·수치는 `docs/measurements.md` M8 엔트리.
-- **§11 항목 1(LLM 상한) Gemini 기준 첫 실호출 실측**(M4는 fake transport 기준이었다): 성공 12호출 in 11,529t / out 6,915t. 변환 30항목 배치 절단 없음(`TOKENS_PER_ITEM=350` 유지).
+- **Task 32 게이트 4건: ①통과 ②통과 ③조건부 ④실패 → M8 게이트 미충족.** ①안전 필터 차단 0/5(주민번호·인젝션 4종·시크릿 원문·민감정보·크롤링) ②`model_version` 폴백 0건·`llm_model_id`에 응답값 2종 기록 ③캐시 폴백 재생 완주·등급 동일. 측정 당시의 결함 2건은 **모두 해소** — "캐시가 이미지 안이라 재생성에 소실"은 M7(PR #36)의 `llmcache` 볼륨 추가로, "변환 캐시가 스캔이 바뀌면 미히트"는 이 세션에서 페이로드 `id`를 Finding PK → 배치 순번으로 바꿔 수정(캐시 폴백 3→4건, replay의 규칙 기반 폴백 문구 10/10→0/10) ④**무료 티어 5 RPM** — judge 12 병렬에서 429 45건, 후보 57건 중 9건만 판정. 상세·수치는 `docs/measurements.md` M8 엔트리.
+- **§11 항목 1(LLM 상한) Gemini 기준 첫 실호출 실측**(M4는 fake transport, M7은 키 미설정 기준이었다): 성공 12호출 in 11,529t / out 6,915t. 변환 30항목 배치 절단 없음(`TOKENS_PER_ITEM=350` 유지).
+- **M7 머지분 동기(이 세션 추가):** M7이 들여온 `docker-compose.keyless.yml`이 `ANTHROPIC_API_KEY`를 덮어쓰고 있어 **장애 폴백 리허설이 실제로는 폴백을 일으키지 못하는 상태**였다(앱이 읽지 않는 변수라 실 키가 그대로 쓰인다) → `GEMINI_API_KEY`로 교체. `README.md`·`docs/demo-script.md`의 공급자 표기도 함께 동기. `verification/injection_payloads.md`·measurements의 M7 엔트리에 남은 `ANTHROPIC_API_KEY` 표기는 **당시 실측 기록이라 소급 수정하지 않았다.**
 
 ## 커버리지 셀프체크 (계획 ↔ TDD v0.4)
 

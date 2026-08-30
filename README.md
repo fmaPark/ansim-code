@@ -56,7 +56,7 @@ docker compose up -d --build
 
 장면별 시연 순서는 [데모 스크립트](docs/demo-script.md)에 있다.
 
-### Anthropic API가 멈춘 상태 재현
+### Gemini API가 멈춘 상태 재현
 
 등급은 확정된 결함과 CVE만의 함수라 LLM이 죽어도 그대로 나온다. 무효 키 오버레이로 확인할 수 있다.
 

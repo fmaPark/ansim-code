@@ -71,10 +71,32 @@ async def test_maps_response_to_matching_finding(tmp_path):
 
     await generate_texts(env.scan, findings, client=env.client, registry=env.registry)
 
-    assert findings[0].easy_description == "쉬운 설명 7"
-    assert findings[0].fix_prompt == "수정 지시 7"
-    assert findings[1].easy_description == "쉬운 설명 9"
+    # 페이로드의 id는 Finding PK가 아니라 배치 순번이다 — 매핑도 순번 기준
+    assert findings[0].easy_description == "쉬운 설명 0"
+    assert findings[0].fix_prompt == "수정 지시 0"
+    assert findings[1].easy_description == "쉬운 설명 1"
     assert env.scan.llm_model_id == FAKE_MODEL           # G9: 응답의 model 필드 기록
+
+
+@pytest.mark.asyncio
+async def test_payload_carries_no_scan_scoped_id(tmp_path):
+    """캐시 키가 스캔에 종속되지 않는다 — 장애 폴백(TDD §6)이 스캔을 건너 살아야 한다.
+
+    같은 코드의 두 스캔은 Finding PK가 다르다. 페이로드에 PK가 실리면
+    LlmClient의 캐시 키 sha256(model+system+user)가 달라져 캐시가 절대 히트하지 않는다.
+    """
+    payload_of = {}
+    for tag, ids in [("scan1", (7, 9)), ("scan2", (10_001, 10_002))]:
+        env = _env(tmp_path / tag)
+        findings = [finding(ids[0], file_path="a.py", line=3),
+                    finding(ids[1], file_path="b.py", line=4)]
+        await generate_texts(env.scan, findings, client=env.client, registry=env.registry)
+        payload_of[tag] = env.transport.calls[0]["user"]
+        assert all(f.easy_description and f.fix_prompt for f in findings)
+
+    assert payload_of["scan1"] == payload_of["scan2"]     # → 캐시 키 동일
+    for pk in ("7", "9", "10001", "10002"):
+        assert f'"id": {pk}' not in payload_of["scan1"]   # PK 유출 없음
 
 
 @pytest.mark.asyncio

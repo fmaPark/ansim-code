@@ -36,9 +36,16 @@ def _location(f) -> str:
     return f"{f.file_path}:{f.line}" if f.line else f.file_path
 
 
-def _payload_item(f) -> dict:
+def _payload_item(f, idx: int) -> dict:
+    """LLM에 보낼 항목. `id`는 **배치 안 순번**이지 Finding PK가 아니다.
+
+    PK를 실으면 `LlmClient`의 캐시 키 sha256(model+system+user)가 스캔마다 달라져
+    변환 캐시가 절대 히트하지 않는다 — 장애 폴백(TDD §6)에서 judge 설명만 재생되고
+    시민용 문구·수정 프롬프트는 규칙 기반 폴백으로 떨어진다. 순번은 같은 코드면
+    같으므로(파이프라인이 `order_by(Finding.id)`로 넘긴다) 캐시가 스캔을 건너 산다.
+    """
     rule = _catalog().get(f.rule_id, {})
-    return {"id": f.id, "rule_id": f.rule_id, "title": rule.get("title", f.rule_id),
+    return {"id": idx, "rule_id": f.rule_id, "title": rule.get("title", f.rule_id),
             "standard_ref": rule.get("standard_ref", ""), "file_path": f.file_path,
             "line": f.line, "evidence": f.evidence or ""}   # evidence는 이미 마스킹본(G2 ①)
 
@@ -64,15 +71,15 @@ def _parse_array(text: str) -> list | None:
 
 
 def _apply(batch, arr) -> bool:
-    """응답 배열을 finding에 매핑. id 집합이 어긋나면 아무것도 쓰지 않고 False."""
-    by_id = {}
+    """응답 배열을 finding에 매핑. 순번 집합이 어긋나면 아무것도 쓰지 않고 False."""
+    by_idx = {}
     for item in arr:
         if isinstance(item, dict) and "id" in item:
-            by_id[item["id"]] = item
-    if set(by_id) != {f.id for f in batch}:
+            by_idx[item["id"]] = item
+    if set(by_idx) != set(range(len(batch))):      # `id`는 배치 순번 (_payload_item)
         return False
-    for f in batch:
-        item = by_id[f.id]
+    for i, f in enumerate(batch):
+        item = by_idx[i]
         f.easy_description = str(item.get("easy", ""))[:1000] or None
         f.fix_prompt = str(item.get("fix_prompt", ""))[:2000] or None
     return all(f.easy_description and f.fix_prompt for f in batch)
@@ -112,7 +119,8 @@ async def generate_texts(scan, findings, client: LlmClient | None = None,
     batches = [findings[i:i + size] for i in range(0, len(findings), size)]
 
     async def one(batch):
-        items = json.dumps([_payload_item(f) for f in batch], ensure_ascii=False)
+        items = json.dumps([_payload_item(f, i) for i, f in enumerate(batch)],
+                           ensure_ascii=False)
         user = CONVERT_USER_TMPL.format(items_json=items, count=len(batch))
         for _attempt in (1, 2):                  # 개수·id 불일치 또는 파싱 실패 시 1회 재시도
             try:
