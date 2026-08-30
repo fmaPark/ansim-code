@@ -13,3 +13,5 @@ __pycache__/
 # Node
 node_modules/
 web/dist/
+
+.vscode/

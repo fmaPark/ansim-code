@@ -1,0 +1,30 @@
+# 디버그 오버레이 — 데모 경로인 docker-compose.yml은 손대지 않고 위에 겹쳐 쓴다.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db api
+#
+# api를 debugpy 아래에서 띄우고 5678을 열어 VS Code가 attach한다.
+# 프론트는 web 컨테이너(nginx) 대신 호스트 vite 개발 서버(5173)를 쓴다 — HMR과 소스맵 때문이다.
+# vite가 /api를 localhost:8000으로 프록시하므로(web/vite.config.ts) API는 기본 포트 그대로 둔다.
+services:
+  api:
+    volumes:
+      - ./api/app:/srv/app        # 코드 수정이 이미지 재빌드 없이 반영된다
+      - ./rules:/srv/rules:ro     # 룰은 이미지에 구워진다(AGENTS.md) — 개발 중엔 작업 트리로 덮어쓴다
+      - pipcache:/root/.cache/pip # debugpy 재설치를 캐시로 넘긴다
+    ports:
+      - "5678:5678"               # debugpy. 기본 파일의 8000 매핑에 더해진다(compose는 ports를 이어붙인다)
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"        # 마운트된 호스트 트리에 __pycache__를 남기지 않는다
+      PYDEVD_DISABLE_FILE_VALIDATION: "1" # -Xfrozen_modules=off와 짝 — debugpy 검증 경고를 없앤다
+    # --reload는 쓰지 않는다 — uvicorn 리로더가 앱을 자식 프로세스로 띄워서 debugpy 중단점이 붙지 않는다.
+    # 코드 수정 반영은 VS Code 태스크 「api 재시작(코드 반영)」으로 한다(마운트라 재빌드는 필요 없다).
+    command:
+      - sh
+      - -c
+      - >-
+        pip install --quiet debugpy &&
+        exec python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678
+        -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+
+volumes:
+  pipcache: {}
