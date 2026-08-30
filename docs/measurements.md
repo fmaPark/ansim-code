@@ -190,3 +190,163 @@ skipif 2케이스(주석 시크릿·플레이스홀더 무시)도 컨테이너 �
   라인이 2줄 밀리자 AUX-01·02가 '해결+신규' 쌍으로 잡혔다. 카운트는 정직하나 데모 내레이션 시
   "동일 룰 해결+신규 쌍 = 위치 이동"임을 언급할 것. 개선은 M6 범위 밖(백엔드 diff.py).
 - **LLM 실호출(§11 항목 1)** — `.env` 키 placeholder(401) → 전 스캔이 폴백 경로. M7 데모 전 실키 필수.
+
+## M7 — Task 26 (2026-08-30, 실행 세션: feat/m7-verification)
+
+측정 환경: 로컬 Docker Compose(이 워크트리 스택, api 8002 / web 8086 — 다른 워크트리가 8000 점유).
+`ANTHROPIC_API_KEY` **미설정** 상태로 측정했다. 명세 §1.4대로 등급과 P1~P5·P10 초안은 전부
+static 경로라 키 없이 재현되며, 키가 필요한 것은 judge 설명 텍스트뿐이다 — 실제로 `llm_model_id`가
+null인 채로 31종 중 28종이 발화했다.
+
+벤치마크 저장소: **<https://github.com/fmaPark/ansim-benchmark>** (공개, `v1-danger` 태그 = main).
+오라클: `verification/expected_findings.yaml` (명세 §5.2 확정본 + 스캐폴딩 후 개발 기입분).
+
+재현 명령:
+
+```bash
+python verification/check_invariants.py <benchmark_checkout>
+python verification/measure_detection.py \
+  --api http://localhost:8002 \
+  --repo https://github.com/fmaPark/ansim-benchmark \
+  --oracle <benchmark_checkout>/verification/expected_findings.yaml \
+  --benchmark-root <benchmark_checkout>
+```
+
+측정 대상: `https://github.com/fmaPark/ansim-benchmark` · 등급 **위험** · 소요 **15.2s**(G14 2분 목표 대비 여유)
+
+- `content_fingerprint`: `94876f8da387c83e…` (git_commit)
+- `rule_catalog_version`: `8e512d222d972ed9`
+- `vuln_db_snapshot_date`: OSV@2026-08-30; KISA-CSV@2026-08-29
+- `llm_model_id`: (LLM 미호출 — 키 미설정)
+
+### ① TPR — 룰별 검출률 (전체 31종 기준)
+
+| 룰 | 기대 | 검출 | TPR | 미검출 위치 / 사유 |
+| --- | --- | --- | --- | --- |
+| SCA-01 | 2 | 2 | 100% | |
+| SCA-02 | 5 | 5 | 100% | |
+| SCA-03 | 5 | 5 | 100% | |
+| SCA-04 | 5 | 5 | 100% | |
+| SCA-05 ⚠ | 1 | 0 | 0% | six — **룰 갭**: `build_sbom`이 `release_date`를 항상 null로 둔다([sbom.py:167](../api/app/engine/sbom.py#L167) — 레지스트리 원격 조회 없음 가정). 판정 입력 자체가 없어 `_older_than`이 언제나 False다 |
+| SCA-06 | 1 | 1 | 100% | |
+| SCA-07 ⚠ | 1 | 0 | 0% | pymupdf — **룰 갭**: 라이선스는 동봉 LICENSE 본문·vendored `package.json`에서만 판정한다([sbom.py:85-108](../api/app/engine/sbom.py#L85)). 매니페스트 선언만으로는 AGPL을 알 수 없어 SCA-08(라이선스 불명)로 흡수됐다 |
+| SCA-08 | 1 | 1 | 100% | |
+| SCA-09 | 1 | 1 | 100% | |
+| SCA-10 | 1 | 1 | 100% | |
+| SCA-11 | 1 | 1 | 100% | |
+| SCA-12 | 1 | 1 | 100% | |
+| SEC-01 | 2 | 2 | 100% | |
+| SEC-02 | 1 | 1 | 100% | |
+| SEC-03 | 1 | 1 | 100% | |
+| SEC-04 | 3 | 3 | 100% | 인젝션 페이로드 파일 포함 |
+| SEC-05 | 2 | 2 | 100% | 체크섬 유효(confirmed)·무효(review_needed) 양분기 |
+| P1 | 1 | 1 | 100% | 정적 합성 — 키 없이 검출 |
+| P2 | 2 | 2 | 100% | Py·JS 양쪽 |
+| P3 | 1 | 1 | 100% | |
+| P4 | 1 | 1 | 100% | 정적 합성 — 키 없이 검출 |
+| P5 | 1 | 1 | 100% | |
+| P6 | 1 | 1 | 100% | |
+| P7 | 2 | 2 | 100% | Py·JS 양쪽 |
+| P8 | 1 | 1 | 100% | |
+| P9 | 1 | 1 | 100% | |
+| P10 | 1 | 1 | 100% | |
+| AUX-01 | 2 | 2 | 100% | Py·JS 양쪽 |
+| AUX-02 | 1 | 1 | 100% | |
+| AUX-03 ⚠ | 1 | 0 | 0% | `vulnerable/server.js` — **룰 갭**: JS 룰이 `res.header`/`res.setHeader` 형태만 매칭한다([aux-security.yaml](../rules/semgrep/aux-security.yaml)). Express의 관용 표현 `cors({origin:'*'})`를 놓친다. Python 쪽 `CORS($APP, origins="*")`는 커버됨 |
+| **합계** | **51** | **48** | **94.1%** | |
+
+**룰 갭 3종은 벤치마크 결함이 아니다**(TDD §9 · 계획 Task 26 가드). 세 케이스 모두 표준 조항의
+의도대로 심었고 검출에 맞춰 수정하지 않았다. SCA-05·SCA-07은 "레지스트리 원격 조회 없음"이라는
+설계 가정([sbom.py:3](../api/app/engine/sbom.py#L3))의 직접 귀결이라 룰이 아니라 **가정의 비용**으로
+읽어야 한다 — 해소하려면 PyPI/npm 메타데이터 조회를 도입해야 하고 이는 MVP 범위 밖이다.
+AUX-03만이 순수한 패턴 커버리지 갭이다.
+
+### ② FPR — `clean/` 오탐률
+
+clean 파일 **11개** 중 confirmed 발생 **0건** → **FPR 0.0%**. allowlist 보정은 불필요했다
+(계획 Step 5가 허용한 1회 보정을 쓰지 않았다 — 보정 전후 수치 비교 대상 없음).
+
+| 룰 | 파일 | 근거 |
+| --- | --- | --- |
+| — | — | 오탐 없음 |
+
+near-miss 세트가 실제로 대조군 역할을 했는지 개별 확인: `config_example.py`의 플레이스홀더 4종
+(`your-api-key-here`·`changeme`·`sk-test-`·`<replace-me>`)이 전부 allowlist에 걸렸고,
+`product_codes.py`의 RRN 형식 유사 코드(7번째 자리 5~9)는 형식 게이트에서 탈락했다.
+
+> repo-wide 룰(P8·P9·P10)은 분모·분자에서 제외했다 — 같은 스캔 트리에 음성을 둘 수 없어서다
+> (명세 §1.2). 이들의 오탐은 Task 27(PyGoat·dogfooding)에서 측정한다.
+
+### ③ 부가 발견 — 오라클 밖 confirmed (지표 미집계)
+
+| 룰 | 건수 | 위치(발췌) | 성격 |
+| --- | --- | --- | --- |
+| SCA-02 | 3 | express, flask-cors, mysql2 | 동일 룰의 추가 발화(다발 허용) |
+| SCA-04 | 2 | express, mysql2 | 동일 룰의 추가 발화(다발 허용) |
+| SCA-08 | 15 | beautifulsoup4, cors, django, express … | 동일 룰의 추가 발화(다발 허용) |
+| SCA-09 | 11 | beautifulsoup4, flask, flask-cors, flask-login … | 동일 룰의 추가 발화(다발 허용) |
+| SCA-10 | 5 | vulnerable/package.json, vulnerable/vendor | 동일 룰의 추가 발화(다발 허용) |
+
+**SCA-10의 5건은 부가 발견이지만 원인이 다르다 — 엔진 결함으로 판단한다.**
+`package-lock.json`의 `resolved`가 `https://registry.npmjs.org/...`인데
+[`_is_registry`](../api/app/engine/deps_npm.py#L48)가 `https://` 접두를 비레지스트리로 보아
+**lock으로 해석된 npm 패키지가 전부 "출처 불명"으로 뒤집힌다**([deps_npm.py:120-121](../api/app/engine/deps_npm.py#L120)).
+공개 레지스트리 URL이 곧 비레지스트리 판정을 받는 셈이다. 나머지 1건(`vulnerable/vendor`의 oldlib)은
+vendored 복제본이라 정탐이다. Task 26은 룰 코드를 수정하지 않으므로(순환 검증 회피) **기록만 남긴다** —
+후속 이슈 대상.
+
+### 등급 시나리오 3종 재현 (명세 §7)
+
+| 태그 | 상태 | 실측 등급 | 확정 발견 | 검토 필요 |
+| --- | --- | --- | --- | --- |
+| `v1-danger` | 전체 | **위험** | 다수 | 17건 |
+| `v2-warning` | grade_blocking만 제거 | **주의** | AUX·P7·P8·P9·SCA 잔존 | 17건 |
+| `v3-safe` | 모든 confirmed 제거 | **안심** | **0건** | 17건 |
+
+**명세 §7과의 편차 1건(기록만, 명세·룰 모두 미수정)**: §7은 SEC-02(주석 시크릿)를 v2의 잔여
+'주의' 기여로 적었지만, 등급 결정론 구현은 **confirmed `SEC-*` 전부**를 위험 트리거로 본다
+([grade.py:31-34](../api/app/engine/grade.py#L31) `_is_danger_finding`). 그래서 v2에서 SEC-02도
+함께 제거해야 '주의'에 도달한다. 사용자 판단(2026-08-30)에 따라 **엔진 정의를 정본으로 삼았다**.
+
+v2에서 제거한 Critical CVE 보유 컴포넌트는 django·next·mysql2 3종이다(v0.1이 next만 예상했으나
+실측에서 django의 CVE-2022-28346·CVE-2025-64459, mysql2의 CVE-2024-21508·21511도 Critical로 나왔다).
+
+`git clone --depth 1 --single-branch`는 ref를 받지 않는다([ingest.py:25](../api/app/engine/ingest.py#L25)) —
+**태그를 URL로 직접 스캔할 수 없다.** 세 태그는 선형 커밋이라 데모에서는 main을 fast-forward로
+전진시켜 재진단한다(절차는 `docs/demo-script.md`).
+
+### 명세 §3.1 예상치 vs OSV 실측
+
+| 컴포넌트 | 명세 예상 | OSV 2026-08-30 실측 | 판정 |
+| --- | --- | --- | --- |
+| Django 3.2.12 | Critical/High | **Critical** (CVE-2022-28346 등) | 일치 |
+| Flask 0.12.2 | **High**(v0.2 메이저 교정) | High — 등급 기여는 '주의' | 일치(교정이 옳았다) |
+| requests 2.28.0 | Medium | High/Medium | 상향 |
+| lodash 4.17.15 | High | High | 일치 |
+| next 14.2.0 | 확정 Critical | **Critical** (CVE-2025-29927) | 일치 |
+| six 1.10.0 | Low(비기여 검증) | — | **SCA-05 미발화**(위 룰 갭) |
+
+Low-비기여 검증은 SCA-05가 담당하기로 했으나 룰 갭으로 성립하지 않았다. 대신 SCA-08·SCA-09가
+Low 심각도 confirmed로 다수 발화하면서 **"Low는 등급에 기여하지 않는다"가 v1에서 실증됐다**
+(등급은 Critical CVE·SEC·P6가 만들었고 Low 발견 26건은 기여하지 않았다).
+
+### 벤치마크 저장소 운영 기록
+
+- **GitHub 시크릿 스캐닝 push protection이 최초 푸시를 3건 차단**했다(`.env`의 Stripe 키,
+  `secrets_config.py`의 AWS 키 쌍). 보안 설정을 끄지 않고 **리터럴 형태만 바꿔** 해소했다 —
+  AWS 키는 명세 §4.5가 인젝션 페이로드에 지정한 것과 같은 21자 형태(`AKIA…` + 17자)로 맞췄다.
+  이 형태는 gitleaks `aws-access-token`은 그대로 발화시키고(SEC-04 검출 유지) GitHub 제공자
+  패턴(20자)에는 걸리지 않는다. Stripe 키는 제공자 비특정 고엔트로피 값으로 교체했고
+  SEC-03은 경로 룰이라 영향이 없다. **오라클의 rule_id·file·verdict·line은 전부 불변.**
+- 불변식 CI(`.github/workflows/invariants.yml`)는 안심코드를 체크아웃해
+  `verification/check_invariants.py`를 돌린다. 지금은 ansim-code ref가 `feat/m7-verification`으로
+  핀되어 있다 — **머지 후 `main`으로 되돌려야 한다**(워크플로 파일에 TODO 주석 있음).
+- 태그 트리(v2·v3)는 불변식 검사 대상이 아니다. v3-safe는 P8·P9를 해소하려고 로깅·처리방침을
+  **일부러** 넣은 상태라 불변식을 의도적으로 깬다. 그래서 CI는 `main` push·PR에서만 돈다.
+
+### 자기 마스킹 실증 (불변식 자동화가 필요한 이유)
+
+스캐폴딩 1차에서 `vulnerable/models.py`의 **docstring에 쓴 "파기"라는 단어 하나가 P10을 통째로
+껐다**. 룰이 아니라 벤치마크가 자기 양성을 지운 것이고, 표만 보면 "P10 룰 갭"으로 오독됐을 사례다.
+`check_invariants.py`가 이 부류를 6종 검사로 잡는다(로깅·처리방침·삭제 동사·미선언 import·P4 국소화·P7 인증 단어).
+검사기 자체의 회귀는 `api/tests/test_verification_matching.py` 23건이 지킨다.
