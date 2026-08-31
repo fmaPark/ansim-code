@@ -32,7 +32,14 @@ export default function ReportTableFrame({
         {action && <div className="report-table-actions">{action}</div>}
       </header>
       {scrollHint && <p className="report-table-scroll-hint">표를 좌우로 스크롤해 전체 항목을 확인하세요.</p>}
-      <div className="report-table-scroll">{children}</div>
+      <div
+        className="report-table-scroll"
+        role={scrollHint ? 'region' : undefined}
+        aria-label={scrollHint ? `${ariaLabel} 가로 스크롤 영역` : undefined}
+        tabIndex={scrollHint ? 0 : undefined}
+      >
+        {children}
+      </div>
     </section>
   )
 }

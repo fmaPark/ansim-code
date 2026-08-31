@@ -367,6 +367,7 @@ export default function Report() {
             title="공급망 환경 분류"
             count={report.supply_chain.matrix.risk_factors.length}
             ariaLabel="공급망 상세"
+            scrollHint
           >
             <div className="supply-chain-summary">
               <span>분류 <strong>{report.supply_chain.class ?? '미분류'}</strong></span>

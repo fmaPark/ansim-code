@@ -170,6 +170,7 @@ describe('Report', () => {
 
     const sbomTable = await screen.findByRole('table', { name: 'SBOM 구성요소' })
     expect(sbomTable).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'SBOM 상세 가로 스크롤 영역' })).toHaveAttribute('tabindex', '0')
     expect(within(sbomTable).getByRole('columnheader', { name: '공급자' })).toBeInTheDocument()
     expect(within(sbomTable).getByText('OpenJS Foundation')).toBeInTheDocument()
     expect(screen.queryByText('하드코딩된 비밀정보')).not.toBeInTheDocument()
@@ -246,12 +247,14 @@ describe('Report', () => {
     const user = userEvent.setup()
     renderReport()
 
-    const firstTrigger = await screen.findByRole('button', { name: '하드코딩된 비밀정보 상세 보기' })
-    const secondTrigger = screen.getByRole('button', { name: '개인정보 노출 가능성 상세 보기' })
+    const firstTrigger = await screen.findByRole('button', { name: /발견 #1.*하드코딩된 비밀정보.*상세/ })
+    const secondTrigger = screen.getByRole('button', { name: /발견 #2.*개인정보 노출 가능성.*상세/ })
 
     expect(firstTrigger).toHaveAttribute('aria-expanded', 'false')
+    expect(firstTrigger).toHaveTextContent('상세')
     await user.click(firstTrigger)
     expect(firstTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(firstTrigger).toHaveTextContent('상세')
     expect(screen.getByText('const API_KEY = "example"')).toBeVisible()
     expect(screen.getByText('환경 변수로 이동하세요.')).toBeVisible()
 
@@ -262,15 +265,26 @@ describe('Report', () => {
     expect(screen.getByText('AI 판정 참고: 사용 맥락 확인 필요')).toBeVisible()
   })
 
+  it('내용이 같은 발견 사항도 ID와 위치로 상세 컨트롤을 구분한다', async () => {
+    const duplicate = { ...report.findings[0], id: 2 }
+    api.getReport.mockImplementation((_id: string, mode: 'dev' | 'easy') =>
+      Promise.resolve(mode === 'dev' ? { ...report, findings: [report.findings[0], duplicate] } : easyReport),
+    )
+    renderReport()
+
+    expect(await screen.findByRole('button', { name: /발견 #1.*src\/config\.ts:14.*상세/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /발견 #2.*src\/config\.ts:14.*상세/ })).toBeInTheDocument()
+  })
+
   it('시민용 모드에서는 펼친 행에 쉬운 설명을 보여준다', async () => {
     const user = userEvent.setup()
     renderReport()
 
     await screen.findByRole('heading', { name: '진단 리포트' })
     await user.click(screen.getByRole('checkbox', { name: '시민용 쉬운 설명' }))
-    await user.click(screen.getByRole('button', { name: '하드코딩된 비밀정보 상세 보기' }))
+    await user.click(screen.getByRole('button', { name: /발견 #1.*하드코딩된 비밀정보.*상세/ }))
 
-    const detail = screen.getByRole('region', { name: '하드코딩된 비밀정보 상세' })
+    const detail = screen.getByRole('region', { name: /발견 #1.*하드코딩된 비밀정보 상세/ })
     expect(within(detail).getByText('비밀정보가 코드에 포함되어 있습니다.')).toBeVisible()
     expect(screen.queryByText('const API_KEY = "example"')).not.toBeInTheDocument()
   })

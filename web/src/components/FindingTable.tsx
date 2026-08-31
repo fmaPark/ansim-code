@@ -127,7 +127,7 @@ export default function FindingTable({ findings, easy }: FindingTableProps) {
                   </td>
                   <td data-label="발견 항목" className="finding-title-cell">
                     <strong>{finding.rule_id} · {finding.title}</strong>
-                    <span>{finding.standard_ref}</span>
+                    <span>발견 #{finding.id} · {finding.standard_ref}</span>
                   </td>
                   <td data-label="위치" className="technical-cell">{location(finding)}</td>
                   <td data-label="등급 영향">
@@ -141,12 +141,12 @@ export default function FindingTable({ findings, easy }: FindingTableProps) {
                     <button
                       type="button"
                       className="finding-detail-toggle"
-                      aria-label={`${finding.title} 상세 보기`}
+                      aria-label={`발견 #${finding.id} ${finding.title}, ${location(finding)} 상세`}
                       aria-expanded={expanded}
                       aria-controls={detailId}
                       onClick={() => setExpandedId(expanded ? null : finding.id)}
                     >
-                      <span>{expanded ? '접기' : '보기'}</span>
+                      <span>상세</span>
                       <svg aria-hidden="true" viewBox="0 0 20 20">
                         <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
                       </svg>
@@ -159,7 +159,7 @@ export default function FindingTable({ findings, easy }: FindingTableProps) {
                     <div
                       className="finding-detail"
                       role="region"
-                      aria-label={`${finding.title} 상세`}
+                      aria-label={`발견 #${finding.id} ${finding.title} 상세`}
                     >
                         {easy ? (
                           <div className="finding-detail-section">

@@ -210,6 +210,7 @@ button.ghost:disabled { opacity: .48; cursor: not-allowed; }
 .report-filter select:focus-visible { outline: 3px solid rgb(18 101 196 / 16%); border-color: var(--accent); }
 .report-table-scroll-hint { display: none; margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #f8fafc; color: var(--muted); font-size: 11px; }
 .report-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.report-table-scroll:focus-visible { outline: 3px solid rgb(18 101 196 / 20%); outline-offset: -3px; }
 .report-data-table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; table-layout: auto; font-size: 13px; }
 .report-data-table--wide { min-width: 1120px; }
 .report-data-table th, .report-data-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
