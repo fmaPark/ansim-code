@@ -78,6 +78,12 @@ docker compose run --rm -v "$PWD:/work" -w /work/api api pytest
 cd web && npm ci && npm run build
 ```
 
+프론트엔드 테스트는 vitest + jsdom이다. **Node 22 이상이 필요하다** — jsdom 30이 `node:20`에서 기동하지 못하므로 `web/Dockerfile`의 빌드 이미지로는 돌릴 수 없다(빌드 자체는 node:20에서 정상).
+
+```bash
+cd web && npm test
+```
+
 ## 검증
 
 진단 룰의 검출률·오탐률은 별도 공개 저장소 [ansim-benchmark](https://github.com/fmaPark/ansim-benchmark)로 측정한다. 자기 등급이 오염되지 않도록 벤치마크는 이 저장소 밖에 두고, 측정 스크립트만 여기 `verification/`에 둔다.

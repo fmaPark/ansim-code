@@ -17,6 +17,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 | API 테스트 1개 파일 | `docker compose run --rm -v "$PWD:/work" -w /work/api api pytest tests/test_pii.py -v` |
 | 룰·데이터 변경분까지 반영한 테스트 | `docker compose run --rm -v "$PWD:/work" -w /work/api -e RULES_DIR=/work/rules -e KISA_CSV_PATH=/work/data/kisa/krcert_notices.csv api pytest tests/test_pii.py -v` |
 | 프론트 린트 1개 파일 | `cd web && npx oxlint src/pages/Home.tsx` |
+| 프론트 테스트 1개 파일 | `cd web && npx vitest run src/pages/Home.test.tsx` (Node ≥22 필요 — 아래 규약 참조) |
 | 프론트 개발 서버 | `cd web && npm run dev` |
 
 ## External References
@@ -46,6 +47,7 @@ TTA ICT 챌린지 출품 데모. 웹 플랫폼 + 보안 강화 방향, 로컬 Do
 - 원본 소스코드는 스캔별 격리 워크스페이스에만 존재하고 `try/finally`로 무조건 파기된다. 이 경로를 우회하는 변경 금지.
 - `GEMINI_API_KEY`는 `.env`로만 주입한다. 키를 코드·문서·로그에 넣지 않는다.
 - `docs/` 문서는 OKF v0.2 번들이다. 문서를 추가·수정하면 YAML frontmatter를 유지하고 `tools/okf_check.py`로 확인한다. 단, 현재 `main`에는 frontmatter가 없는 문서가 남아 있어 이 검사가 **상시 실패**(exit 1)한다(이슈 #21 — 2026-08-30 기준 `plans/execution-prompts.md`·`benchmark-spec.md` 2건). 통과 여부가 아니라 **자기 변경으로 새 오류가 생겼는지**를 본다.
+- 프론트 테스트(`npm test`, vitest + jsdom)는 **Node 22 이상에서만 돈다** — jsdom 30이 node:20에서 기동하지 못한다. `web/Dockerfile`은 node:20-slim이라 빌드는 되지만 테스트는 못 돌린다. 호스트 Node가 20 이하면 `docker run --rm -v "$PWD/web":/app -w /app node:24-slim npm test`로 돌린다.
 - `web` 의존성 버전의 정본은 `web/package-lock.json`이다. 문서에 버전을 적을 때 lock에서 확인한다 — 스캐폴드(`npm create vite@latest`)가 버전을 고정하지 않아 React 표기가 실물과 어긋난 전례가 있다.
 
 ## Commit Attribution

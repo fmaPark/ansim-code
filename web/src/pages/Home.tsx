@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, startGitScan, startZipScan } from '../api/client'
+import ActionButton from '../components/ui/ActionButton'
 
 const MAX_ZIP_BYTES = 50 * 1024 * 1024 // TDD §3 — 서버(G5)와 동일 상한을 클라이언트에서 선검증
 
@@ -51,30 +52,41 @@ export default function Home() {
   }
 
   return (
-    <div>
-      <h1>소스코드 안전 자가진단</h1>
-      <p className="sub">
-        TTA 표준 4종 기반 진단 룰 31종 · 15속성 SBOM · 안전등급(안심·주의·위험)을 제공합니다.
-      </p>
+    <div className="home-page">
+      <section className="home-hero" aria-labelledby="home-title">
+        <h1 id="home-title">소스코드 안전 자가진단</h1>
+        <p className="home-lead">
+          TTA 표준 4종 기반 진단 룰 31종 · 15속성 SBOM · 안전등급을 제공합니다.
+        </p>
+      </section>
 
-      <div className="card">
-        <h2>공개 git 저장소로 진단</h2>
+      <section className="home-card" aria-labelledby="git-scan-title">
+        <div className="home-card__heading">
+          <div>
+            <h2 id="git-scan-title">공개 git 저장소</h2>
+          </div>
+        </div>
         <form className="git-form" onSubmit={submitGit}>
           <input
+            aria-label="공개 git 저장소"
             type="url"
             placeholder="https://github.com/owner/repo"
             value={gitUrl}
             onChange={(e) => setGitUrl(e.target.value)}
             disabled={busy}
           />
-          <button className="primary" type="submit" disabled={busy || !gitUrl.trim()}>
+          <ActionButton className="primary-action" type="submit" size="large" loading={busy} disabled={busy || !gitUrl.trim()}>
             {busy ? '시작 중…' : '진단 시작'}
-          </button>
+          </ActionButton>
         </form>
-      </div>
+      </section>
 
-      <div className="card">
-        <h2>zip 파일로 진단</h2>
+      <section className="home-card" aria-labelledby="zip-scan-title">
+        <div className="home-card__heading">
+          <div>
+            <h2 id="zip-scan-title">zip 파일로 진단</h2>
+          </div>
+        </div>
         <div
           className={`dropzone${drag ? ' drag' : ''}`}
           onDragOver={(e) => {
@@ -88,11 +100,22 @@ export default function Home() {
             acceptZip(e.dataTransfer.files?.[0])
           }}
           onClick={() => fileInput.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              fileInput.current?.click()
+            }
+          }}
           role="button"
           aria-label="zip 파일 업로드"
+          tabIndex={busy ? -1 : 0}
         >
-          <strong>zip 파일을 끌어다 놓거나 클릭해 선택</strong>
+          <svg className="dropzone__icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V14" />
+          </svg>
+          <strong>zip 파일을 끌어다 놓거나 선택해 주세요</strong>
           <div>50MB 이하 · 진단 후 원본 코드는 즉시 파기됩니다</div>
+          <span className="dropzone__select">파일 선택</span>
           <input
             ref={fileInput}
             type="file"
@@ -104,11 +127,10 @@ export default function Home() {
             }}
           />
         </div>
-      </div>
+      </section>
 
-      {error && <div className="banner-error">{error}</div>}
+      {error && <div className="banner-error" role="alert">{error}</div>}
 
-      <p className="disclaimer-line">본 서비스는 인증이 아닌 자가점검 보조 도구입니다.</p>
     </div>
   )
 }
