@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-export default function CopyButton({ text, label = '복사' }: { text: string; label?: string }) {
+export default function CopyButton({ text, label = '수정 프롬프트 복사' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(null)
 
