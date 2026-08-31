@@ -7,7 +7,7 @@
 * **Creation**: `superpowers/specs/2026-08-31-seed-design-redesign.md` · `superpowers/plans/2026-08-31-seed-design-redesign.md` — SEED Design 기반 프론트엔드 재설계 명세와 구현 계획(PR #44). 번들에 `superpowers/` 하위 갈래(`specs/`·`plans/`·`assets/`)가 새로 생겼다. 명세는 화면 4종의 시각 시스템·레이아웃·접근성 요구사항을, 계획은 Task 5개와 검증 스텝을 담는다.
 * **Update**: `plans/mvp-implementation.md` Task 23 · `tdd.md` v0.7(§4.2 기술 스택) — **"UI 라이브러리 미도입" 가정 반전 기록**. Task 23이 "스타일은 단일 `styles.css` + CSS 변수(가정: UI 라이브러리 미도입 — 7일 이내 상한 일정, 화면 6종)"로 못 박았던 전제를 PR #44가 `@seed-design/react` 도입으로 뒤집었다. Task 23 본문은 승인 시점의 이력이라 **소급 수정하지 않고**(M8 신설 때와 같은 원칙) 가정 문장 뒤에 후속 표기만 덧붙였고, 현재 설계의 정본인 `tdd.md` §4.2 프론트엔드 행을 갱신했다. 등급 결정론·API 계약·룰 카탈로그는 무변경 — 반전의 범위는 프레젠테이션 계층에 한정된다.
 * **Update**: `index.md` — 위 신규 2건을 「설계 · 결정」·「실행」에 등재. 번들 목차 누락 해소.
-* **Removal**: `superpowers/assets/seed-redesign/*.png` 6건(6.4MB) — 승인 시점의 콘셉트 이미지. `tools/package_submission.py`가 추적 파일을 예외 없이 담는 탓에 제출 아카이브가 737KB → 6,579KB로 불어났고 그중 83%가 이 6건이었다. 콘셉트는 참고물이라 심사 제출물에 들어갈 근거가 없어 제거하고, 명세의 화면 표를 **구현 결과 스크린샷**(`assets/seed-redesign/qa/` 6건, 354KB)으로 돌렸다. 원본은 PR #44 도입 커밋의 git 이력에 남아 있다. 이 저장소는 그 전까지 바이너리 이미지가 0건이었다.
+* **Removal**: `superpowers/assets/seed-redesign/`의 PNG 12건 — 승인 시점 콘셉트 6건(6.4MB)과 구현 검증 캡처 6건(354KB). `tools/package_submission.py`가 추적 파일을 예외 없이 담으므로 제출물에는 이미지 자산을 포함하지 않기로 했다. 콘셉트 원본은 PR #44 도입 커밋의 git 이력에 남아 있고, Playwright 검증 캡처는 저장소 밖 로컬 QA 산출물로만 관리한다.
 * **Update**: 루트 `README.md`(「개발」) · `AGENTS.md`(Commands) — 프론트엔드 테스트 명령(`npm test`, vitest 8건) 등재. 실행 Node 버전 요구(≥22)를 함께 적었다 — `web/Dockerfile`이 고정한 node:20에서는 jsdom 30이 기동하지 못한다(이슈 등록분).
 
 ## 2026-08-30

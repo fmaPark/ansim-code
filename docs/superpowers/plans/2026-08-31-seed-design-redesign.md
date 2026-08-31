@@ -251,9 +251,9 @@ Create the open summary band, responsive action hierarchy, six-principle status 
 
 - [ ] **Step 10: Run focused tests, lint and build**
 
-Run: `npm test -- src/components/FindingCard.test.tsx src/components/PublishFlow.test.tsx src/pages/Report.test.tsx`
+Run: `npm test -- src/components/PublishFlow.test.tsx src/pages/Report.test.tsx`
 
-Run: `npx oxlint src/pages/Report.tsx src/components/FindingCard.tsx src/components/GradePill.tsx src/components/PublishFlow.tsx src/components/SixPrinciples.tsx`
+Run: `npx oxlint src/pages/Report.tsx src/components/FindingTable.tsx src/components/ReportTableFrame.tsx src/components/GradePill.tsx src/components/PublishFlow.tsx src/components/SixPrinciples.tsx`
 
 Run: `npm run build`
 
@@ -262,8 +262,8 @@ Expected: all exit 0.
 ### Task 5: 전체 검증과 시각 충실도 조정
 
 **Files:**
-- Modify as needed: `web/src/**/*.tsx`, `web/src/styles/*.css`
-- Verify: `docs/superpowers/assets/seed-redesign/qa/*.png`
+- Modify as needed: `web/src/**/*.tsx`, `web/src/styles.css`
+- Verify: Playwright 1440×1000·390×844 캡처(저장소 밖 로컬 QA 산출물)
 
 **Interfaces:**
 - Consumes: all redesigned routes and accepted concepts.

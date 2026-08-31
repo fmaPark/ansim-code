@@ -28,18 +28,11 @@ sources:
 - 기존 시맨틱 `<table>`은 유지한다. SBOM·체크리스트를 카드 목록으로 바꾸지 않는다.
 - 실제 화면 텍스트와 컨트롤은 모두 React/HTML로 구현한다. 콘셉트 이미지를 제품 UI 자산으로 사용하지 않는다.
 
-## 승인된 콘셉트와 구현 결과
+## 승인된 콘셉트와 구현 검증
 
 콘셉트 이미지 6건(`assets/seed-redesign/*.png`)은 **저장소에서 제거했다** — 제출 아카이브(`tools/package_submission.py`는 추적 파일을 예외 없이 담는다)의 83%를 차지하는데, 콘셉트는 승인 시점의 참고물이라 심사 제출물에 들어갈 근거가 없다. 원본이 필요하면 이 문서를 도입한 커밋의 git 이력에서 꺼낸다.
 
-아래 표는 콘셉트를 대신해 **구현 결과 스크린샷**을 정본으로 삼는다. 콘셉트 대비 의도적으로 달라진 부분(홈 헤드라인 문구, eyebrow 라벨, 카드 번호 배지 `01`·`02`, 신뢰 배지 행, zip 영역의 `파일 선택` 버튼 제거)은 아래 「시각 시스템」·「화면별 요구사항」이 정본이며 스크린샷이 그 결과다.
-
-| 화면 | 데스크톱 | 모바일 |
-| --- | --- | --- |
-| 홈 | [home-desktop.png](../assets/seed-redesign/qa/home-desktop.png) | [home-mobile.png](../assets/seed-redesign/qa/home-mobile.png) |
-| 진행 | [progress-desktop.png](../assets/seed-redesign/qa/progress-desktop.png) | 데스크톱 구조를 단일 열로 축소 |
-| 리포트 | [report-desktop.png](../assets/seed-redesign/qa/report-desktop.png) | [report-mobile.png](../assets/seed-redesign/qa/report-mobile.png) |
-| 공개 등급 | [public-grade-desktop.png](../assets/seed-redesign/qa/public-grade-desktop.png) | 데스크톱 구조를 단일 열로 축소 |
+구현의 정본은 아래 「시각 시스템」·「화면별 요구사항」과 React/HTML 코드다. Playwright 검증 캡처는 제출물과 Git 이력에 포함하지 않고 저장소 밖 로컬 QA 산출물로만 관리한다. 데스크톱은 1440×1000, 모바일은 390×844에서 페이지 가로 오버플로·콘솔 오류·탭 중복 여부를 확인한다.
 
 콘셉트가 임의로 만든 프로젝트명, 진단 ID, 필터, 검색창, 리포트 목록, 도움말, 사용자 아바타, 권장 조치 문구는 구현하지 않는다. 실제 API가 제공하는 데이터와 기존 UI 문구가 정보의 정본이다.
 
