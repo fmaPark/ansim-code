@@ -153,7 +153,7 @@ export default function Report() {
 
         <div className="report-head-actions">
           <label className="easy-toggle">
-            <span>시민용 쉬운 설명</span>
+            <span>쉬운 설명</span>
             <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
             <span className="easy-toggle__track" aria-hidden="true" />
           </label>
