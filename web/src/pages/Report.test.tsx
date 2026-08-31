@@ -168,7 +168,121 @@ describe('Report', () => {
 
     await user.click(screen.getByRole('tab', { name: /SBOM/ }))
 
-    expect(await screen.findByRole('table', { name: 'SBOM 구성요소' })).toBeInTheDocument()
+    const sbomTable = await screen.findByRole('table', { name: 'SBOM 구성요소' })
+    expect(sbomTable).toBeInTheDocument()
+    expect(within(sbomTable).getByRole('columnheader', { name: '공급자' })).toBeInTheDocument()
+    expect(within(sbomTable).getByText('OpenJS Foundation')).toBeInTheDocument()
     expect(screen.queryByText('하드코딩된 비밀정보')).not.toBeInTheDocument()
+  })
+
+  it('체크리스트와 공급망도 각 탭의 전용 테이블 프레임에서만 보여준다', async () => {
+    const user = userEvent.setup()
+    api.getChecklist.mockResolvedValue({
+      items: [{
+        id: 'CHK-01',
+        category: '보안 운영',
+        question: '취약점 대응 절차가 있습니까?',
+        standard_ref: 'TTAK.KO-12.0414',
+      }],
+      disclaimer: '자가점검 참고 자료',
+    })
+    api.getReport.mockImplementation((_id: string, mode: 'dev' | 'easy') =>
+      Promise.resolve(mode === 'dev' ? {
+        ...report,
+        supply_chain: {
+          ...report.supply_chain,
+          matrix: {
+            ...report.supply_chain.matrix,
+            risk_factors: [{ name: '직접 의존성 취약점', component_count: 2 }],
+          },
+        },
+      } : easyReport),
+    )
+    renderReport()
+
+    await screen.findByRole('table', { name: '발견 사항 목록' })
+    await user.click(screen.getByRole('tab', { name: '체크리스트' }))
+    expect(await screen.findByRole('table', { name: '조직 요구사항 체크리스트' })).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: '발견 사항 목록' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: '공급망' }))
+    expect(await screen.findByRole('table', { name: '공급망 위험요인' })).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: '조직 요구사항 체크리스트' })).not.toBeInTheDocument()
+  })
+
+  it('SBOM과 체크리스트의 데이터 없음 상태를 빈 표와 구분한다', async () => {
+    const user = userEvent.setup()
+    api.getSbom.mockResolvedValue({ ...sbom, components: [] })
+    renderReport()
+
+    await screen.findByRole('table', { name: '발견 사항 목록' })
+    await user.click(screen.getByRole('tab', { name: /SBOM/ }))
+    expect(await screen.findByText('SBOM 구성요소가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'SBOM 구성요소' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: '체크리스트' }))
+    expect(await screen.findByText('체크리스트 항목이 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: '조직 요구사항 체크리스트' })).not.toBeInTheDocument()
+  })
+
+  it('발견 사항을 필터 가능한 시맨틱 테이블로 보여준다', async () => {
+    const user = userEvent.setup()
+    renderReport()
+
+    const table = await screen.findByRole('table', { name: '발견 사항 목록' })
+    expect(table.querySelector('#finding-1')).toBeInTheDocument()
+    expect(within(table).getByText(/하드코딩된 비밀정보/)).toBeInTheDocument()
+    expect(within(table).getByText(/개인정보 노출 가능성/)).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '심각도 필터' }), 'medium')
+    expect(within(table).queryByText(/하드코딩된 비밀정보/)).not.toBeInTheDocument()
+    expect(within(table).getByText(/개인정보 노출 가능성/)).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '상태 필터' }), 'confirmed')
+    expect(screen.getByText('선택한 조건에 맞는 발견 사항이 없습니다.')).toBeInTheDocument()
+  })
+
+  it('한 번에 하나의 발견 사항 상세만 인라인으로 펼친다', async () => {
+    const user = userEvent.setup()
+    renderReport()
+
+    const firstTrigger = await screen.findByRole('button', { name: '하드코딩된 비밀정보 상세 보기' })
+    const secondTrigger = screen.getByRole('button', { name: '개인정보 노출 가능성 상세 보기' })
+
+    expect(firstTrigger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(firstTrigger)
+    expect(firstTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('const API_KEY = "example"')).toBeVisible()
+    expect(screen.getByText('환경 변수로 이동하세요.')).toBeVisible()
+
+    await user.click(secondTrigger)
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(firstTrigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('const API_KEY = "example"')).not.toBeInTheDocument()
+    expect(screen.getByText('AI 판정 참고: 사용 맥락 확인 필요')).toBeVisible()
+  })
+
+  it('시민용 모드에서는 펼친 행에 쉬운 설명을 보여준다', async () => {
+    const user = userEvent.setup()
+    renderReport()
+
+    await screen.findByRole('heading', { name: '진단 리포트' })
+    await user.click(screen.getByRole('checkbox', { name: '시민용 쉬운 설명' }))
+    await user.click(screen.getByRole('button', { name: '하드코딩된 비밀정보 상세 보기' }))
+
+    const detail = screen.getByRole('region', { name: '하드코딩된 비밀정보 상세' })
+    expect(within(detail).getByText('비밀정보가 코드에 포함되어 있습니다.')).toBeVisible()
+    expect(screen.queryByText('const API_KEY = "example"')).not.toBeInTheDocument()
+  })
+
+  it('발견 데이터가 없을 때 필터 결과 없음과 구분된 빈 상태를 보여준다', async () => {
+    api.getReport.mockImplementation((_id: string, mode: 'dev' | 'easy') =>
+      Promise.resolve(mode === 'dev' ? { ...report, findings: [] } : easyReport),
+    )
+    renderReport()
+
+    expect(await screen.findByText('발견된 사항이 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: '심각도 필터' })).not.toBeInTheDocument()
+    expect(screen.queryByText('선택한 조건에 맞는 발견 사항이 없습니다.')).not.toBeInTheDocument()
   })
 })
