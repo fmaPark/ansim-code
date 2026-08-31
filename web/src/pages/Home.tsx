@@ -131,7 +131,6 @@ export default function Home() {
 
       {error && <div className="banner-error" role="alert">{error}</div>}
 
-      <p className="disclaimer-line">본 서비스는 인증이 아닌 자가점검 보조 도구입니다.</p>
     </div>
   )
 }

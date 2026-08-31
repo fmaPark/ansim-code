@@ -94,7 +94,6 @@ button.seed-action-button--variant_brandSolid:hover { background: var(--seed-col
 .dropzone__icon { width: 44px; height: 44px; margin-bottom: 4px; fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .dropzone__select { position: absolute; top: 50%; right: 38px; min-width: 106px; padding: 11px 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; color: var(--accent); font-size: 14px; font-weight: 700; transform: translateY(-50%); }
 .banner-error { margin-top: 14px; padding: 13px 15px; border: 1px solid #f1b9c2; border-radius: var(--radius-sm); background: var(--danger-soft); color: #a42e42; font-size: 14px; white-space: pre-wrap; }
-.disclaimer-line { margin: 22px 0 0; color: var(--muted); font-size: 12.5px; text-align: center; }
 
 /* 진행 */
 .progress-page { max-width: 1120px; margin: 0 auto; }
@@ -303,7 +302,6 @@ tr:last-child > td, tr:last-child > th { border-bottom: 0; }
   .dropzone__icon, .dropzone__select { display: none; }
   .dropzone > div { position: absolute; top: calc(100% + 22px); left: 0; font-size: 14px; text-align: left; }
   .home-card:nth-of-type(3) { padding-bottom: 86px; }
-  .home-page > .disclaimer-line { margin-top: 28px; text-align: left; }
   .progress-heading { text-align: center; }
   .progress-heading h1 { font-size: 34px; }
   .progress-card { padding: 24px 18px; }
