@@ -263,7 +263,7 @@ Expected: all exit 0.
 
 **Files:**
 - Modify as needed: `web/src/**/*.tsx`, `web/src/styles/*.css`
-- Verify: `docs/superpowers/assets/seed-redesign/*.png`
+- Verify: `docs/superpowers/assets/seed-redesign/qa/*.png`
 
 **Interfaces:**
 - Consumes: all redesigned routes and accepted concepts.
