@@ -202,7 +202,7 @@ graph TB
 | 계층 | 선택 | 이유 |
 | --- | --- | --- |
 | Backend | Python 3.12 + FastAPI | 팀 선호 스택. 정적 분석에 필요한 Python `ast` 모듈·파서 생태계가 풍부. Pydantic으로 SBOM JSON 스키마 검증. async로 OSV/LLM 외부 호출 병렬화 |
-| Frontend | React 19.2 + TypeScript + Vite | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능 |
+| Frontend | React 19.2 + TypeScript + Vite + **SEED Design(`@seed-design/react`)** | 팀 선호 스택. V2 Electron 전환 시 코드 재사용 가능. 스타일은 단일 `styles.css` + CSS 변수 유지, 그 위에 SEED Design 컴포넌트·토큰을 얹는다 — 계획 Task 23의 "UI 라이브러리 미도입" 가정을 2026-08-31 뒤집은 결과다(명세: `superpowers/specs/2026-08-31-seed-design-redesign.md`) |
 | DB | PostgreSQL 16 | 팀 선호. JSONB로 SBOM·finding의 가변 구조 저장, 관계형으로 scan-finding 연결 |
 | 정적 분석 | Semgrep CE + gitleaks | Semgrep: 단일 엔진으로 Python·JS/TS 겸용, YAML 커스텀 룰의 metadata에 TTA 조항을 직접 기입해 Finding 매핑이 1:1. 레지스트리 룰은 라이선스 제약(non-competing)으로 미사용 — 100% 자체 룰 작성. gitleaks: regex+entropy 시크릿 검출, 단일 바이너리, custom rule(TOML)로 **한국 특화 패턴**(주민등록번호 체크섬 등) 추가, `[allowlist]`로 플레이스홀더(`your-api-key-here`, `changeme`, `sk-test-` 등) 제외. 둘 다 subprocess + JSON 출력으로 통합(외부 전송 없음, TruffleHog식 실검증은 시크릿 외부 전송이라 원칙상 배제) |
 | LLM | Google Gemini API (2026-08-30 Anthropic에서 **전면 전환 확정** — 기획 비용 절감 요청. Anthropic 경로는 코드에 남기지 않으며 복구 수단은 git 이력뿐) | 실호출 확정. **가정**: 판정(judge)은 `gemini-2.5-flash`, 쉬운 한국어 변환·수정 프롬프트 생성은 `gemini-2.5-flash-lite`로 비용 절감. `temperature=0` 유지(설명문 안정성용 — 등급 결정론은 §4.5의 구조로 담보), thinking 비활성(`thinking_budget=0` — 지연·비용 통제). `llm_model_id`는 하드코딩이 아니라 **API 응답의 `model_version` 필드를 그대로 기록**(표기 오류 원천 차단 — G9 유지. 응답에 필드가 없으면 요청 모델 ID를 기록하고 그 사실을 로그로 남긴다 — 실응답으로 확인 후 §11 항목 9에서 확정). 안전 필터는 최소 차단으로 설정 — 진단 대상 스니펫(시크릿·PII·인젝션 페이로드)이 차단되면 judge 설명이 누락된다(§6 리스크) |
@@ -285,6 +285,7 @@ graph TB
 | 의존성 | 유형 | 용도 | 라이선스/비용 |
 | --- | --- | --- | --- |
 | OSV.dev API | 외부 API | purl 기반 취약점 배치 질의 | 무료, 인증 불필요 |
+| PyPI JSON API · npm registry | 외부 API | SBOM ⑧ 라이선스·⑫ 릴리즈 일자 보강(SCA-05·07 입력 — 이슈 #33). 타임아웃 10s·재시도 1회, 실패 시 부분 결과 + "일부 미조회" 표시(OSV와 동일 장애 격리). `REGISTRY_LOOKUP_ENABLED=false`로 차단 가능 | 무료, 인증 불필요 |
 | KISA 보호나라 KrCERT 게시판 ([data.go.kr](https://www.data.go.kr/data/15155789/fileData.do)) | 공공데이터 | 배포본은 **게시판 목록만 제공**한다(`순번·게시판 종류·게시판 제목·작성자·작성일·조회수`, cp949, 6,802행, 월간 갱신 — 본문·링크 컬럼 없음). 그래서 교차가 2경로다: ① 공지 **제목**의 CVE ∩ OSV CVE ② 보안공지 제목의 **제품명** ↔ 컴포넌트명(OSV 취약 판정 컴포넌트 한정). 교차 시 "국내 보안공지 발령" 표시 + 보안공지 게시판 링크 노출(개별 공지 상세 URL은 opaque id라 CSV에서 복원 불가). **확정(2026-08-30, 이슈 #17)** — 실측·한계는 measurements.md·data/kisa/PROVENANCE.md | 이용허락 제한 없음. CSV 스냅샷을 이미지에 동봉(원본 무가공, `작성자` 컬럼은 개인정보라 로드하지 않음) |
 | Google Gemini API | 외부 API | 맥락 판정·쉬운 한국어 변환·수정 프롬프트 생성 (2026-08-30 Anthropic에서 전면 전환 — 예비 경로 없음, §11 항목 9) | 유료(API key), 스니펫 단위 호출로 비용 제한 |
 | TTA 표준 문서 4종 | 문서 | 조항 텍스트 인용(리포트 출처 표기) | 출처 명시 인용 |
@@ -493,6 +494,7 @@ graph TB
 | LLM 프롬프트 인젝션(코드 주석으로 등급 조작) | High | Medium | 코드를 데이터로 취급하는 구조화 프롬프트 + LLM의 등급 기여 자체가 구조적으로 차단됨(§4.5). **데모에서 인젝션 페이로드 파일로 방어를 실증**(M7) |
 | 시크릿 오탐(플레이스홀더)이 '위험' 등급 남발 | Medium | Medium | gitleaks `[allowlist]`에 플레이스홀더 제외 목록(`your-api-key-here`, `changeme`, `sk-test-`, 문서 디렉토리). M4 벤치마크 오탐률 실측으로 보강(§11 항목 3) |
 | OSV API 장애·지연 | Medium | Medium | 응답 캐시, 타임아웃 시 KISA 스냅샷만으로 부분 결과 + "일부 미대조" 표시. 예외·타임아웃 시 `status=failed` 확정 |
+| PyPI/npm 레지스트리 장애·지연 | Low | Medium | OSV와 동일 장애 격리 — 부분 결과 유지 + 리포트에 `registry_lookup_incomplete` 표시, 스캔은 완료된다. 미조회 시 SCA-05·07이 발화하지 않을 뿐 오판정은 없다 |
 | 악성 업로드(zip bomb·path traversal) | High | Low | 압축 해제 상한(파일 수·총 크기), 경로 정규화 검증, 격리 작업 디렉토리, 코드 실행 금지 |
 | LLM 비용·쿼터 초과 | Medium | Medium | 플래그 스니펫만 전달, 스캔당 호출 상한(M4 실측 후 확정), judge/변환 모델 이원화(flash/flash-lite), judge 병렬 처리. **Gemini 전환 시 judge 12 병렬이 RPM 쿼터에 걸리는지 실측 필요**(§11 항목 9 게이트) |
 | 진단 룰 품질(오탐·미탐) | Medium | High | 자체 벤치마크(취약점 목록 기획 선확정 — 순환 검증 회피) + 제3자 취약 앱 1개로 룰별 TPR·FPR 측정을 데모 전 게이트(M7)로 설정. 검출률 공개는 전체 룰 기준, 데모 시연은 일부 룰("데모 시연 n종" 명시) |
@@ -584,3 +586,4 @@ graph TB
 | v0.5 | 2026-08-30 | 표기 정정 — 프론트엔드를 React 18 → **React 19.2**로(§4.1 시스템 아키텍처 다이어그램, §4.2 기술 스택 표). **설계 판단 변경 없음** — 실물(`web/package-lock.json` 기준 react·react-dom 19.2.8)과의 표기 불일치 해소다. 이 계획·ADR이 근거로 삼은 판단 집합은 v0.4와 동일하므로 `plans/mvp-implementation.md`·`platform-decision.md`의 "TDD v0.4" 참조는 그대로 둔다 |
 | v0.6 | 2026-08-30 | **LLM 공급자 전면 전환** — Anthropic Claude → **Google Gemini**(기획 비용 절감 요청 → 같은 날 기획 확정: 전면 교체, Anthropic 경로 미보존·복구는 git 이력·`ANTHROPIC_API_KEY` 폐기). 갱신: §3 In Scope, §4.1 아키텍처 다이어그램, §4.2 기술 스택 표(모델 가정·`model_version` 기록·thinking 비활성·안전 필터), §4.4 시퀀스 다이어그램, §5 외부 의존성 표, §6 리스크(비용·장애 행 갱신 + 안전 필터 차단 행 신설), §8 배포 다이어그램·API 키 관리, §11 항목 9(확정 기록 + 잔여 3건 — 모델 승인·게이트 실측·게이트 실패 시 처리). **등급 결정론(§4.5)·마스킹(P0)·G1~G16 등 판정 구조는 무변경** — 공급자 교체는 transport 계층에 국한된다. 반영 완결성은 기획 검토 요청 중: `협의체_기록/LLM_공급자_Gemini_전면전환_TDD반영_검토요청.md` |
 | v0.7 | 2026-08-30 | **KISA 공공데이터 확정(§11 항목 5, 이슈 #17) — 기획 검토 필요.** data.go.kr/15155789 배포본을 직접 확인한 결과 **공지 본문·링크 컬럼이 없고**(게시판 목록만 제공) 제목에서 추출되는 CVE 192건이 전부 국내 제품 건이어서, "공지 **본문**에서 CVE 추출 → 교차"라는 v0.4의 전제가 사실과 달랐다. §4.6·In Scope를 실측에 맞게 정정하고 SCA-03 교차를 ① CVE 교차 ② **제품명 교차**(OSV 취약 판정 컴포넌트 한정) 2경로로 확장했다 — **룰 사양 변경이므로 기획 확인 대상**이다. **등급 단계와 결정론(§4.5)은 불변**이나, confirmed 발견이 늘어난 만큼 상향 조건 건수("이 N건 해결 시 상승")는 증가한다. 실측은 measurements.md. (작업 중에는 v0.6으로 적었으나 같은 날 main에 Gemini 전환 v0.6이 먼저 들어가 v0.7로 물렸다 — 두 변경은 서로 독립이다) |
+| v0.8 | 2026-08-31 | **UI 라이브러리 도입 — 계획 Task 23 가정 반전.** §4.2 기술 스택 표 Frontend 행에 **SEED Design(`@seed-design/react`)**을 추가했다. Task 23은 "스타일은 단일 `styles.css` + CSS 변수(가정: UI 라이브러리 미도입 — 7일 이내 상한 일정, 화면 6종)"를 전제했으나 PR #44의 재설계가 이를 폐기했다. `styles.css` 단일 파일 구조는 유지되고 그 위에 SEED 컴포넌트·토큰이 얹힌다. **등급 결정론(§4.5)·API 계약(§4.4)·룰 카탈로그는 무변경** — 반전의 범위는 프레젠테이션 계층에 한정된다. 근거와 화면별 요구사항은 `superpowers/specs/2026-08-31-seed-design-redesign.md` |

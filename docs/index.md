@@ -12,11 +12,13 @@ okf_version: "0.2"
 
 * [TDD — 안심코드](tdd.md) - TTA 표준 4종 조항을 진단 룰 31종으로 구현하는 웹 서비스의 설계 명세. 아키텍처·룰 카탈로그·등급 결정론·P0 3건·리스크·미확정 9건.
 * [ADR-001 플랫폼 선정](platform-decision.md) - 웹 vs 데스크톱 vs 하이브리드 결정과 근거. 웹 + 보안 강화로 확정, 등급 공개는 git 전용 소유 증명으로 한정.
+* [SEED Design 기반 프론트엔드 재설계 명세](superpowers/specs/2026-08-31-seed-design-redesign.md) - 화면 4종(홈·진행·리포트·공개 등급)의 시각 시스템·레이아웃·접근성 요구사항. 계획 Task 23의 "UI 라이브러리 미도입" 가정을 뒤집고 SEED Design을 도입한 근거를 담는다.
 
 ## 실행
 
 * [MVP Implementation Plan](plans/mvp-implementation.md) - 7개 마일스톤 28개 태스크의 실행 계획. 각 태스크에 TDD 참조와 DoD를 병기했다.
 * [이슈 #30·#33·#34 심각도 평가와 해결 계획](plans/2026-08-30-issues-30-33-34-remediation.md) - M7이 기록만 남긴 후속 이슈 3건의 심각도를 등급 기여·검출 방향으로 매기고 코드 수정 1건·문서화 2건으로 방침을 확정했다.
+* [SEED Design 재설계 구현 계획](superpowers/plans/2026-08-31-seed-design-redesign.md) - 위 명세를 React 19.2·Vite 8 앱에 적용하는 테스트 우선 실행 계획. Task 5개와 자동·Playwright 검증 스텝을 담는다.
 * [데모 스크립트](demo-script.md) - 촬영·시연 7장면의 순서와 장면별 사전 상태·근거 조항·내레이션 포인트. 시간이 모자랄 때의 포기 순서 포함.
 * [실측 기록](measurements.md) - 벤치마크 TPR·FPR, PyGoat·자기진단 결과, 확인된 룰 갭과 오탐 원인.
 

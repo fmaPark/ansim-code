@@ -17,9 +17,10 @@ import type {
 } from '../api/client'
 import CopyButton from '../components/CopyButton'
 import DiffPanel from '../components/DiffPanel'
-import FindingCard from '../components/FindingCard'
+import FindingTable from '../components/FindingTable'
 import GradePill from '../components/GradePill'
 import PublishFlow from '../components/PublishFlow'
+import ReportTableFrame from '../components/ReportTableFrame'
 import SixPrinciples from '../components/SixPrinciples'
 import UpgradeBlock from '../components/UpgradeBlock'
 
@@ -99,63 +100,99 @@ export default function Report() {
   if (error) {
     return (
       <div>
-        <div className="banner-error">{error}</div>
+        <div className="banner-error" role="alert">{error}</div>
         <p>
           <Link to="/">처음으로</Link>
         </p>
       </div>
     )
   }
-  if (!report) return <p className="sub">리포트를 불러오는 중…</p>
+  if (!report) return <p className="report-loading" role="status">리포트를 불러오는 중…</p>
+
+  const confirmedCount = report.findings.filter((finding) => finding.status === 'confirmed').length
+  const gradeSummary =
+    report.grade === '안심'
+      ? '중대한 보안 위험이 발견되지 않았습니다.'
+      : report.grade === '주의'
+        ? '확인이 필요한 보안 항목이 발견되었습니다.'
+        : '즉시 조치가 필요한 보안 위험이 발견되었습니다.'
 
   return (
-    <div>
-      {/* 상단 고정 영역 — 등급·면책·상향·토글·복사·재진단 */}
-      <div className="card report-head">
-        <div className="report-head-row">
-          <GradePill grade={report.grade} big />
-          <div className="report-head-actions">
-            <label className="easy-toggle">
-              <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
-              시민용(쉬운 설명)
-            </label>
-            {report.copy_all_fix_prompts && (
-              <CopyButton text={report.copy_all_fix_prompts} label="전체 수정 프롬프트 복사" />
-            )}
-            {scan?.source_type === 'zip' ? (
-              <>
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={rescanBusy}
-                  onClick={() => rescanFile.current?.click()}
-                >
-                  {rescanBusy ? '재진단 시작 중…' : '재진단 (수정 zip 업로드)'}
-                </button>
-                <input
-                  ref={rescanFile}
-                  type="file"
-                  accept=".zip,application/zip"
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) void doRescan(f)
-                    e.target.value = ''
-                  }}
-                />
-              </>
-            ) : (
+    <div className="report-page">
+      <header className="report-titlebar">
+        <div className="report-title">
+          <h1>진단 리포트</h1>
+          <p>발견 사항의 근거와 개선 방법, 소프트웨어 구성요소를 한눈에 확인하세요.</p>
+        </div>
+      </header>
+      <section className="report-head" aria-label="진단 결과 요약">
+        <div className="report-summary-grid">
+          <div className="report-grade-summary">
+            <span className="report-metric__label">종합 등급</span>
+            <GradePill grade={report.grade} big />
+            <p>{gradeSummary}</p>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">확정 발견</span>
+            <strong className="report-metric__value report-metric__value--danger">{confirmedCount}</strong>
+            <span className="report-metric__unit">건</span>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">검토 필요</span>
+            <strong className="report-metric__value report-metric__value--caution">
+              {report.review_needed_count}
+            </strong>
+            <span className="report-metric__unit">건</span>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">취약 컴포넌트</span>
+            <strong className="report-metric__value">{report.sbom_summary.vulnerable_count}</strong>
+            <span className="report-metric__unit">개</span>
+          </div>
+        </div>
+
+        <div className="report-head-actions">
+          <label className="easy-toggle">
+            <span>쉬운 설명</span>
+            <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
+            <span className="easy-toggle__track" aria-hidden="true" />
+          </label>
+          {report.copy_all_fix_prompts && (
+            <CopyButton text={report.copy_all_fix_prompts} label="전체 수정 프롬프트 복사" />
+          )}
+          {scan?.source_type === 'zip' ? (
+            <>
               <button
                 type="button"
                 className="ghost"
                 disabled={rescanBusy}
-                onClick={() => void doRescan()}
+                onClick={() => rescanFile.current?.click()}
               >
                 {rescanBusy ? '재진단 시작 중…' : '재진단'}
               </button>
-            )}
-            {id && scan && <PublishFlow scanId={id} sourceType={scan.source_type} />}
-          </div>
+              <input
+                ref={rescanFile}
+                type="file"
+                accept=".zip,application/zip"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void doRescan(f)
+                  e.target.value = ''
+                }}
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              className="ghost"
+              disabled={rescanBusy}
+              onClick={() => void doRescan()}
+            >
+              {rescanBusy ? '재진단 시작 중…' : '재진단'}
+            </button>
+          )}
+          {id && scan && <PublishFlow scanId={id} sourceType={scan.source_type} />}
         </div>
 
         <p className="disclaimer-strip">{report.disclaimer}</p>
@@ -168,21 +205,32 @@ export default function Report() {
         {report.provenance.vuln_match_incomplete && (
           <p className="review-strip">취약점 DB 대조가 일부 완료되지 않았습니다(부분 결과).</p>
         )}
+        {report.provenance.registry_lookup_incomplete && (
+          <p className="review-strip">
+            레지스트리 메타데이터가 일부 조회되지 않았습니다 — 장기 미갱신·라이선스 판정이
+            불완전할 수 있습니다.
+          </p>
+        )}
         {report.upgrade && <UpgradeBlock data={report.upgrade} />}
-      </div>
+      </section>
 
       {scan?.previous_comparison && <DiffPanel comparison={scan.previous_comparison} />}
 
-      <div className="card">
-        <h2>개인정보보호 6대 원칙 축</h2>
+      <section className="card principles-card" aria-labelledby="principles-title">
+        <div className="section-heading">
+          <span>01</span>
+          <h2 id="principles-title">개인정보보호 6대 원칙 축</h2>
+        </div>
         <SixPrinciples axes={report.six_principles} />
-      </div>
+      </section>
 
-      <div className="tabs">
+      <div className="tabs" role="tablist" aria-label="진단 결과 상세">
         {TABS.map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             className={`tab${tab === t ? ' active' : ''}`}
             onClick={() => setTab(t)}
           >
@@ -194,9 +242,9 @@ export default function Report() {
       </div>
 
       {tab === '발견 사항' && (
-        <div>
+        <div className="tab-panel" role="tabpanel">
           {easy && easyReport && (
-            <div className="card">
+            <div className="card easy-summary-card">
               <h2>쉬운 설명 요약</h2>
               {easyReport.easy_descriptions.length === 0 ? (
                 <p className="sub">쉬운 설명이 준비된 항목이 없습니다.</p>
@@ -209,38 +257,38 @@ export default function Report() {
               )}
             </div>
           )}
-          {report.findings.length === 0 ? (
-            <div className="card">발견된 사항이 없습니다.</div>
-          ) : (
-            report.findings.map((f) => <FindingCard key={f.id} finding={f} easy={easy} />)
-          )}
+          <FindingTable findings={report.findings} easy={easy} />
         </div>
       )}
 
       {tab === 'SBOM' && (
-        <div className="card">
-          <div className="report-head-row">
-            <h2>
-              SBOM — 컴포넌트 {report.sbom_summary.component_count}개 · 취약{' '}
-              {report.sbom_summary.vulnerable_count}개
-            </h2>
-            <button type="button" className="ghost" onClick={downloadSbomJson}>
-              JSON 다운로드
-            </button>
-          </div>
-          {!sbom ? (
-            <p className="sub">불러오는 중…</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
+        <div className="tab-panel" role="tabpanel">
+          <ReportTableFrame
+            title={`SBOM 구성요소 · 취약 ${report.sbom_summary.vulnerable_count}개`}
+            count={report.sbom_summary.component_count}
+            ariaLabel="SBOM 상세"
+            scrollHint
+            action={(
+              <button type="button" className="ghost" onClick={downloadSbomJson}>
+                JSON 다운로드
+              </button>
+            )}
+          >
+            {!sbom ? (
+              <p className="report-table-loading">불러오는 중…</p>
+            ) : sbom.components.length === 0 ? (
+              <div className="report-table-empty">SBOM 구성요소가 없습니다.</div>
+            ) : (
+              <table className="report-data-table report-data-table--wide" aria-label="SBOM 구성요소">
                 <thead>
                   <tr>
                     <th>컴포넌트</th>
                     <th>버전</th>
                     <th>생태계</th>
-                    <th>관계</th>
+                    <th>공급자</th>
                     <th>라이선스</th>
                     <th>결합형태</th>
+                    <th>관계</th>
                     <th>CVE</th>
                     <th>CVSS</th>
                     <th>심각도</th>
@@ -249,73 +297,88 @@ export default function Report() {
                 <tbody>
                   {sbom.components.map((c) => (
                     <tr key={c.unique_id}>
-                      <td title={c.unique_id}>{c.component_name}</td>
-                      <td>{c.version ?? '—'}</td>
+                      <td title={c.unique_id} className="component-cell"><strong>{c.component_name}</strong></td>
+                      <td className="technical-cell">{c.version ?? '—'}</td>
                       <td>{c.ecosystem}</td>
-                      <td>{c.relationship ?? '—'}</td>
+                      <td>{c.supplier ?? '—'}</td>
                       <td>{c.license_name ?? '불명'}</td>
                       <td>{c.license_usage ?? '—'}</td>
-                      <td>{c.cve_ids?.length ? c.cve_ids.join(', ') : '—'}</td>
-                      <td>{c.cvss_base ?? (c.cvss_null_reason ? `— (${c.cvss_null_reason})` : '—')}</td>
-                      <td>{c.cvss_severity ?? '—'}</td>
+                      <td><span className="relationship-label">{c.relationship ?? '—'}</span></td>
+                      <td className="technical-cell">{c.cve_ids?.length ? c.cve_ids.join(', ') : '—'}</td>
+                      <td className="numeric-cell">{c.cvss_base ?? (c.cvss_null_reason ? `— (${c.cvss_null_reason})` : '—')}</td>
+                      <td>
+                        {c.cvss_severity ? <span className={`sev sev-${c.cvss_severity}`}>{c.cvss_severity}</span> : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </ReportTableFrame>
         </div>
       )}
 
       {tab === '체크리스트' && (
-        <div className="card">
-          <h2>조직 요구사항 통합 체크리스트</h2>
-          {!checklist ? (
-            <p className="sub">불러오는 중…</p>
-          ) : (
-            <>
-              <p className="sub">{checklist.disclaimer}</p>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>번호</th>
-                      <th>분류</th>
-                      <th>점검 항목</th>
-                      <th>근거 조항</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checklist.items.map((it) => (
-                      <tr key={it.id}>
-                        <td>{it.id}</td>
-                        <td>{it.category}</td>
-                        <td>{it.question}</td>
-                        <td>{it.standard_ref}</td>
+        <div className="tab-panel" role="tabpanel">
+          <ReportTableFrame
+            title="조직 요구사항 통합 체크리스트"
+            count={checklist?.items.length}
+            ariaLabel="체크리스트 상세"
+            scrollHint
+          >
+            {!checklist ? (
+              <p className="report-table-loading">불러오는 중…</p>
+            ) : (
+              <>
+                <p className="report-table-note">{checklist.disclaimer}</p>
+                {checklist.items.length === 0 ? (
+                  <div className="report-table-empty">체크리스트 항목이 없습니다.</div>
+                ) : (
+                  <table className="report-data-table" aria-label="조직 요구사항 체크리스트">
+                    <thead>
+                      <tr>
+                        <th>번호</th>
+                        <th>분류</th>
+                        <th>점검 항목</th>
+                        <th>근거 조항</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+                    </thead>
+                    <tbody>
+                      {checklist.items.map((it) => (
+                        <tr key={it.id}>
+                          <td>{it.id}</td>
+                          <td>{it.category}</td>
+                          <td>{it.question}</td>
+                          <td>{it.standard_ref}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            )}
+          </ReportTableFrame>
         </div>
       )}
 
       {tab === '공급망' && (
-        <div className="card">
-          <h2>공급망 환경 분류</h2>
-          <p>
-            분류: <b>{report.supply_chain.class ?? '미분류'}</b>
-            {report.supply_chain.matrix.standard_ref && (
-              <span className="clause-badge"> {report.supply_chain.matrix.standard_ref}</span>
-            )}
-          </p>
-          {report.supply_chain.matrix.risk_factors.length === 0 ? (
-            <p className="sub">식별된 위험요인이 없습니다.</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
+        <div className="tab-panel" role="tabpanel">
+          <ReportTableFrame
+            title="공급망 환경 분류"
+            count={report.supply_chain.matrix.risk_factors.length}
+            ariaLabel="공급망 상세"
+            scrollHint
+          >
+            <div className="supply-chain-summary">
+              <span>분류 <strong>{report.supply_chain.class ?? '미분류'}</strong></span>
+              {report.supply_chain.matrix.standard_ref && (
+                <span className="clause-badge">{report.supply_chain.matrix.standard_ref}</span>
+              )}
+            </div>
+            {report.supply_chain.matrix.risk_factors.length === 0 ? (
+              <div className="report-table-empty">식별된 위험요인이 없습니다.</div>
+            ) : (
+              <table className="report-data-table" aria-label="공급망 위험요인">
                 <thead>
                   <tr>
                     <th>위험요인</th>
@@ -326,13 +389,13 @@ export default function Report() {
                   {report.supply_chain.matrix.risk_factors.map((r) => (
                     <tr key={r.name}>
                       <td>{r.name}</td>
-                      <td>{r.component_count}</td>
+                      <td className="numeric-cell">{r.component_count}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </ReportTableFrame>
         </div>
       )}
 

@@ -50,6 +50,17 @@ async def client(database):
         yield c
 
 
+@pytest.fixture(autouse=True)
+def no_network_registry(monkeypatch):
+    """레지스트리 조회 전역 차단(외부 호출 금지) — 필요한 테스트는 같은 심볼을 다시 patch한다."""
+    from app.engine.registry import RegistryResult
+
+    async def _stub(queries, transport=None):
+        return RegistryResult(metadata={}, incomplete=False)
+
+    monkeypatch.setattr("app.engine.pipeline.query_registry", _stub)
+
+
 @pytest.fixture
 def small_zip():
     buf = io.BytesIO()

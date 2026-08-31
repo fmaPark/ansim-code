@@ -6,14 +6,17 @@ import ScanProgress from './pages/ScanProgress'
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="container">
-      <header className="topbar">
-        <Link to="/">
-          <span className="brand">안심코드</span>
-        </Link>
-        <span className="tagline">소스코드 안전 자가진단 — 인증이 아닌 자가점검 보조</span>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header__inner">
+          <Link className="app-brand" to="/" aria-label="안심코드 홈">
+            <span>안심코드</span>
+          </Link>
+          <span className="app-tagline">소스코드 안전 자가진단</span>
+        </div>
       </header>
-      {children}
+      <main className="app-main">{children}</main>
+      <footer className="app-footer">인증이 아닌 자가점검 보조 도구입니다.</footer>
     </div>
   )
 }

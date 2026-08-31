@@ -280,3 +280,129 @@ async def test_report_json_matrix_present_for_empty_repo(client, monkeypatch):
 def test_repo_rules_dir_has_js_import_rule():
     from app.engine.semgrep_runner import js_imports_rule_path
     assert Path(js_imports_rule_path()).is_file()
+
+
+# ── 레지스트리 보강 → SCA-05·SCA-07 (이슈 #33) ──────────────────────────────
+
+def _issue33_zip() -> bytes:
+    """벤치마크 §3.1과 같은 형태 — 선언형 PyPI 의존성만으로 SCA-05·07을 태운다."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("app/requirements.txt", "six==1.10.0\nPyMuPDF\n")
+        z.writestr("app/main.py", "import six\n")
+    return buf.getvalue()
+
+
+def _registry_stub(metadata_by_name: dict, incomplete: bool = False):
+    from app.engine.registry import RegistryResult
+
+    async def _stub(queries, transport=None):
+        return RegistryResult(
+            metadata={q.key: metadata_by_name[q.name.lower()]
+                      for q in queries if q.name.lower() in metadata_by_name},
+            incomplete=incomplete)
+
+    return _stub
+
+
+async def _empty_osv(purls, transport=None):
+    from app.engine.osv import OsvResult
+    return OsvResult(vulns={}, incomplete=False)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_registry_metadata_fires_sca05_and_sca07(client, monkeypatch):
+    from app.db import SessionLocal
+    from app.engine.registry import ComponentMetadata
+    from app.models import Finding, Scan
+
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _empty_osv)
+    monkeypatch.setattr("app.engine.pipeline.query_registry", _registry_stub({
+        "six": ComponentMetadata(license_name=None, release_date="2015-10-05"),
+        "pymupdf": ComponentMetadata(license_name="AGPL-3.0", release_date="2026-06-01"),
+    }))
+    r = await client.post("/api/scans", files={"file": ("i33.zip", _issue33_zip(), "application/zip")})
+    sid = r.json()["scan_id"]
+    assert (await client.get(f"/api/scans/{sid}")).json()["status"] == "done"
+
+    with SessionLocal() as db:
+        findings = db.query(Finding).filter(Finding.scan_id == sid).all()
+        scan = db.get(Scan, sid)
+    by_rule = {}
+    for f in findings:
+        by_rule.setdefault(f.rule_id, []).append(f.evidence)
+    assert any("2015-10-05" in e for e in by_rule.get("SCA-05", []))       # six 장기 미갱신
+    assert any("AGPL-3.0" in e for e in by_rule.get("SCA-07", []))         # PyMuPDF 서비스 카피레프트
+    sca08 = " / ".join(by_rule.get("SCA-08", []))
+    assert "PyMuPDF" not in sca08                   # 라이선스가 채워졌으니 SCA-08 억제
+    assert "six" in sca08                           # 라이선스 없는 six는 여전히 SCA-08
+    factors = {f["name"]: f["component_count"]
+               for f in scan.report_json["matrix_0322"]["risk_factors"]}
+    assert factors["업데이트 중단"] >= 1 and factors["라이선스 위반"] >= 1
+    assert scan.report_json["registry_incomplete"] is False
+    assert "registry@" in scan.vuln_db_snapshot_date
+
+
+@pytest.mark.asyncio
+async def test_pipeline_registry_does_not_overwrite_local_license(client, monkeypatch):
+    from app.db import SessionLocal
+    from app.engine.registry import ComponentMetadata
+    from app.models import SbomComponent
+
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _empty_osv)
+    monkeypatch.setattr("app.engine.pipeline.query_registry", _registry_stub({
+        "lodash": ComponentMetadata(license_name="Apache-2.0", release_date="2020-01-01"),
+        "leftpad": ComponentMetadata(license_name="SSPL-1.0", release_date="2019-01-01"),
+    }))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("app/package.json", json.dumps({"dependencies": {"lodash": "4.17.15"}}))
+        z.writestr("app/vendor/leftpad/package.json", json.dumps({"name": "leftpad", "license": "MIT"}))
+        z.writestr("app/vendor/leftpad/LICENSE", "MIT License\n")
+    r = await client.post("/api/scans", files={"file": ("l.zip", buf.getvalue(), "application/zip")})
+    sid = r.json()["scan_id"]
+    assert (await client.get(f"/api/scans/{sid}")).json()["status"] == "done"
+
+    with SessionLocal() as db:
+        rows = db.query(SbomComponent).filter(SbomComponent.scan_id == sid).all()
+        licenses = {c.component_name: c.license_name for c in rows}
+    # vendored 승격분은 조회 대상이 아니다 — 로컬 판정(MIT)이 스텁 값(SSPL-1.0)으로 덮이지 않는다.
+    assert licenses["leftpad"] == "MIT"
+    # 선언형(레지스트리 실체 있음)은 레지스트리 값으로 채워진다.
+    assert licenses["lodash"] == "Apache-2.0"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_registry_incomplete_flag_reaches_report(client, monkeypatch):
+    from app.db import SessionLocal
+    from app.models import Scan
+
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _empty_osv)
+    monkeypatch.setattr("app.engine.pipeline.query_registry", _registry_stub({}, incomplete=True))
+    r = await client.post("/api/scans", files={"file": ("d.zip", _issue33_zip(), "application/zip")})
+    sid = r.json()["scan_id"]
+    assert (await client.get(f"/api/scans/{sid}")).json()["status"] == "done"   # 장애≠실패
+    with SessionLocal() as db:
+        report = db.get(Scan, sid).report_json
+    assert report["registry_incomplete"] is True
+    assert report["provenance"]["registry_lookup_incomplete"] is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_registry_disabled_skips_lookup(client, monkeypatch):
+    from app.config import settings
+    from app.db import SessionLocal
+    from app.models import Scan
+
+    async def _boom(queries, transport=None):
+        raise AssertionError("registry_lookup_enabled=False인데 조회가 호출됐다")
+
+    monkeypatch.setattr(settings, "registry_lookup_enabled", False)
+    monkeypatch.setattr("app.engine.pipeline.query_osv", _empty_osv)
+    monkeypatch.setattr("app.engine.pipeline.query_registry", _boom)
+    r = await client.post("/api/scans", files={"file": ("o.zip", _issue33_zip(), "application/zip")})
+    sid = r.json()["scan_id"]
+    assert (await client.get(f"/api/scans/{sid}")).json()["status"] == "done"
+    with SessionLocal() as db:
+        report = db.get(Scan, sid).report_json
+    assert "registry_incomplete" not in report
