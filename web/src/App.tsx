@@ -10,7 +10,6 @@ function Layout({ children }: { children: React.ReactNode }) {
       <header className="app-header">
         <div className="app-header__inner">
           <Link className="app-brand" to="/" aria-label="안심코드 홈">
-            <span className="app-brand__mark" aria-hidden="true">A</span>
             <span>안심코드</span>
           </Link>
           <span className="app-tagline">소스코드 안전 자가진단</span>

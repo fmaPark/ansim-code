@@ -40,20 +40,26 @@ export default function PublicGrade() {
   return (
     <div className="public-grade">
       <header className="public-hero">
-        <p className="page-eyebrow">PUBLIC SECURITY GRADE</p>
         <h1>공개 안전등급</h1>
-        <div className="public-grade-display">
-          <span className="public-grade-display__label">안전등급</span>
+        <p className="public-owner-note">이 등급은 공개 git 저장소 소유자가 직접 공개했습니다.</p>
+        <div className={`public-grade-display public-grade-display--${data.grade}`} aria-label={`안전등급 ${data.grade}`}>
+          <span className="public-grade-icon" aria-hidden="true">!</span>
           <GradePill grade={data.grade} big />
         </div>
-        <p className="public-owner-note">이 등급은 공개 git 저장소 소유자가 직접 공개했습니다.</p>
         <p className="public-date">진단 시각: {new Date(data.scanned_at).toLocaleString('ko-KR')}</p>
       </header>
 
       <section className="card public-summary" aria-labelledby="easy-summary-title">
-        <h2 id="easy-summary-title">진단 결과 쉬운 설명</h2>
+        <div className="public-section-title">
+          <span aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5.5 5.5h13v10h-7l-4.5 3v-3H5.5z" />
+            </svg>
+          </span>
+          <h2 id="easy-summary-title">진단 결과 쉬운 설명</h2>
+        </div>
         {data.easy_report && data.easy_report.easy_descriptions.length > 0 ? (
-          <ul>
+          <ul className="public-description-list">
             {data.easy_report.easy_descriptions.map((d, i) => (
               <li key={i}>{d}</li>
             ))}
@@ -103,6 +109,7 @@ export default function PublicGrade() {
       </details>
 
       <div className="disclaimer-strip legal">{data.disclaimer}</div>
+      <Link className="public-cta" to="/">안심코드로 직접 진단해 보기</Link>
     </div>
   )
 }

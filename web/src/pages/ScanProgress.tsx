@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { pollScan } from '../api/client'
 import type { ScanStatus, Stage } from '../api/client'
@@ -28,23 +29,41 @@ export default function ScanProgress() {
   }, [id, navigate])
 
   const stageIdx = state?.current_stage ? STAGES.indexOf(state.current_stage) : -1
+  const progress = stageIdx >= 0 ? Math.round(((stageIdx + 1) / STAGES.length) * 100) : 0
+  const statusLabel = state?.status === 'running' ? '분석 중' : state?.status === 'queued' ? '대기 중' : state?.status ?? '대기 중'
+  const progressMessage = state?.current_stage
+    ? `${state.current_stage}을 진행하고 있습니다`
+    : '진단을 준비하고 있습니다'
 
   return (
     <div className="progress-page">
       <header className="page-heading progress-heading">
-        <p className="page-eyebrow">SECURITY DIAGNOSIS</p>
         <h1>진단 진행 중</h1>
-        <p>소스코드를 안전하게 분석하고 있습니다. 일반 규모 저장소는 2분 이내에 완료됩니다.</p>
+        <p>일반 규모 저장소는 2분 이내에 완료됩니다.</p>
       </header>
 
       <section className="progress-card" aria-labelledby="progress-card-title">
-        <div className="progress-card__top">
-          <div>
-            <span className="progress-kicker">현재 작업</span>
-            <h2 id="progress-card-title">{state?.current_stage ?? '진단 준비 중'}</h2>
+        <div
+          className="progress-ring"
+          role="progressbar"
+          aria-label="전체 진단 진행률"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          style={{ '--progress': `${progress}%` } as CSSProperties}
+        >
+          <div className="progress-ring__inner">
+            <h2 id="progress-card-title">{progressMessage}</h2>
+            <span className="progress-state">{statusLabel}</span>
           </div>
-          <span className="progress-state">{state?.status ?? 'queued'}</span>
         </div>
+
+        <p className="progress-callout" role="status" aria-live="polite">
+          <span className="progress-callout__dot" aria-hidden="true" />
+          {progressMessage}
+          <span className="sr-only"> — 상태: {statusLabel}</span>
+        </p>
+
         <div className="stepper" aria-label="진단 진행 단계">
           {STAGES.map((s, i) => (
             <div
@@ -70,13 +89,8 @@ export default function ScanProgress() {
           </div>
         ) : pollError ? (
           <div className="banner-error" role="alert">상태 조회에 실패했습니다: {pollError}</div>
-        ) : (
-          <p className="progress-live" role="status" aria-live="polite">
-            <span className="spinner" />
-            {state?.current_stage ?? '대기 중'} — 상태: {state?.status ?? 'queued'}
-          </p>
-        )}
-        <p className="progress-note">창을 닫지 않아도 진단이 완료되면 결과 화면으로 자동 이동합니다.</p>
+        ) : null}
+        <p className="progress-note">원본 소스코드는 진단 완료 후 즉시 파기됩니다.</p>
       </section>
     </div>
   )

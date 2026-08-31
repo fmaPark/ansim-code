@@ -108,59 +108,90 @@ export default function Report() {
   }
   if (!report) return <p className="report-loading" role="status">리포트를 불러오는 중…</p>
 
+  const confirmedCount = report.findings.filter((finding) => finding.status === 'confirmed').length
+  const gradeSummary =
+    report.grade === '안심'
+      ? '중대한 보안 위험이 발견되지 않았습니다.'
+      : report.grade === '주의'
+        ? '확인이 필요한 보안 항목이 발견되었습니다.'
+        : '즉시 조치가 필요한 보안 위험이 발견되었습니다.'
+
   return (
     <div className="report-page">
-      <header className="page-heading report-title">
-        <p className="page-eyebrow">SECURITY REPORT</p>
-        <h1>소스코드 안전 진단 결과</h1>
-        <p>발견 사항의 근거와 개선 방법, 소프트웨어 구성요소를 한눈에 확인하세요.</p>
+      <header className="report-titlebar">
+        <div className="report-title">
+          <h1>진단 리포트</h1>
+          <p>발견 사항의 근거와 개선 방법, 소프트웨어 구성요소를 한눈에 확인하세요.</p>
+        </div>
       </header>
-      {/* 상단 고정 영역 — 등급·면책·상향·토글·복사·재진단 */}
-      <section className="card report-head" aria-label="진단 결과 요약">
-        <div className="report-head-row">
-          <GradePill grade={report.grade} big />
-          <div className="report-head-actions">
-            <label className="easy-toggle">
-              <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
-              시민용(쉬운 설명)
-            </label>
-            {report.copy_all_fix_prompts && (
-              <CopyButton text={report.copy_all_fix_prompts} label="전체 수정 프롬프트 복사" />
-            )}
-            {scan?.source_type === 'zip' ? (
-              <>
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={rescanBusy}
-                  onClick={() => rescanFile.current?.click()}
-                >
-                  {rescanBusy ? '재진단 시작 중…' : '재진단 (수정 zip 업로드)'}
-                </button>
-                <input
-                  ref={rescanFile}
-                  type="file"
-                  accept=".zip,application/zip"
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) void doRescan(f)
-                    e.target.value = ''
-                  }}
-                />
-              </>
-            ) : (
+      <section className="report-head" aria-label="진단 결과 요약">
+        <div className="report-summary-grid">
+          <div className="report-grade-summary">
+            <span className="report-metric__label">종합 등급</span>
+            <GradePill grade={report.grade} big />
+            <p>{gradeSummary}</p>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">확정 발견</span>
+            <strong className="report-metric__value report-metric__value--danger">{confirmedCount}</strong>
+            <span className="report-metric__unit">건</span>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">검토 필요</span>
+            <strong className="report-metric__value report-metric__value--caution">
+              {report.review_needed_count}
+            </strong>
+            <span className="report-metric__unit">건</span>
+          </div>
+          <div className="report-metric">
+            <span className="report-metric__label">취약 컴포넌트</span>
+            <strong className="report-metric__value">{report.sbom_summary.vulnerable_count}</strong>
+            <span className="report-metric__unit">개</span>
+          </div>
+        </div>
+
+        <div className="report-head-actions">
+          <label className="easy-toggle">
+            <span>시민용 쉬운 설명</span>
+            <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
+            <span className="easy-toggle__track" aria-hidden="true" />
+          </label>
+          {report.copy_all_fix_prompts && (
+            <CopyButton text={report.copy_all_fix_prompts} label="전체 수정 프롬프트 복사" />
+          )}
+          {scan?.source_type === 'zip' ? (
+            <>
               <button
                 type="button"
                 className="ghost"
                 disabled={rescanBusy}
-                onClick={() => void doRescan()}
+                onClick={() => rescanFile.current?.click()}
               >
                 {rescanBusy ? '재진단 시작 중…' : '재진단'}
               </button>
-            )}
-            {id && scan && <PublishFlow scanId={id} sourceType={scan.source_type} />}
-          </div>
+              <input
+                ref={rescanFile}
+                type="file"
+                accept=".zip,application/zip"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void doRescan(f)
+                  e.target.value = ''
+                }}
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              className="ghost"
+              disabled={rescanBusy}
+              onClick={() => void doRescan()}
+            >
+              {rescanBusy ? '재진단 시작 중…' : '재진단'}
+            </button>
+          )}
+          {id && scan && <PublishFlow scanId={id} sourceType={scan.source_type} />}
         </div>
 
         <p className="disclaimer-strip">{report.disclaimer}</p>
@@ -211,6 +242,9 @@ export default function Report() {
 
       {tab === '발견 사항' && (
         <div className="tab-panel" role="tabpanel">
+          <div className="tab-panel-heading">
+            <h2>발견 사항 <span>{report.findings.length}</span></h2>
+          </div>
           {easy && easyReport && (
             <div className="card">
               <h2>쉬운 설명 요약</h2>
@@ -248,7 +282,7 @@ export default function Report() {
             <p className="sub">불러오는 중…</p>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table aria-label="SBOM 구성요소">
                 <thead>
                   <tr>
                     <th>컴포넌트</th>

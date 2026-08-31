@@ -54,25 +54,16 @@ export default function Home() {
   return (
     <div className="home-page">
       <section className="home-hero" aria-labelledby="home-title">
-        <p className="home-eyebrow">SECURE CODE SELF-CHECK</p>
-        <h1 id="home-title">소스코드의 위험을<br />쉽고 빠르게 확인하세요</h1>
+        <h1 id="home-title">소스코드 안전 자가진단</h1>
         <p className="home-lead">
-          TTA 표준 4종 기반 진단 룰 31종과 15속성 SBOM으로<br className="desktop-only" />
-          소스코드의 안전등급을 확인합니다.
+          TTA 표준 4종 기반 진단 룰 31종 · 15속성 SBOM · 안전등급을 제공합니다.
         </p>
-        <div className="home-trust" aria-label="서비스 특징">
-          <span>인증 없이 바로 시작</span>
-          <span>원본 코드 즉시 파기</span>
-          <span>안심 · 주의 · 위험 등급</span>
-        </div>
       </section>
 
       <section className="home-card" aria-labelledby="git-scan-title">
         <div className="home-card__heading">
-          <span className="home-card__index" aria-hidden="true">01</span>
           <div>
-            <h2 id="git-scan-title">공개 git 저장소로 진단</h2>
-            <p>HTTPS로 접근 가능한 공개 저장소 주소를 입력하세요.</p>
+            <h2 id="git-scan-title">공개 git 저장소</h2>
           </div>
         </div>
         <form className="git-form" onSubmit={submitGit}>
@@ -92,10 +83,8 @@ export default function Home() {
 
       <section className="home-card" aria-labelledby="zip-scan-title">
         <div className="home-card__heading">
-          <span className="home-card__index" aria-hidden="true">02</span>
           <div>
             <h2 id="zip-scan-title">zip 파일로 진단</h2>
-            <p>로컬 프로젝트를 압축해 직접 업로드할 수 있습니다.</p>
           </div>
         </div>
         <div
@@ -121,9 +110,12 @@ export default function Home() {
           aria-label="zip 파일 업로드"
           tabIndex={busy ? -1 : 0}
         >
-          <span className="dropzone__icon" aria-hidden="true">ZIP</span>
-          <strong>zip 파일을 끌어다 놓거나 클릭해 선택</strong>
-          <div>최대 50MB · 진단 후 원본 코드는 즉시 파기됩니다</div>
+          <svg className="dropzone__icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V14" />
+          </svg>
+          <strong>zip 파일을 끌어다 놓거나 선택해 주세요</strong>
+          <div>50MB 이하 · 진단 후 원본 코드는 즉시 파기됩니다</div>
+          <span className="dropzone__select">파일 선택</span>
           <input
             ref={fileInput}
             type="file"
